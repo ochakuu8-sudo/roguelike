@@ -192,8 +192,8 @@ export class CanvasRenderer {
     const centerY = top + cellSize / 2;
     const dx = snapshot.player.facing.x;
     const dy = snapshot.player.facing.y;
-    const markerSize = Math.max(5, Math.floor(cellSize * 0.36));
-    const distance = Math.max(2, Math.floor(cellSize * 0.18));
+    const markerSize = Math.max(5, Math.floor(cellSize * 0.38));
+    const distance = Math.max(4, Math.floor(cellSize * 0.66));
     const tipX = centerX + dx * distance;
     const tipY = centerY + dy * distance;
 
