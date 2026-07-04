@@ -11,6 +11,11 @@ type RoomLike = {
   getCenter(): number[];
 };
 
+type TurnResult = {
+  usedTurn: boolean;
+  skipEnemyId?: string;
+};
+
 export class Game {
   private width = MAP_WIDTH;
   private height = MAP_HEIGHT;
@@ -65,36 +70,36 @@ export class Game {
       return;
     }
 
-    let usedTurn = false;
+    let turnResult: TurnResult = { usedTurn: false };
 
     switch (command.type) {
       case 'face':
         this.face(command.dx, command.dy);
         break;
       case 'forward':
-        usedTurn = this.tryMovePlayer(this.facing.x, this.facing.y);
+        turnResult = this.tryMovePlayer(this.facing.x, this.facing.y);
         break;
       case 'wait':
         this.pushMessage('You listen to the dungeon breathe.');
-        usedTurn = true;
+        turnResult = { usedTurn: true };
         break;
       case 'pickup':
-        usedTurn = this.pickup();
+        turnResult = { usedTurn: this.pickup() };
         break;
       case 'useItem':
-        usedTurn = this.usePotion();
+        turnResult = { usedTurn: this.usePotion() };
         break;
       case 'item':
         break;
       case 'descend':
-        usedTurn = this.descend();
+        turnResult = { usedTurn: this.descend() };
         break;
       case 'help':
         break;
     }
 
-    if (usedTurn && !this.gameOver) {
-      this.enemyTurn();
+    if (turnResult.usedTurn && !this.gameOver) {
+      this.enemyTurn(turnResult.skipEnemyId);
       this.updateFov();
     }
   }
@@ -146,7 +151,7 @@ export class Game {
       x: playerX,
       y: playerY,
       blocks: true,
-      stats: { hp: 24, maxHp: 24, attack: 6, defense: 1 },
+      stats: { hp: 24, maxHp: 24, attack: 6, defense: 1, speed: 10 },
     });
 
     this.tileAt(stairsX, stairsY).kind = 'stairs';
@@ -176,8 +181,8 @@ export class Game {
           blocks: true,
           ai: 'hostile',
           stats: tough
-            ? { hp: 14 + this.depth * 2, maxHp: 14 + this.depth * 2, attack: 5 + this.depth, defense: 2 }
-            : { hp: 8 + this.depth, maxHp: 8 + this.depth, attack: 4 + this.depth, defense: 0 },
+            ? { hp: 14 + this.depth * 2, maxHp: 14 + this.depth * 2, attack: 5 + this.depth, defense: 2, speed: 8 }
+            : { hp: 8 + this.depth, maxHp: 8 + this.depth, attack: 4 + this.depth, defense: 0, speed: 12 },
         });
       }
 
@@ -201,9 +206,9 @@ export class Game {
     });
   }
 
-  private tryMovePlayer(dx: number, dy: number): boolean {
+  private tryMovePlayer(dx: number, dy: number): TurnResult {
     if (dx === 0 && dy === 0) {
-      return false;
+      return { usedTurn: false };
     }
 
     const player = this.player();
@@ -212,18 +217,18 @@ export class Game {
     const target = this.blockingEntityAt(targetX, targetY);
 
     if (target?.kind === 'monster') {
-      this.attack(player, target);
-      return true;
+      this.resolveMeleeExchange(player, target);
+      return { usedTurn: true, skipEnemyId: target.id };
     }
 
     if (!this.isWalkable(targetX, targetY)) {
       this.pushMessage('A wall blocks your path.');
-      return false;
+      return { usedTurn: false };
     }
 
     player.x = targetX;
     player.y = targetY;
-    return true;
+    return { usedTurn: true };
   }
 
   private face(dx: number, dy: number): void {
@@ -289,6 +294,7 @@ export class Game {
     const stats = player.stats;
     const carriedHp = stats?.hp ?? 24;
     const carriedMaxHp = stats?.maxHp ?? 24;
+    const carriedSpeed = stats?.speed ?? 10;
 
     this.depth += 1;
     this.seed += 7919;
@@ -299,17 +305,20 @@ export class Game {
       nextPlayer.stats.maxHp = carriedMaxHp + (this.depth % 2 === 0 ? 2 : 0);
       nextPlayer.stats.hp = Math.min(nextPlayer.stats.maxHp, carriedHp + 4);
       nextPlayer.stats.attack = 6 + Math.floor(this.depth / 2);
+      nextPlayer.stats.speed = carriedSpeed;
     }
 
     return false;
   }
 
-  private enemyTurn(): void {
+  private enemyTurn(skipEnemyId?: string): void {
     const player = this.player();
-    const monsters = this.entities.filter((entity) => entity.kind === 'monster' && entity.stats);
+    const monsters = this.entities
+      .filter((entity) => entity.kind === 'monster' && entity.id !== skipEnemyId && entity.stats)
+      .sort(compareActionOrder);
 
     monsters.forEach((monster) => {
-      if (!monster.stats || this.gameOver) {
+      if (!monster.stats || this.gameOver || !this.isEntityAlive(monster.id)) {
         return;
       }
 
@@ -325,6 +334,23 @@ export class Game {
       }
 
       this.stepToward(monster, player);
+    });
+  }
+
+  private resolveMeleeExchange(player: Entity, monster: Entity): void {
+    const actors = [player, monster].sort(compareActionOrder);
+
+    actors.forEach((actor) => {
+      if (this.gameOver || !this.isEntityAlive(actor.id)) {
+        return;
+      }
+
+      const target = actor.id === player.id ? this.entityById(monster.id) : this.entityById(player.id);
+      if (!target || !target.stats || chebyshev(actor, target) > 1) {
+        return;
+      }
+
+      this.attack(actor, target);
     });
   }
 
@@ -427,6 +453,14 @@ export class Game {
     return this.entities.find((entity) => entity.id !== exceptId && entity.blocks && entity.x === x && entity.y === y);
   }
 
+  private entityById(id: string): Entity | undefined {
+    return this.entities.find((entity) => entity.id === id);
+  }
+
+  private isEntityAlive(id: string): boolean {
+    return this.entities.some((entity) => entity.id === id && (!entity.stats || entity.stats.hp > 0));
+  }
+
   private inBounds(x: number, y: number): boolean {
     return x >= 0 && y >= 0 && x < this.width && y < this.height;
   }
@@ -469,4 +503,21 @@ const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   }
 
   return `${attacker.name} hits ${defender.name} for ${damage} damage.`;
+};
+
+const compareActionOrder = (a: Entity, b: Entity) => {
+  const speedDifference = (b.stats?.speed ?? 0) - (a.stats?.speed ?? 0);
+  if (speedDifference !== 0) {
+    return speedDifference;
+  }
+
+  if (a.kind === 'player' && b.kind !== 'player') {
+    return -1;
+  }
+
+  if (b.kind === 'player' && a.kind !== 'player') {
+    return 1;
+  }
+
+  return a.id.localeCompare(b.id);
 };

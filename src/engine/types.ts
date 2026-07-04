@@ -27,6 +27,7 @@ export type ActorStats = {
   maxHp: number;
   attack: number;
   defense: number;
+  speed: number;
 };
 
 export type EntityKind = 'player' | 'monster' | 'item';

@@ -17,6 +17,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
     metric('Floor', String(snapshot.player.depth)),
     metric('Facing', directionLabel(snapshot.player.facing.x, snapshot.player.facing.y)),
     metric('Attack', String(stats?.attack ?? 0)),
+    metric('Speed', String(stats?.speed ?? 0)),
   );
 
   roots.inventoryRoot.replaceChildren(

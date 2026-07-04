@@ -9,6 +9,7 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
 
 const FIXED_CELL_SIZE = 15;
 const COMBAT_EFFECT_DURATION = 520;
+const COMBAT_EFFECT_STAGGER = COMBAT_EFFECT_DURATION;
 
 type Camera = {
   cellSize: number;
@@ -162,6 +163,7 @@ export class CanvasRenderer {
 
   private activeCombatEffects(snapshot: GameSnapshot, now: number): ActiveCombatEffect[] {
     const effectIds = new Set(snapshot.combatEffects.map((effect) => effect.id));
+    const orderedEffects = [...snapshot.combatEffects].sort((a, b) => a.id - b.id);
 
     this.effectStartTimes.forEach((_, id) => {
       if (!effectIds.has(id)) {
@@ -175,15 +177,26 @@ export class CanvasRenderer {
       }
     });
 
-    return snapshot.combatEffects.flatMap((effect) => {
+    let previousStart: number | undefined;
+
+    return orderedEffects.flatMap((effect) => {
       if (this.completedEffectIds.has(effect.id)) {
         return [];
       }
 
-      const start = this.effectStartTimes.get(effect.id) ?? now;
-      this.effectStartTimes.set(effect.id, start);
+      let start = this.effectStartTimes.get(effect.id);
+      if (start === undefined) {
+        start = previousStart === undefined ? now : previousStart + COMBAT_EFFECT_STAGGER;
+        this.effectStartTimes.set(effect.id, start);
+      }
+
+      previousStart = start;
 
       const progress = (now - start) / COMBAT_EFFECT_DURATION;
+      if (progress < 0) {
+        return [];
+      }
+
       if (progress > 1) {
         this.effectStartTimes.delete(effect.id);
         this.completedEffectIds.add(effect.id);
@@ -195,7 +208,7 @@ export class CanvasRenderer {
   }
 
   private hasActiveEffects(now: number): boolean {
-    return [...this.effectStartTimes.values()].some((start) => now - start <= COMBAT_EFFECT_DURATION);
+    return [...this.effectStartTimes.values()].some((start) => now <= start + COMBAT_EFFECT_DURATION);
   }
 
   private createCamera(snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera {
