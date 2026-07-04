@@ -7,6 +7,14 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
   stairs: '#152f2d',
 };
 
+type Camera = {
+  cellSize: number;
+  offsetX: number;
+  offsetY: number;
+  displayWidth: number;
+  displayHeight: number;
+};
+
 const SPRITES = {
   player: [
     '..222...',
@@ -95,48 +103,61 @@ export class CanvasRenderer {
     this.canvas.height = Math.floor(displayHeight * dpr);
     this.context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const cell = Math.floor(Math.min(displayWidth / snapshot.width, displayHeight / snapshot.height));
-    const cellSize = clamp(cell, 8, 22);
-    const boardWidth = cellSize * snapshot.width;
-    const boardHeight = cellSize * snapshot.height;
-    const offsetX = Math.floor((displayWidth - boardWidth) / 2);
-    const offsetY = Math.floor((displayHeight - boardHeight) / 2);
+    const camera = this.createCamera(snapshot, displayWidth, displayHeight);
 
     this.context.fillStyle = '#0e1113';
     this.context.fillRect(0, 0, displayWidth, displayHeight);
 
-    this.drawTiles(snapshot, cellSize, offsetX, offsetY);
-    this.drawEntities(snapshot, cellSize, offsetX, offsetY);
-    this.drawFacing(snapshot, cellSize, offsetX, offsetY);
+    this.drawTiles(snapshot, camera);
+    this.drawEntities(snapshot, camera);
+    this.drawFacing(snapshot, camera);
 
     if (snapshot.gameOver) {
       this.drawOverlay(displayWidth, displayHeight, 'You died', 'Press Restart to enter a new dungeon.');
     }
   }
 
-  private drawTiles(snapshot: GameSnapshot, cellSize: number, offsetX: number, offsetY: number): void {
+  private createCamera(snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera {
+    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+    const baseCell = Math.floor(Math.min(displayWidth / 24, displayHeight / 15));
+    const cellSize = clamp(baseCell, 18, 34);
+    const focusX = player?.x ?? Math.floor(snapshot.width / 2);
+    const focusY = player?.y ?? Math.floor(snapshot.height / 2);
+    const offsetX = Math.floor(displayWidth / 2 - (focusX + 0.5) * cellSize);
+    const offsetY = Math.floor(displayHeight / 2 - (focusY + 0.5) * cellSize);
+
+    return { cellSize, offsetX, offsetY, displayWidth, displayHeight };
+  }
+
+  private drawTiles(snapshot: GameSnapshot, camera: Camera): void {
+    const { cellSize, offsetX, offsetY } = camera;
     snapshot.tiles.forEach((tile, index) => {
       const x = index % snapshot.width;
       const y = Math.floor(index / snapshot.width);
+      const left = offsetX + x * cellSize;
+      const top = offsetY + y * cellSize;
 
-      if (!tile.explored) {
+      if (!tile.explored || !isInViewport(left, top, cellSize, camera)) {
         return;
       }
 
       this.context.fillStyle = tile.visible ? TILE_COLORS[tile.kind] : '#0f1316';
-      this.context.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+      this.context.fillRect(left, top, cellSize, cellSize);
       this.drawTileTexture(tile, x, y, cellSize, offsetX, offsetY);
 
       if (tile.kind === 'stairs' && tile.visible) {
-        this.drawSprite(SPRITES.stairs, offsetX + x * cellSize, offsetY + y * cellSize, cellSize, tile.visible ? 1 : 0.45);
+        this.drawSprite(SPRITES.stairs, left, top, cellSize, tile.visible ? 1 : 0.45);
       }
     });
   }
 
-  private drawEntities(snapshot: GameSnapshot, cellSize: number, offsetX: number, offsetY: number): void {
+  private drawEntities(snapshot: GameSnapshot, camera: Camera): void {
+    const { cellSize, offsetX, offsetY } = camera;
     const visibleEntities = snapshot.entities.filter((entity) => {
       const tile = snapshot.tiles[indexAt(entity.x, entity.y, snapshot.width)];
-      return entity.kind === 'player' || tile.visible;
+      const left = offsetX + entity.x * cellSize;
+      const top = offsetY + entity.y * cellSize;
+      return (entity.kind === 'player' || tile.visible) && isInViewport(left, top, cellSize, camera);
     });
 
     visibleEntities.sort((a, b) => entityLayer(a) - entityLayer(b));
@@ -180,22 +201,29 @@ export class CanvasRenderer {
     this.drawSprite(sprite, left, top, cellSize, 1);
   }
 
-  private drawFacing(snapshot: GameSnapshot, cellSize: number, offsetX: number, offsetY: number): void {
+  private drawFacing(snapshot: GameSnapshot, camera: Camera): void {
+    const { cellSize, offsetX, offsetY } = camera;
     const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
     if (!player) {
       return;
     }
 
-    const left = offsetX + player.x * cellSize;
-    const top = offsetY + player.y * cellSize;
-    const centerX = left + cellSize / 2;
-    const centerY = top + cellSize / 2;
+    const targetX = player.x + snapshot.player.facing.x;
+    const targetY = player.y + snapshot.player.facing.y;
+    if (targetX < 0 || targetY < 0 || targetX >= snapshot.width || targetY >= snapshot.height) {
+      return;
+    }
+
+    const targetLeft = offsetX + targetX * cellSize;
+    const targetTop = offsetY + targetY * cellSize;
+    const centerX = targetLeft + cellSize / 2;
+    const centerY = targetTop + cellSize / 2;
     const dx = snapshot.player.facing.x;
     const dy = snapshot.player.facing.y;
-    const markerSize = Math.max(5, Math.floor(cellSize * 0.38));
-    const distance = Math.max(4, Math.floor(cellSize * 0.66));
-    const tipX = centerX + dx * distance;
-    const tipY = centerY + dy * distance;
+    const markerSize = Math.max(3, Math.floor(cellSize * 0.12));
+    const distance = Math.max(4, Math.floor(cellSize * 0.34));
+    const tipX = centerX - dx * distance;
+    const tipY = centerY - dy * distance;
 
     const points = directionTriangle(tipX, tipY, dx, dy, markerSize);
     this.context.beginPath();
@@ -254,6 +282,9 @@ const entityLayer = (entity: Entity) => {
   }
   return 3;
 };
+
+const isInViewport = (left: number, top: number, cellSize: number, camera: Camera) =>
+  left + cellSize >= 0 && top + cellSize >= 0 && left <= camera.displayWidth && top <= camera.displayHeight;
 
 const spriteFor = (entity: Entity) => {
   if (entity.kind === 'player') {
