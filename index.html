@@ -16,13 +16,42 @@
         </div>
         <div class="topbar-actions">
           <button class="icon-button" data-command="help" title="ヘルプ">?</button>
-          <button class="text-button" data-command="restart">再開</button>
+          <button class="text-button" data-command="restart">リセット</button>
         </div>
       </header>
 
       <main class="game-shell">
         <section class="play-area" aria-label="ゲーム盤面">
           <canvas id="game-canvas" width="960" height="720"></canvas>
+        </section>
+
+        <section id="base-screen" class="base-screen" aria-label="拠点">
+          <div class="base-layout">
+            <section class="base-summary">
+              <p class="eyebrow">拠点</p>
+              <h2>隠れ家</h2>
+              <p>探索で物資を集め、脱出できれば倉庫に持ち帰れます。探索中に倒れるとバッグの中身は失われます。</p>
+              <div class="base-actions">
+                <button class="text-button" id="start-raid-button" type="button">出撃</button>
+                <button class="text-button" data-command="restart" type="button">最初から</button>
+              </div>
+            </section>
+            <section class="base-panel">
+              <h2>資産</h2>
+              <div class="base-money">
+                <span>所持金</span>
+                <strong id="money">0G</strong>
+              </div>
+            </section>
+            <section class="base-panel stash-panel">
+              <h2>倉庫</h2>
+              <div id="stash-list" class="item-list"></div>
+            </section>
+            <section class="base-panel base-log-panel">
+              <h2>拠点ログ</h2>
+              <ol id="base-log" class="message-log"></ol>
+            </section>
+          </div>
         </section>
 
         <aside class="side-panel">
@@ -55,7 +84,7 @@
               <div class="quick-actions" aria-label="行動">
                 <button data-command="pickup">拾う</button>
                 <button data-command="forward">進む</button>
-                <button data-command="descend">&gt;</button>
+                <button data-command="descend">脱出</button>
                 <button data-command="item">道具</button>
               </div>
             </div>
@@ -68,7 +97,7 @@
               <span>待機: . / 5</span>
               <span>拾う: g</span>
               <span>道具: i</span>
-              <span>階段: &gt;</span>
+              <span>脱出: &gt;</span>
             </div>
           </section>
         </aside>
@@ -78,8 +107,8 @@
     <dialog id="help-dialog" class="help-dialog">
       <form method="dialog">
         <h2>ローグライク試作版</h2>
-        <p>向きを変え、前進し、敵と戦い、道具を使い、階段を見つけたら下の階へ進みます。</p>
-        <p>前進、待機、道具使用、階段移動でターンが進みます。向き変更ではターンを消費しません。</p>
+        <p>拠点から出撃し、物資を集め、脱出地点から帰還すると戦利品を倉庫に持ち帰れます。</p>
+        <p>前進、待機、道具使用、脱出でターンが進みます。向き変更ではターンを消費しません。</p>
         <button class="text-button">閉じる</button>
       </form>
     </dialog>

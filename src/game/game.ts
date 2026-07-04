@@ -1,7 +1,7 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { CombatEffect, Command, Entity, GameSnapshot, Inventory, ItemKind, Tile } from '../engine/types';
-import { createInventory, ITEM_DEFINITIONS } from './items';
+import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, Tile } from '../engine/types';
+import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, RAID_CAPACITY } from './items';
 
 const MAP_WIDTH = 56;
 const MAP_HEIGHT = 34;
@@ -28,7 +28,10 @@ export class Game {
   private seed = Date.now();
   private depth = 1;
   private xp = 0;
-  private inventory: Inventory = createInventory();
+  private mode: GameMode = 'base';
+  private stash: Inventory = createStartingStash();
+  private raidInventory: Inventory = createEmptyInventory();
+  private money = 0;
   private dropId = 0;
   private facing = { x: 0, y: 1 };
   private gameOver = false;
@@ -39,6 +42,7 @@ export class Game {
 
   snapshot(): GameSnapshot {
     return {
+      mode: this.mode,
       width: this.width,
       height: this.height,
       tiles: this.tiles.map((tile) => ({ ...tile })),
@@ -47,9 +51,12 @@ export class Game {
       player: {
         depth: this.depth,
         xp: this.xp,
-        inventory: { ...this.inventory },
+        raidInventory: { ...this.raidInventory },
+        raidCapacity: RAID_CAPACITY,
         facing: { ...this.facing },
       },
+      stash: { ...this.stash },
+      money: this.money,
       messages: [...this.messages],
       combatEffects: this.combatEffects.map((effect) => ({
         ...effect,
@@ -64,6 +71,21 @@ export class Game {
   dispatch(command: Command): void {
     if (command.type === 'restart') {
       this.restart();
+      return;
+    }
+
+    if (command.type === 'startRaid') {
+      this.startRaid();
+      return;
+    }
+
+    if (command.type === 'sellItem') {
+      this.sellItem(command.item);
+      return;
+    }
+
+    if (this.mode === 'base') {
+      this.pushMessage('拠点にいる。出撃を選んで探索を開始してください。');
       return;
     }
 
@@ -94,7 +116,7 @@ export class Game {
       case 'item':
         break;
       case 'descend':
-        turnResult = { usedTurn: this.descend() };
+        turnResult = { usedTurn: this.extract() };
         break;
       case 'help':
         break;
@@ -110,13 +132,37 @@ export class Game {
     this.seed = Date.now();
     this.depth = 1;
     this.xp = 0;
-    this.inventory = createInventory();
+    this.mode = 'base';
+    this.stash = createStartingStash();
+    this.raidInventory = createEmptyInventory();
+    this.money = 0;
     this.dropId = 0;
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.generateLevel('ダンジョンに足を踏み入れた。');
+    this.tiles = [];
+    this.entities = [];
+    this.messages = ['拠点に戻った。出撃の準備をしよう。'];
+  }
+
+  private startRaid(): void {
+    if (this.mode === 'raid') {
+      return;
+    }
+
+    this.mode = 'raid';
+    this.depth = 1;
+    this.raidInventory = createEmptyInventory();
+    if (this.stash.potion > 0) {
+      this.stash.potion -= 1;
+      this.raidInventory.potion = 1;
+    }
+    this.facing = { x: 0, y: 1 };
+    this.gameOver = false;
+    this.combatEffects = [];
+    this.effectId = 0;
+    this.generateLevel('探索に出撃した。物資を集めて脱出地点を目指そう。');
   }
 
   private generateLevel(entryMessage: string): void {
@@ -242,7 +288,12 @@ export class Game {
     }
 
     if (item.item) {
-      this.addItem(item.item);
+      if (!this.canCarry(item.item)) {
+        this.pushMessage('バッグがいっぱいで拾えない。');
+        return false;
+      }
+
+      this.addRaidItem(item.item);
       this.entities = this.entities.filter((entity) => entity.id !== item.id);
       this.pushMessage(`${ITEM_DEFINITIONS[item.item].name}を拾った。`);
       return true;
@@ -264,7 +315,7 @@ export class Game {
       return false;
     }
 
-    if (this.inventory.potion <= 0) {
+    if (this.raidInventory.potion <= 0) {
       this.pushMessage('回復薬を持っていない。');
       return false;
     }
@@ -274,39 +325,44 @@ export class Game {
       return false;
     }
 
-    this.inventory.potion -= 1;
+    this.raidInventory.potion -= 1;
     const healed = Math.min(10, stats.maxHp - stats.hp);
     stats.hp += healed;
     this.pushMessage(`回復薬を飲み、HPを${healed}回復した。`);
     return true;
   }
 
-  private descend(): boolean {
+  private extract(): boolean {
     const player = this.player();
 
     if (this.tileAt(player.x, player.y).kind !== 'stairs') {
-      this.pushMessage('ここには階段がない。');
+      this.pushMessage('ここは脱出地点ではない。');
       return false;
     }
 
-    const stats = player.stats;
-    const carriedHp = stats?.hp ?? 24;
-    const carriedMaxHp = stats?.maxHp ?? 24;
-    const carriedSpeed = stats?.speed ?? 10;
+    this.transferRaidInventoryToStash();
+    this.mode = 'base';
+    this.entities = [];
+    this.tiles = [];
+    this.combatEffects = [];
+    this.pushMessage('脱出に成功した。持ち帰った物資を倉庫に移した。');
+    return false;
+  }
 
-    this.depth += 1;
-    this.seed += 7919;
-    this.generateLevel(`${this.depth}階へ降りた。`);
-    const nextPlayer = this.player();
-
-    if (nextPlayer.stats) {
-      nextPlayer.stats.maxHp = carriedMaxHp + (this.depth % 2 === 0 ? 2 : 0);
-      nextPlayer.stats.hp = Math.min(nextPlayer.stats.maxHp, carriedHp + 4);
-      nextPlayer.stats.attack = 6 + Math.floor(this.depth / 2);
-      nextPlayer.stats.speed = carriedSpeed;
+  private sellItem(item: ItemKind): void {
+    if (this.mode !== 'base') {
+      this.pushMessage('売却は拠点でのみ行える。');
+      return;
     }
 
-    return false;
+    if (this.stash[item] <= 0) {
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}は倉庫にない。`);
+      return;
+    }
+
+    this.stash[item] -= 1;
+    this.money += ITEM_DEFINITIONS[item].value;
+    this.pushMessage(`${ITEM_DEFINITIONS[item].name}を${ITEM_DEFINITIONS[item].value}Gで売却した。`);
   }
 
   private enemyTurn(skipEnemyId?: string): void {
@@ -404,7 +460,12 @@ export class Game {
   private kill(entity: Entity, killer: Entity): void {
     if (entity.kind === 'player') {
       this.gameOver = true;
-      this.pushMessage('ダンジョンで倒れた。');
+      this.raidInventory = createEmptyInventory();
+      this.mode = 'base';
+      this.entities = [];
+      this.tiles = [];
+      this.combatEffects = [];
+      this.pushMessage('探索に失敗した。探索中の荷物は失われた。');
       return;
     }
 
@@ -469,7 +530,22 @@ export class Game {
   }
 
   private addItem(item: ItemKind, amount = 1): void {
-    this.inventory[item] += amount;
+    this.stash[item] += amount;
+  }
+
+  private addRaidItem(item: ItemKind, amount = 1): void {
+    this.raidInventory[item] += amount;
+  }
+
+  private canCarry(item: ItemKind): boolean {
+    return inventoryUsedSize(this.raidInventory) + ITEM_DEFINITIONS[item].size <= RAID_CAPACITY;
+  }
+
+  private transferRaidInventoryToStash(): void {
+    Object.keys(this.raidInventory).forEach((item) => {
+      this.addItem(item as ItemKind, this.raidInventory[item as ItemKind]);
+    });
+    this.raidInventory = createEmptyInventory();
   }
 
   private dropMaterial(entity: Entity): void {

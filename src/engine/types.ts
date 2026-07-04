@@ -11,6 +11,8 @@ export type Command =
   | { type: 'item' }
   | { type: 'useItem'; item: ItemKind }
   | { type: 'descend' }
+  | { type: 'startRaid' }
+  | { type: 'sellItem'; item: ItemKind }
   | { type: 'restart' }
   | { type: 'help' };
 
@@ -33,6 +35,7 @@ export type ActorStats = {
 export type EntityKind = 'player' | 'monster' | 'item';
 export type ItemKind = 'potion' | 'impFang' | 'gnollHide';
 export type Inventory = Record<ItemKind, number>;
+export type GameMode = 'base' | 'raid';
 
 export type Entity = {
   id: string;
@@ -64,17 +67,21 @@ export type CombatEffect = {
 export type PlayerState = {
   depth: number;
   xp: number;
-  inventory: Inventory;
+  raidInventory: Inventory;
+  raidCapacity: number;
   facing: Point;
 };
 
 export type GameSnapshot = {
+  mode: GameMode;
   width: number;
   height: number;
   tiles: Tile[];
   entities: Entity[];
   playerId: string;
   player: PlayerState;
+  stash: Inventory;
+  money: number;
   messages: string[];
   combatEffects: CombatEffect[];
   gameOver: boolean;

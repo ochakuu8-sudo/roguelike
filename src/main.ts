@@ -2,17 +2,21 @@ import './styles.css';
 import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
 import { bindInput } from './ui/input';
-import { updateHud } from './ui/hud';
+import { updateBaseHud, updateHud } from './ui/hud';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const statusRoot = document.querySelector<HTMLElement>('#status');
 const inventoryRoot = document.querySelector<HTMLElement>('#inventory');
 const itemListRoot = document.querySelector<HTMLElement>('#item-list');
 const logRoot = document.querySelector<HTMLOListElement>('#message-log');
+const moneyRoot = document.querySelector<HTMLElement>('#money');
+const stashRoot = document.querySelector<HTMLElement>('#stash-list');
+const baseLogRoot = document.querySelector<HTMLOListElement>('#base-log');
+const startRaidButton = document.querySelector<HTMLButtonElement>('#start-raid-button');
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog');
 const itemDialog = document.querySelector<HTMLDialogElement>('#item-dialog');
 
-if (!canvas || !statusRoot || !inventoryRoot || !itemListRoot || !logRoot || !helpDialog || !itemDialog) {
+if (!canvas || !statusRoot || !inventoryRoot || !itemListRoot || !logRoot || !moneyRoot || !stashRoot || !baseLogRoot || !startRaidButton || !helpDialog || !itemDialog) {
   throw new Error('Missing app root elements.');
 }
 
@@ -20,8 +24,10 @@ const game = new Game();
 const renderer = new CanvasRenderer(canvas);
 
 const refresh = () => {
-  renderer.render(game.snapshot());
-  updateHud(game.snapshot(), {
+  const snapshot = game.snapshot();
+  document.body.classList.toggle('is-base', snapshot.mode === 'base');
+  renderer.render(snapshot);
+  updateHud(snapshot, {
     statusRoot,
     inventoryRoot,
     itemListRoot,
@@ -32,7 +38,21 @@ const refresh = () => {
       refresh();
     },
   });
+  updateBaseHud(snapshot, {
+    moneyRoot,
+    stashRoot,
+    baseLogRoot,
+    onSellItem: (item) => {
+      game.dispatch({ type: 'sellItem', item });
+      refresh();
+    },
+  });
 };
+
+startRaidButton.addEventListener('click', () => {
+  game.dispatch({ type: 'startRaid' });
+  refresh();
+});
 
 bindInput({
   root: document,

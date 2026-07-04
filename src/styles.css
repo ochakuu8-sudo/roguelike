@@ -132,6 +132,84 @@ h2 {
   min-height: 0;
 }
 
+.base-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: none;
+  overflow: auto;
+  background:
+    linear-gradient(rgba(8, 11, 13, 0.72), rgba(8, 11, 13, 0.82)),
+    #101417;
+  padding: max(78px, calc(env(safe-area-inset-top) + 70px)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+
+.is-base .base-screen {
+  display: block;
+}
+
+.is-base .side-panel,
+.is-base #game-canvas {
+  display: none;
+}
+
+.base-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(160px, 0.55fr) minmax(260px, 1fr);
+  grid-template-rows: auto minmax(120px, 1fr);
+  gap: 10px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.base-summary,
+.base-panel {
+  min-width: 0;
+  border: 1px solid rgba(122, 146, 158, 0.34);
+  border-radius: 8px;
+  background: rgba(14, 21, 25, 0.78);
+  padding: 12px;
+}
+
+.base-summary {
+  grid-row: 1 / span 2;
+}
+
+.base-summary p {
+  margin-bottom: 12px;
+  color: #c8d3da;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.base-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.base-money {
+  display: grid;
+  gap: 4px;
+}
+
+.base-money span {
+  color: #9fb0ba;
+  font-size: 0.76rem;
+}
+
+.base-money strong {
+  font-size: 1.35rem;
+}
+
+.stash-panel {
+  grid-row: 1 / span 2;
+}
+
+.base-log-panel {
+  grid-column: 2;
+}
+
 #game-canvas {
   position: absolute;
   inset: 0;
@@ -485,6 +563,24 @@ h2 {
     grid-template-rows: repeat(3, clamp(34px, 6vw, 46px));
     gap: 5px;
   }
+
+  .base-screen {
+    padding-top: max(58px, calc(env(safe-area-inset-top) + 54px));
+  }
+
+  .base-layout {
+    grid-template-columns: minmax(180px, 0.85fr) minmax(140px, 0.55fr) minmax(230px, 1fr);
+    gap: 8px;
+  }
+
+  .base-summary,
+  .base-panel {
+    padding: 9px;
+  }
+
+  .base-summary p {
+    font-size: 0.78rem;
+  }
 }
 
 @media (orientation: landscape) and (max-height: 540px) and (max-width: 760px) {
@@ -534,5 +630,16 @@ h2 {
     grid-template-columns: minmax(54px, 1fr) minmax(70px, 1.2fr);
     grid-template-rows: repeat(3, 46px);
     width: min(42vw, 156px);
+  }
+
+  .base-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .base-summary,
+  .stash-panel,
+  .base-log-panel {
+    grid-column: auto;
+    grid-row: auto;
   }
 }

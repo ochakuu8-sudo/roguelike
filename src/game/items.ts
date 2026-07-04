@@ -8,6 +8,8 @@ type ItemDefinition = {
   category: ItemCategory;
   glyph: string;
   color: string;
+  value: number;
+  size: number;
 };
 
 export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
@@ -17,6 +19,8 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     category: 'consumable',
     glyph: '!',
     color: '#7dd3fc',
+    value: 35,
+    size: 1,
   },
   impFang: {
     name: 'インプの牙',
@@ -24,6 +28,8 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     category: 'material',
     glyph: '*',
     color: '#f59e0b',
+    value: 18,
+    size: 1,
   },
   gnollHide: {
     name: 'ノールの皮',
@@ -31,13 +37,24 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     category: 'material',
     glyph: '*',
     color: '#a3e635',
+    value: 42,
+    size: 2,
   },
 };
 
 export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
+export const RAID_CAPACITY = 12;
 
-export const createInventory = (): Inventory => ({
-  potion: 1,
+export const createEmptyInventory = (): Inventory => ({
+  potion: 0,
   impFang: 0,
   gnollHide: 0,
 });
+
+export const createStartingStash = (): Inventory => ({
+  ...createEmptyInventory(),
+  potion: 1,
+});
+
+export const inventoryUsedSize = (inventory: Inventory) =>
+  ITEM_KINDS.reduce((total, item) => total + inventory[item] * ITEM_DEFINITIONS[item].size, 0);
