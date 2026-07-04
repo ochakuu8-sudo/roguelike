@@ -186,22 +186,28 @@ export class CanvasRenderer {
       return;
     }
 
-    const markerX = player.x + snapshot.player.facing.x;
-    const markerY = player.y + snapshot.player.facing.y;
-    if (markerX < 0 || markerY < 0 || markerX >= snapshot.width || markerY >= snapshot.height) {
-      return;
-    }
+    const left = offsetX + player.x * cellSize;
+    const top = offsetY + player.y * cellSize;
+    const centerX = left + cellSize / 2;
+    const centerY = top + cellSize / 2;
+    const dx = snapshot.player.facing.x;
+    const dy = snapshot.player.facing.y;
+    const markerSize = Math.max(5, Math.floor(cellSize * 0.36));
+    const distance = Math.max(2, Math.floor(cellSize * 0.18));
+    const tipX = centerX + dx * distance;
+    const tipY = centerY + dy * distance;
 
-    const tile = snapshot.tiles[indexAt(markerX, markerY, snapshot.width)];
-    if (!tile.visible) {
-      return;
-    }
-
-    const centerX = offsetX + markerX * cellSize + cellSize / 2;
-    const centerY = offsetY + markerY * cellSize + cellSize / 2;
-    const size = Math.max(3, Math.floor(cellSize * 0.28));
-    this.context.fillStyle = 'rgba(125, 211, 252, 0.9)';
-    this.context.fillRect(Math.floor(centerX - size / 2), Math.floor(centerY - size / 2), size, size);
+    const points = directionTriangle(tipX, tipY, dx, dy, markerSize);
+    this.context.beginPath();
+    this.context.moveTo(points[0].x, points[0].y);
+    this.context.lineTo(points[1].x, points[1].y);
+    this.context.lineTo(points[2].x, points[2].y);
+    this.context.closePath();
+    this.context.fillStyle = 'rgba(125, 211, 252, 0.95)';
+    this.context.fill();
+    this.context.strokeStyle = 'rgba(2, 8, 12, 0.8)';
+    this.context.lineWidth = 1;
+    this.context.stroke();
   }
 
   private drawSprite(sprite: readonly string[], left: number, top: number, cellSize: number, alpha: number): void {
@@ -260,4 +266,21 @@ const spriteFor = (entity: Entity) => {
     return SPRITES.gnoll;
   }
   return SPRITES.imp;
+};
+
+const directionTriangle = (tipX: number, tipY: number, dx: number, dy: number, size: number) => {
+  const length = Math.hypot(dx, dy) || 1;
+  const nx = dx / length;
+  const ny = dy / length;
+  const px = -ny;
+  const py = nx;
+  const baseX = tipX - nx * size;
+  const baseY = tipY - ny * size;
+  const half = size * 0.58;
+
+  return [
+    { x: tipX, y: tipY },
+    { x: baseX + px * half, y: baseY + py * half },
+    { x: baseX - px * half, y: baseY - py * half },
+  ];
 };
