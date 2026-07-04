@@ -68,7 +68,7 @@ export class Game {
     }
 
     if (this.gameOver) {
-      this.pushMessage('You are down. Restart to try again.');
+      this.pushMessage('倒れています。再開してやり直してください。');
       return;
     }
 
@@ -82,7 +82,7 @@ export class Game {
         turnResult = this.tryMovePlayer(this.facing.x, this.facing.y);
         break;
       case 'wait':
-        this.pushMessage('You listen to the dungeon breathe.');
+        this.pushMessage('ダンジョンの気配に耳を澄ませた。');
         turnResult = { usedTurn: true };
         break;
       case 'pickup':
@@ -116,7 +116,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.generateLevel('You enter the dungeon.');
+    this.generateLevel('ダンジョンに足を踏み入れた。');
   }
 
   private generateLevel(entryMessage: string): void {
@@ -148,7 +148,7 @@ export class Game {
     this.entities.push({
       id: PLAYER_ID,
       kind: 'player',
-      name: 'Adventurer',
+      name: '冒険者',
       glyph: '@',
       color: '#e8f6ff',
       x: playerX,
@@ -176,7 +176,7 @@ export class Game {
         this.entities.push({
           id: `monster-${this.depth}-${monsterIndex++}`,
           kind: 'monster',
-          name: tough ? 'Stone Gnoll' : 'Cave Imp',
+          name: tough ? '石肌ノール' : '洞窟インプ',
           glyph: tough ? 'G' : 'i',
           color: tough ? '#f0a95b' : '#d97878',
           x: cx,
@@ -215,7 +215,7 @@ export class Game {
     }
 
     if (!this.isWalkable(targetX, targetY)) {
-      this.pushMessage('A wall blocks your path.');
+      this.pushMessage('壁に行く手を阻まれた。');
       return { usedTurn: false };
     }
 
@@ -237,14 +237,14 @@ export class Game {
     const item = this.entities.find((entity) => entity.kind === 'item' && entity.x === player.x && entity.y === player.y);
 
     if (!item) {
-      this.pushMessage('There is nothing here.');
+      this.pushMessage('ここには何もない。');
       return false;
     }
 
     if (item.item) {
       this.addItem(item.item);
       this.entities = this.entities.filter((entity) => entity.id !== item.id);
-      this.pushMessage(`You pick up ${ITEM_DEFINITIONS[item.item].name}.`);
+      this.pushMessage(`${ITEM_DEFINITIONS[item.item].name}を拾った。`);
       return true;
     }
 
@@ -253,7 +253,7 @@ export class Game {
 
   private useItem(item: ItemKind): boolean {
     if (item !== 'potion') {
-      this.pushMessage(`${ITEM_DEFINITIONS[item].name} is a crafting material.`);
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}は素材だ。`);
       return false;
     }
 
@@ -265,19 +265,19 @@ export class Game {
     }
 
     if (this.inventory.potion <= 0) {
-      this.pushMessage('You have no potions.');
+      this.pushMessage('回復薬を持っていない。');
       return false;
     }
 
     if (stats.hp >= stats.maxHp) {
-      this.pushMessage('You are already at full health.');
+      this.pushMessage('HPはすでに最大だ。');
       return false;
     }
 
     this.inventory.potion -= 1;
     const healed = Math.min(10, stats.maxHp - stats.hp);
     stats.hp += healed;
-    this.pushMessage(`You drink a potion and recover ${healed} HP.`);
+    this.pushMessage(`回復薬を飲み、HPを${healed}回復した。`);
     return true;
   }
 
@@ -285,7 +285,7 @@ export class Game {
     const player = this.player();
 
     if (this.tileAt(player.x, player.y).kind !== 'stairs') {
-      this.pushMessage('There are no stairs here.');
+      this.pushMessage('ここには階段がない。');
       return false;
     }
 
@@ -296,7 +296,7 @@ export class Game {
 
     this.depth += 1;
     this.seed += 7919;
-    this.generateLevel(`You descend to floor ${this.depth}.`);
+    this.generateLevel(`${this.depth}階へ降りた。`);
     const nextPlayer = this.player();
 
     if (nextPlayer.stats) {
@@ -404,14 +404,14 @@ export class Game {
   private kill(entity: Entity, killer: Entity): void {
     if (entity.kind === 'player') {
       this.gameOver = true;
-      this.pushMessage('You fall in the dungeon.');
+      this.pushMessage('ダンジョンで倒れた。');
       return;
     }
 
     this.entities = this.entities.filter((candidate) => candidate.id !== entity.id);
     if (killer.kind === 'player') {
       this.xp += 1;
-      this.pushMessage(`${entity.name} dies.`);
+      this.pushMessage(`${entity.name}を倒した。`);
       this.dropMaterial(entity);
     }
   }
@@ -476,7 +476,7 @@ export class Game {
     const item = materialFor(entity);
     const definition = ITEM_DEFINITIONS[item];
     this.entities.push(createItemEntity(`drop-${this.depth}-${++this.dropId}`, item, entity.x, entity.y));
-    this.pushMessage(`${entity.name} drops ${definition.name}.`);
+    this.pushMessage(`${entity.name}が${definition.name}を落とした。`);
   }
 
   private pushCombatEffect(attacker: Entity, defender: Entity, damage: number): void {
@@ -518,18 +518,18 @@ const createItemEntity = (id: string, item: ItemKind, x: number, y: number): Ent
   };
 };
 
-const materialFor = (entity: Entity): ItemKind => (entity.name.includes('Gnoll') ? 'gnollHide' : 'impFang');
+const materialFor = (entity: Entity): ItemKind => (entity.name.includes('ノール') ? 'gnollHide' : 'impFang');
 
 const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   if (attacker.kind === 'player') {
-    return `You strike ${defender.name} for ${damage} damage.`;
+    return `${defender.name}に${damage}ダメージを与えた。`;
   }
 
   if (defender.kind === 'player') {
-    return `${attacker.name} hits you for ${damage} damage.`;
+    return `${attacker.name}から${damage}ダメージを受けた。`;
   }
 
-  return `${attacker.name} hits ${defender.name} for ${damage} damage.`;
+  return `${attacker.name}が${defender.name}に${damage}ダメージを与えた。`;
 };
 
 const compareActionOrder = (a: Entity, b: Entity) => {

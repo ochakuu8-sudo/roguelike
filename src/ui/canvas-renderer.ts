@@ -145,7 +145,7 @@ export class CanvasRenderer {
     this.drawCombatEffects(combatEffects, camera);
 
     if (snapshot.gameOver) {
-      this.drawOverlay(displayWidth, displayHeight, 'You died', 'Press Restart to enter a new dungeon.');
+      this.drawOverlay(displayWidth, displayHeight, '倒れた', '再開ボタンで新しいダンジョンに挑戦できます。');
     }
   }
 
@@ -502,7 +502,7 @@ const glyphFor = (kind: Entity['kind'], name: string) => {
   if (kind === 'item') {
     return '!';
   }
-  return name.includes('Gnoll') ? 'G' : 'i';
+  return name.includes('ノール') ? 'G' : 'i';
 };
 
 const colorFor = (kind: Entity['kind'], name: string) => {
@@ -512,7 +512,7 @@ const colorFor = (kind: Entity['kind'], name: string) => {
   if (kind === 'item') {
     return '#7dd3fc';
   }
-  return name.includes('Gnoll') ? '#f0a95b' : '#d97878';
+  return name.includes('ノール') ? '#f0a95b' : '#d97878';
 };
 
 const spriteFor = (entity: Entity) => {
@@ -522,7 +522,7 @@ const spriteFor = (entity: Entity) => {
   if (entity.kind === 'item') {
     return entity.item === 'potion' ? SPRITES.potion : SPRITES.material;
   }
-  if (entity.name.includes('Gnoll')) {
+  if (entity.name.includes('ノール')) {
     return SPRITES.gnoll;
   }
   return SPRITES.imp;

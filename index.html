@@ -5,70 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#101417" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23101417'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='34' fill='%23e8f6ff' font-family='monospace'%3E@%3C/text%3E%3C/svg%3E" />
-    <title>Roguelike Prototype</title>
+    <title>ローグライク試作版</title>
   </head>
   <body>
     <div id="app">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Prototype</p>
-          <h1>Roguelike</h1>
+          <p class="eyebrow">試作版</p>
+          <h1>ローグライク</h1>
         </div>
         <div class="topbar-actions">
-          <button class="icon-button" data-command="help" title="Help">?</button>
-          <button class="text-button" data-command="restart">Restart</button>
+          <button class="icon-button" data-command="help" title="ヘルプ">?</button>
+          <button class="text-button" data-command="restart">再開</button>
         </div>
       </header>
 
       <main class="game-shell">
-        <section class="play-area" aria-label="Game board">
+        <section class="play-area" aria-label="ゲーム盤面">
           <canvas id="game-canvas" width="960" height="720"></canvas>
         </section>
 
         <aside class="side-panel">
           <section class="panel-block status-block">
-            <h2>Status</h2>
+            <h2>状態</h2>
             <div id="status" class="status-grid"></div>
           </section>
           <section class="panel-block inventory-block">
-            <h2>Inventory</h2>
+            <h2>持ち物</h2>
             <div id="inventory" class="inventory"></div>
           </section>
           <section class="panel-block log-block">
-            <h2>Log</h2>
+            <h2>ログ</h2>
             <ol id="message-log" class="message-log"></ol>
           </section>
           <section class="panel-block controls-block">
-            <h2>Controls</h2>
-            <div class="mobile-controls" aria-label="Touch controls">
-              <div class="dpad" aria-label="Facing">
-                <button data-face="-1,-1" aria-label="Face northwest">NW</button>
-                <button data-face="0,-1" aria-label="Face north">N</button>
-                <button data-face="1,-1" aria-label="Face northeast">NE</button>
-                <button data-face="-1,0" aria-label="Face west">W</button>
-                <button data-command="wait" aria-label="Wait">Wait</button>
-                <button data-face="1,0" aria-label="Face east">E</button>
-                <button data-face="-1,1" aria-label="Face southwest">SW</button>
-                <button data-face="0,1" aria-label="Face south">S</button>
-                <button data-face="1,1" aria-label="Face southeast">SE</button>
+            <h2>操作</h2>
+            <div class="mobile-controls" aria-label="タッチ操作">
+              <div class="dpad" aria-label="向き">
+                <button data-face="-1,-1" aria-label="北西を向く">北西</button>
+                <button data-face="0,-1" aria-label="北を向く">北</button>
+                <button data-face="1,-1" aria-label="北東を向く">北東</button>
+                <button data-face="-1,0" aria-label="西を向く">西</button>
+                <button data-command="wait" aria-label="待機">待機</button>
+                <button data-face="1,0" aria-label="東を向く">東</button>
+                <button data-face="-1,1" aria-label="南西を向く">南西</button>
+                <button data-face="0,1" aria-label="南を向く">南</button>
+                <button data-face="1,1" aria-label="南東を向く">南東</button>
               </div>
-              <div class="quick-actions" aria-label="Actions">
-                <button data-command="pickup">Pick</button>
-                <button data-command="forward">Forward</button>
+              <div class="quick-actions" aria-label="行動">
+                <button data-command="pickup">拾う</button>
+                <button data-command="forward">進む</button>
                 <button data-command="descend">&gt;</button>
-                <button data-command="item">Item</button>
+                <button data-command="item">道具</button>
               </div>
             </div>
           </section>
           <section class="panel-block keyboard-block">
-            <h2>Keyboard</h2>
+            <h2>キーボード</h2>
             <div class="key-list">
-              <span>Face: arrows, numpad, hjklyubn</span>
-              <span>Forward: enter / space</span>
-              <span>Wait: . / 5</span>
-              <span>Pick up: g</span>
-              <span>Items: i</span>
-              <span>Stairs: &gt;</span>
+              <span>向き変更: 矢印、テンキー、hjklyubn</span>
+              <span>前進: enter / space</span>
+              <span>待機: . / 5</span>
+              <span>拾う: g</span>
+              <span>道具: i</span>
+              <span>階段: &gt;</span>
             </div>
           </section>
         </aside>
@@ -77,18 +77,18 @@
 
     <dialog id="help-dialog" class="help-dialog">
       <form method="dialog">
-        <h2>Roguelike Prototype</h2>
-        <p>Face a direction, move forward, fight enemies, use items, and descend when you find stairs.</p>
-        <p>Turns advance when you move forward, wait, use an item, or descend. Facing changes do not spend a turn.</p>
-        <button class="text-button">Close</button>
+        <h2>ローグライク試作版</h2>
+        <p>向きを変え、前進し、敵と戦い、道具を使い、階段を見つけたら下の階へ進みます。</p>
+        <p>前進、待機、道具使用、階段移動でターンが進みます。向き変更ではターンを消費しません。</p>
+        <button class="text-button">閉じる</button>
       </form>
     </dialog>
 
     <dialog id="item-dialog" class="item-dialog">
       <form method="dialog">
         <div class="dialog-heading">
-          <h2>Items</h2>
-          <button class="icon-button">X</button>
+          <h2>道具</h2>
+          <button class="icon-button">×</button>
         </div>
         <div id="item-list" class="item-list"></div>
       </form>

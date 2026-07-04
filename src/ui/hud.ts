@@ -15,10 +15,10 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 
   roots.statusRoot.replaceChildren(
     metric('HP', `${Math.max(0, stats?.hp ?? 0)} / ${stats?.maxHp ?? 0}`),
-    metric('Floor', String(snapshot.player.depth)),
-    metric('Facing', directionLabel(snapshot.player.facing.x, snapshot.player.facing.y)),
-    metric('Attack', String(stats?.attack ?? 0)),
-    metric('Speed', String(stats?.speed ?? 0)),
+    metric('階層', String(snapshot.player.depth)),
+    metric('向き', directionLabel(snapshot.player.facing.x, snapshot.player.facing.y)),
+    metric('攻撃', String(stats?.attack ?? 0)),
+    metric('素早さ', String(stats?.speed ?? 0)),
   );
 
   const inventoryEntries = ITEM_KINDS.filter((item) => snapshot.player.inventory[item] > 0);
@@ -26,7 +26,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.inventoryRoot.replaceChildren(
     ...nonEmptyNodes(
       inventoryEntries.map((item) => inventoryItem(item, snapshot.player.inventory[item])),
-      'No items',
+      '道具なし',
     ),
   );
 
@@ -42,7 +42,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.itemListRoot.replaceChildren(
     ...nonEmptyNodes(
       inventoryEntries.map((item) => inventoryAction(item, snapshot.player.inventory[item], () => roots.onUseItem(item))),
-      'No items',
+      '道具なし',
     ),
   );
 };
@@ -70,7 +70,7 @@ const inventoryItem = (itemKind: ItemKind, count: number) => {
   label.textContent = definition.name;
 
   const value = document.createElement('span');
-  value.textContent = `x${count}`;
+  value.textContent = `×${count}`;
 
   const detail = document.createElement('small');
   detail.textContent = definition.description;
@@ -89,11 +89,11 @@ const inventoryAction = (itemKind: ItemKind, count: number, onUse: () => void) =
   label.textContent = definition.name;
 
   const detail = document.createElement('small');
-  detail.textContent = `${definition.description} x${count}`;
+  detail.textContent = `${definition.description} ${count}個`;
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.textContent = definition.category === 'consumable' ? 'Use' : 'Material';
+  button.textContent = definition.category === 'consumable' ? '使う' : '素材';
   button.disabled = definition.category !== 'consumable' || count <= 0;
   if (definition.category === 'consumable') {
     button.addEventListener('click', onUse);
@@ -117,25 +117,25 @@ const nonEmptyNodes = (nodes: HTMLElement[], emptyText: string) => {
 
 const directionLabel = (dx: number, dy: number) => {
   if (dx === 0 && dy < 0) {
-    return 'N';
+    return '北';
   }
   if (dx > 0 && dy < 0) {
-    return 'NE';
+    return '北東';
   }
   if (dx > 0 && dy === 0) {
-    return 'E';
+    return '東';
   }
   if (dx > 0 && dy > 0) {
-    return 'SE';
+    return '南東';
   }
   if (dx === 0 && dy > 0) {
-    return 'S';
+    return '南';
   }
   if (dx < 0 && dy > 0) {
-    return 'SW';
+    return '南西';
   }
   if (dx < 0 && dy === 0) {
-    return 'W';
+    return '西';
   }
-  return 'NW';
+  return '北西';
 };
