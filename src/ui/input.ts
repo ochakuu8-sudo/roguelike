@@ -27,6 +27,7 @@ const KEY_COMMANDS = new Map<string, Command>([
   ['Numpad5', { type: 'wait' }],
   ['Enter', { type: 'forward' }],
   [' ', { type: 'forward' }],
+  ['e', { type: 'interact' }],
   ['.', { type: 'wait' }],
   ['>', { type: 'descend' }],
   ['g', { type: 'pickup' }],
@@ -58,7 +59,7 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
   root.querySelectorAll<HTMLElement>('[data-command]').forEach((button) => {
     button.addEventListener('click', () => {
       const command = button.dataset.command;
-      if (command === 'wait' || command === 'pickup' || command === 'forward' || command === 'item' || command === 'descend' || command === 'restart' || command === 'help') {
+      if (command === 'wait' || command === 'pickup' || command === 'interact' || command === 'forward' || command === 'item' || command === 'descend' || command === 'restart' || command === 'help') {
         onCommand({ type: command });
       }
     });

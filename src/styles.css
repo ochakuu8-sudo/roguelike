@@ -145,11 +145,6 @@ h2 {
 }
 
 .is-base .base-screen {
-  display: block;
-}
-
-.is-base .side-panel,
-.is-base #game-canvas {
   display: none;
 }
 

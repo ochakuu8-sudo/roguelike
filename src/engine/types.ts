@@ -8,6 +8,7 @@ export type Command =
   | { type: 'forward' }
   | { type: 'wait' }
   | { type: 'pickup' }
+  | { type: 'interact' }
   | { type: 'item' }
   | { type: 'useItem'; item: ItemKind }
   | { type: 'descend' }
@@ -33,7 +34,8 @@ export type ActorStats = {
   speed: number;
 };
 
-export type EntityKind = 'player' | 'monster' | 'item';
+export type EntityKind = 'player' | 'monster' | 'item' | 'station';
+export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium';
 export type EnemyKind = 'caveImp' | 'stoneGnoll' | 'venomBat' | 'rustSlime' | 'boneSentinel';
 export type ItemKind = 'potion' | 'impFang' | 'gnollHide' | 'batWing' | 'slimeGel' | 'boneShard';
 export type RecipeId = 'potion';
@@ -53,6 +55,7 @@ export type Entity = {
   ai?: 'hostile';
   item?: ItemKind;
   enemy?: EnemyKind;
+  station?: StationKind;
 };
 
 export type CombatEffect = {

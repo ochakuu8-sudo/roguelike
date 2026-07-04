@@ -1,12 +1,14 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, Tile } from '../engine/types';
+import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, StationKind, Tile } from '../engine/types';
 import { chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 56;
 const MAP_HEIGHT = 34;
+const BASE_WIDTH = 34;
+const BASE_HEIGHT = 24;
 const FOV_RADIUS = 9;
 const PLAYER_ID = 'player';
 
@@ -92,7 +94,7 @@ export class Game {
     }
 
     if (this.mode === 'base') {
-      this.pushMessage('拠点にいる。出撃を選んで探索を開始してください。');
+      this.dispatchBase(command);
       return;
     }
 
@@ -125,6 +127,9 @@ export class Game {
       case 'descend':
         turnResult = { usedTurn: this.extract() };
         break;
+      case 'interact':
+        turnResult = { usedTurn: this.interactRaid() };
+        break;
       case 'help':
         break;
     }
@@ -132,6 +137,38 @@ export class Game {
     if (turnResult.usedTurn && !this.gameOver) {
       this.enemyTurn(turnResult.skipEnemyId);
       this.updateFov();
+    }
+  }
+
+  private dispatchBase(command: Command): void {
+    switch (command.type) {
+      case 'face':
+        this.face(command.dx, command.dy);
+        return;
+      case 'forward':
+        this.tryMovePlayer(this.facing.x, this.facing.y);
+        return;
+      case 'interact':
+      case 'pickup':
+      case 'descend':
+        this.interactBase();
+        return;
+      case 'wait':
+        this.pushMessage('拠点で周囲を確認した。');
+        return;
+      case 'item':
+        this.pushMessage(this.stashSummary());
+        return;
+      case 'help':
+        return;
+      case 'useItem':
+        this.pushMessage('拠点ではバッグのアイテムを使わない。');
+        return;
+      case 'startRaid':
+      case 'sellItem':
+      case 'craftItem':
+      case 'restart':
+        return;
     }
   }
 
@@ -148,9 +185,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.tiles = [];
-    this.entities = [];
-    this.messages = ['拠点に戻った。出撃の準備をしよう。'];
+    this.createBase('拠点に戻った。施設の前で調べると利用できる。');
   }
 
   private startRaid(): void {
@@ -159,6 +194,8 @@ export class Game {
     }
 
     this.mode = 'raid';
+    this.width = MAP_WIDTH;
+    this.height = MAP_HEIGHT;
     this.depth = 1;
     this.raidInventory = createEmptyInventory();
     if (this.stash.potion > 0) {
@@ -170,6 +207,43 @@ export class Game {
     this.combatEffects = [];
     this.effectId = 0;
     this.generateLevel('探索に出撃した。物資を集めて脱出地点を目指そう。');
+  }
+
+  private createBase(entryMessage: string): void {
+    this.mode = 'base';
+    this.width = BASE_WIDTH;
+    this.height = BASE_HEIGHT;
+    this.gameOver = false;
+    this.combatEffects = [];
+    this.tiles = Array.from({ length: this.width * this.height }, (_, index) => {
+      const x = index % this.width;
+      const y = Math.floor(index / this.width);
+      const isBorder = x === 0 || y === 0 || x === this.width - 1 || y === this.height - 1;
+      return {
+        kind: isBorder ? 'wall' : 'floor',
+        visible: true,
+        explored: true,
+      };
+    });
+    this.entities = [
+      {
+        id: PLAYER_ID,
+        kind: 'player',
+        name: '探索者',
+        glyph: '@',
+        color: '#e8f6ff',
+        x: 17,
+        y: 14,
+        blocks: true,
+        stats: { hp: 24, maxHp: 24, attack: 6, defense: 1, speed: 10 },
+      },
+      createStationEntity('station-raid-gate', 'raidGate', '出撃ゲート', '>', '#6ee7b7', 17, 6),
+      createStationEntity('station-stash', 'stash', '倉庫', 'C', '#fbbf24', 8, 11),
+      createStationEntity('station-craft', 'craft', 'クラフト台', 'T', '#93c5fd', 26, 11),
+      createStationEntity('station-market', 'market', '換金所', '$', '#fcd34d', 8, 17),
+      createStationEntity('station-compendium', 'compendium', '図鑑端末', '?', '#c4b5fd', 26, 17),
+    ];
+    this.messages = [entryMessage, '出撃ゲート、倉庫、クラフト台、換金所、図鑑端末がある。'];
   }
 
   private generateLevel(entryMessage: string): void {
@@ -267,6 +341,11 @@ export class Game {
       return { usedTurn: true, skipEnemyId: target.id };
     }
 
+    if (target?.kind === 'station') {
+      this.useStation(target);
+      return { usedTurn: false };
+    }
+
     if (!this.isWalkable(targetX, targetY)) {
       this.pushMessage('壁に行く手を阻まれた。');
       return { usedTurn: false };
@@ -283,6 +362,48 @@ export class Game {
     }
 
     this.facing = { x: Math.sign(dx), y: Math.sign(dy) };
+  }
+
+  private interactBase(): void {
+    const station = this.stationInFront();
+    if (!station) {
+      this.pushMessage('正面には利用できる施設がない。');
+      return;
+    }
+
+    this.useStation(station);
+  }
+
+  private interactRaid(): boolean {
+    const player = this.player();
+    const item = this.entities.find((entity) => entity.kind === 'item' && entity.x === player.x && entity.y === player.y);
+    if (item) {
+      return this.pickup();
+    }
+
+    return this.extract();
+  }
+
+  private useStation(station: Entity): void {
+    switch (station.station) {
+      case 'raidGate':
+        this.startRaid();
+        return;
+      case 'stash':
+        this.pushMessage(this.stashSummary());
+        return;
+      case 'craft':
+        this.craftItem('potion');
+        return;
+      case 'market':
+        this.sellAllMaterials();
+        return;
+      case 'compendium':
+        this.pushMessage('図鑑は右上の図鑑ボタンから確認できる。');
+        return;
+      default:
+        this.pushMessage('ここでは何も起きない。');
+    }
   }
 
   private pickup(): boolean {
@@ -348,11 +469,7 @@ export class Game {
     }
 
     this.transferRaidInventoryToStash();
-    this.mode = 'base';
-    this.entities = [];
-    this.tiles = [];
-    this.combatEffects = [];
-    this.pushMessage('脱出に成功した。持ち帰った物資を倉庫に移した。');
+    this.createBase('脱出に成功した。持ち帰った物資を倉庫に移した。');
     return false;
   }
 
@@ -392,6 +509,21 @@ export class Game {
     consumeIngredients(this.stash, recipe);
     addRecipeResult(this.stash, recipe);
     this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
+  }
+
+  private sellAllMaterials(): void {
+    const sellable = Object.entries(this.stash).filter(([item, count]) => ITEM_DEFINITIONS[item as ItemKind].category === 'material' && count > 0);
+    if (sellable.length === 0) {
+      this.pushMessage('売却できる素材が倉庫にない。');
+      return;
+    }
+
+    const total = sellable.reduce((sum, [item, count]) => sum + ITEM_DEFINITIONS[item as ItemKind].value * count, 0);
+    sellable.forEach(([item]) => {
+      this.stash[item as ItemKind] = 0;
+    });
+    this.money += total;
+    this.pushMessage(`素材をまとめて売却し、${total}Gを得た。`);
   }
 
   private enemyTurn(skipEnemyId?: string): void {
@@ -490,11 +622,7 @@ export class Game {
     if (entity.kind === 'player') {
       this.gameOver = true;
       this.raidInventory = createEmptyInventory();
-      this.mode = 'base';
-      this.entities = [];
-      this.tiles = [];
-      this.combatEffects = [];
-      this.pushMessage('探索に失敗した。探索中の荷物は失われた。');
+      this.createBase('探索に失敗した。探索中の荷物は失われた。');
       return;
     }
 
@@ -532,6 +660,24 @@ export class Game {
     }
 
     return player;
+  }
+
+  private stationInFront(): Entity | undefined {
+    const player = this.player();
+    return this.entities.find(
+      (entity) =>
+        entity.kind === 'station' &&
+        entity.x === player.x + this.facing.x &&
+        entity.y === player.y + this.facing.y,
+    );
+  }
+
+  private stashSummary(): string {
+    const entries = Object.entries(this.stash)
+      .filter(([, count]) => count > 0)
+      .map(([item, count]) => `${ITEM_DEFINITIONS[item as ItemKind].name}×${count}`);
+
+    return entries.length > 0 ? `倉庫: ${entries.join(' / ')}。所持金 ${this.money}G。` : `倉庫は空。所持金 ${this.money}G。`;
   }
 
   private isWalkable(x: number, y: number): boolean {
@@ -622,6 +768,18 @@ const createItemEntity = (id: string, item: ItemKind, x: number, y: number): Ent
     item,
   };
 };
+
+const createStationEntity = (id: string, station: StationKind, name: string, glyph: string, color: string, x: number, y: number): Entity => ({
+  id,
+  kind: 'station',
+  name,
+  glyph,
+  color,
+  x,
+  y,
+  blocks: true,
+  station,
+});
 
 const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   if (attacker.kind === 'player') {

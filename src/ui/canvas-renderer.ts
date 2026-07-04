@@ -84,6 +84,16 @@ const SPRITES = {
     '........',
     '........',
   ],
+  station: [
+    '.EEEEEE.',
+    'EFFFFFFE',
+    'EF....FE',
+    'EF....FE',
+    'EF....FE',
+    'EFFFFFFE',
+    '.EEEEEE.',
+    '........',
+  ],
 } as const;
 
 const PALETTE: Record<string, string> = {
@@ -100,6 +110,8 @@ const PALETTE: Record<string, string> = {
   B: '#6ee7b7',
   C: '#d9f99d',
   D: '#a16207',
+  E: '#475569',
+  F: '#cbd5e1',
 };
 
 export class CanvasRenderer {
@@ -332,6 +344,9 @@ export class CanvasRenderer {
     this.context.fillStyle = 'rgba(0, 0, 0, 0.32)';
     this.context.fillRect(left + cellSize * 0.22, top + cellSize * 0.78, cellSize * 0.56, shadowHeight);
     this.drawSprite(sprite, left, top, cellSize, 1);
+    if (entity.kind === 'station') {
+      this.drawStationGlyph(entity, left, top, cellSize);
+    }
 
     if (hitEffect) {
       this.context.save();
@@ -443,6 +458,19 @@ export class CanvasRenderer {
     this.context.restore();
   }
 
+  private drawStationGlyph(entity: Entity, left: number, top: number, cellSize: number): void {
+    this.context.save();
+    this.context.font = `800 ${Math.max(8, Math.floor(cellSize * 0.62))}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    this.context.textAlign = 'center';
+    this.context.textBaseline = 'middle';
+    this.context.lineWidth = 2;
+    this.context.strokeStyle = 'rgba(2, 8, 12, 0.9)';
+    this.context.fillStyle = entity.color;
+    this.context.strokeText(entity.glyph, left + cellSize / 2, top + cellSize / 2);
+    this.context.fillText(entity.glyph, left + cellSize / 2, top + cellSize / 2);
+    this.context.restore();
+  }
+
   private drawOverlay(width: number, height: number, title: string, subtitle: string): void {
     this.context.fillStyle = 'rgba(5, 8, 10, 0.72)';
     this.context.fillRect(0, 0, width, height);
@@ -459,6 +487,9 @@ export class CanvasRenderer {
 
 const entityLayer = (entity: Entity) => {
   if (entity.kind === 'item') {
+    return 1;
+  }
+  if (entity.kind === 'station') {
     return 1;
   }
   if (entity.kind === 'monster') {
@@ -502,6 +533,9 @@ const glyphFor = (kind: Entity['kind'], name: string) => {
   if (kind === 'item') {
     return '!';
   }
+  if (kind === 'station') {
+    return '?';
+  }
   return name.includes('ノール') ? 'G' : 'i';
 };
 
@@ -512,6 +546,9 @@ const colorFor = (kind: Entity['kind'], name: string) => {
   if (kind === 'item') {
     return '#7dd3fc';
   }
+  if (kind === 'station') {
+    return '#cbd5e1';
+  }
   return name.includes('ノール') ? '#f0a95b' : '#d97878';
 };
 
@@ -521,6 +558,9 @@ const spriteFor = (entity: Entity) => {
   }
   if (entity.kind === 'item') {
     return entity.item === 'potion' ? SPRITES.potion : SPRITES.material;
+  }
+  if (entity.kind === 'station') {
+    return SPRITES.station;
   }
   if (entity.name.includes('ノール')) {
     return SPRITES.gnoll;
