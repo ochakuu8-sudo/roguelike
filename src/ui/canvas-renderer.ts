@@ -1,5 +1,5 @@
 import { indexAt } from '../engine/grid';
-import type { Entity, GameSnapshot, Tile } from '../engine/types';
+import type { CombatEffect, Entity, GameSnapshot, Tile } from '../engine/types';
 
 const TILE_COLORS: Record<Tile['kind'], string> = {
   wall: '#26333a',
@@ -8,6 +8,7 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
 };
 
 const FIXED_CELL_SIZE = 15;
+const COMBAT_EFFECT_DURATION = 520;
 
 type Camera = {
   cellSize: number;
@@ -15,6 +16,10 @@ type Camera = {
   offsetY: number;
   displayWidth: number;
   displayHeight: number;
+};
+
+type ActiveCombatEffect = CombatEffect & {
+  progress: number;
 };
 
 const SPRITES = {
@@ -86,6 +91,10 @@ const PALETTE: Record<string, string> = {
 
 export class CanvasRenderer {
   private context: CanvasRenderingContext2D;
+  private snapshot?: GameSnapshot;
+  private frameRequest = 0;
+  private effectStartTimes = new Map<number, number>();
+  private completedEffectIds = new Set<number>();
 
   constructor(private canvas: HTMLCanvasElement) {
     const context = canvas.getContext('2d');
@@ -97,6 +106,12 @@ export class CanvasRenderer {
   }
 
   render(snapshot: GameSnapshot): void {
+    this.snapshot = snapshot;
+    this.renderFrame(snapshot, performance.now());
+    this.scheduleAnimation();
+  }
+
+  private renderFrame(snapshot: GameSnapshot, now: number): void {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const displayWidth = Math.max(320, rect.width);
@@ -106,17 +121,81 @@ export class CanvasRenderer {
     this.context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const camera = this.createCamera(snapshot, displayWidth, displayHeight);
+    const combatEffects = this.activeCombatEffects(snapshot, now);
 
     this.context.fillStyle = '#0e1113';
     this.context.fillRect(0, 0, displayWidth, displayHeight);
 
     this.drawTiles(snapshot, camera);
-    this.drawEntities(snapshot, camera);
+    this.drawEntities(snapshot, camera, combatEffects);
     this.drawFacing(snapshot, camera);
+    this.drawCombatEffects(combatEffects, camera);
 
     if (snapshot.gameOver) {
       this.drawOverlay(displayWidth, displayHeight, 'You died', 'Press Restart to enter a new dungeon.');
     }
+  }
+
+  private scheduleAnimation(): void {
+    if (!this.snapshot || !this.hasActiveEffects(performance.now())) {
+      if (this.frameRequest) {
+        cancelAnimationFrame(this.frameRequest);
+        this.frameRequest = 0;
+      }
+      return;
+    }
+
+    if (this.frameRequest) {
+      return;
+    }
+
+    this.frameRequest = requestAnimationFrame((now) => {
+      this.frameRequest = 0;
+      if (!this.snapshot) {
+        return;
+      }
+
+      this.renderFrame(this.snapshot, now);
+      this.scheduleAnimation();
+    });
+  }
+
+  private activeCombatEffects(snapshot: GameSnapshot, now: number): ActiveCombatEffect[] {
+    const effectIds = new Set(snapshot.combatEffects.map((effect) => effect.id));
+
+    this.effectStartTimes.forEach((_, id) => {
+      if (!effectIds.has(id)) {
+        this.effectStartTimes.delete(id);
+      }
+    });
+
+    this.completedEffectIds.forEach((id) => {
+      if (!effectIds.has(id)) {
+        this.completedEffectIds.delete(id);
+      }
+    });
+
+    return snapshot.combatEffects.flatMap((effect) => {
+      if (this.completedEffectIds.has(effect.id)) {
+        return [];
+      }
+
+      const start = this.effectStartTimes.get(effect.id) ?? now;
+      this.effectStartTimes.set(effect.id, start);
+
+      const progress = (now - start) / COMBAT_EFFECT_DURATION;
+      if (progress > 1) {
+        this.effectStartTimes.delete(effect.id);
+        this.completedEffectIds.add(effect.id);
+        return [];
+      }
+
+      return [{ ...effect, progress }];
+    });
+  }
+
+  private hasActiveEffects(now: number): boolean {
+    return [...this.effectStartTimes.values()].some((start) => now - start <= COMBAT_EFFECT_DURATION);
   }
 
   private createCamera(snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera {
@@ -152,7 +231,7 @@ export class CanvasRenderer {
     });
   }
 
-  private drawEntities(snapshot: GameSnapshot, camera: Camera): void {
+  private drawEntities(snapshot: GameSnapshot, camera: Camera, combatEffects: ActiveCombatEffect[]): void {
     const { cellSize, offsetX, offsetY } = camera;
     const visibleEntities = snapshot.entities.filter((entity) => {
       const tile = snapshot.tiles[indexAt(entity.x, entity.y, snapshot.width)];
@@ -164,7 +243,7 @@ export class CanvasRenderer {
     visibleEntities.sort((a, b) => entityLayer(a) - entityLayer(b));
 
     visibleEntities.forEach((entity) => {
-      this.drawEntity(entity, cellSize, offsetX, offsetY);
+      this.drawEntity(entity, cellSize, offsetX, offsetY, combatEffects);
     });
   }
 
@@ -191,15 +270,30 @@ export class CanvasRenderer {
     }
   }
 
-  private drawEntity(entity: Entity, cellSize: number, offsetX: number, offsetY: number): void {
-    const left = offsetX + entity.x * cellSize;
-    const top = offsetY + entity.y * cellSize;
+  private drawEntity(entity: Entity, cellSize: number, offsetX: number, offsetY: number, combatEffects: ActiveCombatEffect[]): void {
+    const attackEffect = combatEffects.find((effect) => effect.attackerId === entity.id && effect.progress < 0.4);
+    const hitEffect = combatEffects.find((effect) => effect.defenderId === entity.id && effect.progress < 0.72);
+    const attackPulse = attackEffect ? Math.sin((attackEffect.progress / 0.4) * Math.PI) : 0;
+    const hitPulse = hitEffect ? 1 - hitEffect.progress / 0.72 : 0;
+    const dx = attackEffect ? Math.sign(attackEffect.to.x - attackEffect.from.x) : 0;
+    const dy = attackEffect ? Math.sign(attackEffect.to.y - attackEffect.from.y) : 0;
+    const shake = hitEffect ? Math.sin(hitEffect.progress * Math.PI * 12) * cellSize * 0.07 * hitPulse : 0;
+    const left = offsetX + entity.x * cellSize + dx * cellSize * 0.22 * attackPulse + shake;
+    const top = offsetY + entity.y * cellSize + dy * cellSize * 0.22 * attackPulse;
     const sprite = spriteFor(entity);
     const shadowHeight = Math.max(1, Math.floor(cellSize * 0.12));
 
     this.context.fillStyle = 'rgba(0, 0, 0, 0.32)';
     this.context.fillRect(left + cellSize * 0.22, top + cellSize * 0.78, cellSize * 0.56, shadowHeight);
     this.drawSprite(sprite, left, top, cellSize, 1);
+
+    if (hitEffect) {
+      this.context.save();
+      this.context.globalAlpha = Math.max(0, 0.5 * hitPulse);
+      this.context.fillStyle = '#fb7185';
+      this.context.fillRect(left + 1, top + 1, cellSize - 2, cellSize - 2);
+      this.context.restore();
+    }
   }
 
   private drawFacing(snapshot: GameSnapshot, camera: Camera): void {
@@ -237,6 +331,49 @@ export class CanvasRenderer {
     this.context.strokeStyle = 'rgba(2, 8, 12, 0.8)';
     this.context.lineWidth = 1;
     this.context.stroke();
+  }
+
+  private drawCombatEffects(effects: ActiveCombatEffect[], camera: Camera): void {
+    effects.forEach((effect) => {
+      const from = tileCenter(effect.from, camera);
+      const to = tileCenter(effect.to, camera);
+
+      if (!isInViewport(to.x - camera.cellSize / 2, to.y - camera.cellSize / 2, camera.cellSize, camera)) {
+        return;
+      }
+
+      const slashProgress = Math.min(1, effect.progress / 0.45);
+      const slashAlpha = Math.max(0, 1 - effect.progress / 0.55);
+      const midX = from.x + (to.x - from.x) * 0.72;
+      const midY = from.y + (to.y - from.y) * 0.72;
+      const tipX = from.x + (to.x - from.x) * slashProgress;
+      const tipY = from.y + (to.y - from.y) * slashProgress;
+
+      this.context.save();
+      this.context.lineCap = 'round';
+      this.context.globalAlpha = slashAlpha;
+      this.context.strokeStyle = effect.attackerKind === 'player' ? '#f8fafc' : '#fb7185';
+      this.context.lineWidth = Math.max(2, camera.cellSize * 0.18);
+      this.context.beginPath();
+      this.context.moveTo(midX, midY);
+      this.context.lineTo(tipX, tipY);
+      this.context.stroke();
+
+      this.context.globalAlpha = Math.max(0, 1 - effect.progress);
+      this.context.fillStyle = effect.defenderKind === 'player' ? '#fb7185' : '#fbbf24';
+      this.context.strokeStyle = 'rgba(2, 8, 12, 0.9)';
+      this.context.lineWidth = 3;
+      this.context.font = `800 ${Math.max(11, Math.floor(camera.cellSize * 0.88))}px system-ui, sans-serif`;
+      this.context.textAlign = 'center';
+      this.context.textBaseline = 'middle';
+      const lift = easeOut(effect.progress) * camera.cellSize * 1.15;
+      const textX = to.x;
+      const textY = to.y - camera.cellSize * 0.42 - lift;
+      const text = `-${effect.damage}`;
+      this.context.strokeText(text, textX, textY);
+      this.context.fillText(text, textX, textY);
+      this.context.restore();
+    });
   }
 
   private drawSprite(sprite: readonly string[], left: number, top: number, cellSize: number, alpha: number): void {
@@ -286,6 +423,13 @@ const entityLayer = (entity: Entity) => {
 
 const isInViewport = (left: number, top: number, cellSize: number, camera: Camera) =>
   left + cellSize >= 0 && top + cellSize >= 0 && left <= camera.displayWidth && top <= camera.displayHeight;
+
+const tileCenter = (point: { x: number; y: number }, camera: Camera) => ({
+  x: camera.offsetX + point.x * camera.cellSize + camera.cellSize / 2,
+  y: camera.offsetY + point.y * camera.cellSize + camera.cellSize / 2,
+});
+
+const easeOut = (value: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, value)), 3);
 
 const spriteFor = (entity: Entity) => {
   if (entity.kind === 'player') {

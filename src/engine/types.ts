@@ -45,6 +45,19 @@ export type Entity = {
   item?: 'potion';
 };
 
+export type CombatEffect = {
+  id: number;
+  attackerId: string;
+  defenderId: string;
+  attackerKind: EntityKind;
+  defenderKind: EntityKind;
+  attackerName: string;
+  defenderName: string;
+  damage: number;
+  from: Point;
+  to: Point;
+};
+
 export type PlayerState = {
   depth: number;
   xp: number;
@@ -60,6 +73,7 @@ export type GameSnapshot = {
   playerId: string;
   player: PlayerState;
   messages: string[];
+  combatEffects: CombatEffect[];
   gameOver: boolean;
   seed: number;
 };

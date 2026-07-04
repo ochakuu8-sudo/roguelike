@@ -1,6 +1,6 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { Command, Entity, GameSnapshot, Tile } from '../engine/types';
+import type { CombatEffect, Command, Entity, GameSnapshot, Tile } from '../engine/types';
 
 const MAP_WIDTH = 56;
 const MAP_HEIGHT = 34;
@@ -17,6 +17,8 @@ export class Game {
   private tiles: Tile[] = [];
   private entities: Entity[] = [];
   private messages: string[] = [];
+  private combatEffects: CombatEffect[] = [];
+  private effectId = 0;
   private seed = Date.now();
   private depth = 1;
   private xp = 0;
@@ -42,6 +44,11 @@ export class Game {
         facing: { ...this.facing },
       },
       messages: [...this.messages],
+      combatEffects: this.combatEffects.map((effect) => ({
+        ...effect,
+        from: { ...effect.from },
+        to: { ...effect.to },
+      })),
       gameOver: this.gameOver,
       seed: this.seed,
     };
@@ -99,6 +106,8 @@ export class Game {
     this.potions = 1;
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
+    this.combatEffects = [];
+    this.effectId = 0;
     this.generateLevel('You enter the dungeon.');
   }
 
@@ -360,7 +369,8 @@ export class Game {
 
     const damage = Math.max(1, attacker.stats.attack - defender.stats.defense + ROT.RNG.getUniformInt(-1, 2));
     defender.stats.hp -= damage;
-    this.pushMessage(`${attacker.name} hits ${defender.name} for ${damage}.`);
+    this.pushCombatEffect(attacker, defender, damage);
+    this.pushMessage(attackMessage(attacker, defender, damage));
 
     if (defender.stats.hp <= 0) {
       this.kill(defender, attacker);
@@ -424,9 +434,39 @@ export class Game {
   private pushMessage(message: string): void {
     this.messages = [message, ...this.messages].slice(0, 8);
   }
+
+  private pushCombatEffect(attacker: Entity, defender: Entity, damage: number): void {
+    this.combatEffects = [
+      {
+        id: ++this.effectId,
+        attackerId: attacker.id,
+        defenderId: defender.id,
+        attackerKind: attacker.kind,
+        defenderKind: defender.kind,
+        attackerName: attacker.name,
+        defenderName: defender.name,
+        damage,
+        from: { x: attacker.x, y: attacker.y },
+        to: { x: defender.x, y: defender.y },
+      },
+      ...this.combatEffects,
+    ].slice(0, 12);
+  }
 }
 
 const roomCenter = (room: RoomLike): [number, number] => {
   const [x = 0, y = 0] = room.getCenter();
   return [x, y];
+};
+
+const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
+  if (attacker.kind === 'player') {
+    return `You strike ${defender.name} for ${damage} damage.`;
+  }
+
+  if (defender.kind === 'player') {
+    return `${attacker.name} hits you for ${damage} damage.`;
+  }
+
+  return `${attacker.name} hits ${defender.name} for ${damage} damage.`;
 };
