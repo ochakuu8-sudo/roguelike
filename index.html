@@ -23,24 +23,6 @@
       <main class="game-shell">
         <section class="play-area" aria-label="Game board">
           <canvas id="game-canvas" width="960" height="720"></canvas>
-          <div class="mobile-controls" aria-label="Touch controls">
-            <div class="dpad" aria-label="Movement">
-              <button data-move="-1,-1" aria-label="Move northwest">↖</button>
-              <button data-move="0,-1" aria-label="Move north">↑</button>
-              <button data-move="1,-1" aria-label="Move northeast">↗</button>
-              <button data-move="-1,0" aria-label="Move west">←</button>
-              <button data-command="wait" aria-label="Wait">•</button>
-              <button data-move="1,0" aria-label="Move east">→</button>
-              <button data-move="-1,1" aria-label="Move southwest">↙</button>
-              <button data-move="0,1" aria-label="Move south">↓</button>
-              <button data-move="1,1" aria-label="Move southeast">↘</button>
-            </div>
-            <div class="quick-actions" aria-label="Actions">
-              <button data-command="pickup">Pick up</button>
-              <button data-command="usePotion">Potion</button>
-              <button data-command="descend">Stairs</button>
-            </div>
-          </div>
         </section>
 
         <aside class="side-panel">
@@ -48,13 +30,34 @@
             <h2>Status</h2>
             <div id="status" class="status-grid"></div>
           </section>
-          <section class="panel-block">
+          <section class="panel-block inventory-block">
             <h2>Inventory</h2>
             <div id="inventory" class="inventory"></div>
           </section>
           <section class="panel-block log-block">
             <h2>Log</h2>
             <ol id="message-log" class="message-log"></ol>
+          </section>
+          <section class="panel-block controls-block">
+            <h2>Controls</h2>
+            <div class="mobile-controls" aria-label="Touch controls">
+              <div class="dpad" aria-label="Movement">
+                <button data-move="-1,-1" aria-label="Move northwest">NW</button>
+                <button data-move="0,-1" aria-label="Move north">N</button>
+                <button data-move="1,-1" aria-label="Move northeast">NE</button>
+                <button data-move="-1,0" aria-label="Move west">W</button>
+                <button data-command="wait" aria-label="Wait">Wait</button>
+                <button data-move="1,0" aria-label="Move east">E</button>
+                <button data-move="-1,1" aria-label="Move southwest">SW</button>
+                <button data-move="0,1" aria-label="Move south">S</button>
+                <button data-move="1,1" aria-label="Move southeast">SE</button>
+              </div>
+              <div class="quick-actions" aria-label="Actions">
+                <button data-command="pickup">Pick up</button>
+                <button data-command="usePotion">Potion</button>
+                <button data-command="descend">Stairs</button>
+              </div>
+            </div>
           </section>
           <section class="panel-block keyboard-block">
             <h2>Keyboard</h2>
