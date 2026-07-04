@@ -40,6 +40,33 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     value: 42,
     size: 2,
   },
+  batWing: {
+    name: '毒羽コウモリの羽',
+    description: '毒羽コウモリから取れる薄い羽。軽く、換金しやすい。',
+    category: 'material',
+    glyph: '*',
+    color: '#c084fc',
+    value: 24,
+    size: 1,
+  },
+  slimeGel: {
+    name: 'スライムゲル',
+    description: '錆びたスライムが残す粘液状の素材。',
+    category: 'material',
+    glyph: '*',
+    color: '#67e8f9',
+    value: 28,
+    size: 1,
+  },
+  boneShard: {
+    name: '古い骨片',
+    description: '骨の番兵から砕け落ちた硬い骨片。',
+    category: 'material',
+    glyph: '*',
+    color: '#e5e7eb',
+    value: 36,
+    size: 1,
+  },
 };
 
 export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
@@ -49,6 +76,9 @@ export const createEmptyInventory = (): Inventory => ({
   potion: 0,
   impFang: 0,
   gnollHide: 0,
+  batWing: 0,
+  slimeGel: 0,
+  boneShard: 0,
 });
 
 export const createStartingStash = (): Inventory => ({

@@ -1,6 +1,7 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
 import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, Tile } from '../engine/types';
+import { chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
@@ -224,20 +225,20 @@ export class Game {
       const roll = ROT.RNG.getUniform();
 
       if (roll < 0.72) {
-        const tough = this.depth > 2 && ROT.RNG.getUniform() < 0.35;
+        const enemy = chooseEnemyKind(this.depth, ROT.RNG.getUniform());
+        const definition = ENEMY_DEFINITIONS[enemy];
         this.entities.push({
           id: `monster-${this.depth}-${monsterIndex++}`,
           kind: 'monster',
-          name: tough ? '石肌ノール' : '洞窟インプ',
-          glyph: tough ? 'G' : 'i',
-          color: tough ? '#f0a95b' : '#d97878',
+          name: definition.name,
+          glyph: definition.glyph,
+          color: definition.color,
           x: cx,
           y: cy,
           blocks: true,
           ai: 'hostile',
-          stats: tough
-            ? { hp: 14 + this.depth * 2, maxHp: 14 + this.depth * 2, attack: 5 + this.depth, defense: 2, speed: 8 }
-            : { hp: 8 + this.depth, maxHp: 8 + this.depth, attack: 4 + this.depth, defense: 0, speed: 12 },
+          enemy,
+          stats: scaledEnemyStats(enemy, this.depth),
         });
       }
 
@@ -577,7 +578,7 @@ export class Game {
   }
 
   private dropMaterial(entity: Entity): void {
-    const item = materialFor(entity);
+    const item = entity.enemy ? ENEMY_DEFINITIONS[entity.enemy].drop : 'impFang';
     const definition = ITEM_DEFINITIONS[item];
     this.entities.push(createItemEntity(`drop-${this.depth}-${++this.dropId}`, item, entity.x, entity.y));
     this.pushMessage(`${entity.name}が${definition.name}を落とした。`);
@@ -621,8 +622,6 @@ const createItemEntity = (id: string, item: ItemKind, x: number, y: number): Ent
     item,
   };
 };
-
-const materialFor = (entity: Entity): ItemKind => (entity.name.includes('ノール') ? 'gnollHide' : 'impFang');
 
 const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   if (attacker.kind === 'player') {

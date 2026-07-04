@@ -34,7 +34,8 @@ export type ActorStats = {
 };
 
 export type EntityKind = 'player' | 'monster' | 'item';
-export type ItemKind = 'potion' | 'impFang' | 'gnollHide';
+export type EnemyKind = 'caveImp' | 'stoneGnoll' | 'venomBat' | 'rustSlime' | 'boneSentinel';
+export type ItemKind = 'potion' | 'impFang' | 'gnollHide' | 'batWing' | 'slimeGel' | 'boneShard';
 export type RecipeId = 'potion';
 export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';
@@ -51,6 +52,7 @@ export type Entity = {
   stats?: ActorStats;
   ai?: 'hostile';
   item?: ItemKind;
+  enemy?: EnemyKind;
 };
 
 export type CombatEffect = {
