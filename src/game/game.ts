@@ -21,6 +21,7 @@ export class Game {
   private depth = 1;
   private xp = 0;
   private potions = 1;
+  private facing = { x: 0, y: 1 };
   private gameOver = false;
 
   constructor() {
@@ -38,6 +39,7 @@ export class Game {
         depth: this.depth,
         xp: this.xp,
         potions: this.potions,
+        facing: { ...this.facing },
       },
       messages: [...this.messages],
       gameOver: this.gameOver,
@@ -59,8 +61,11 @@ export class Game {
     let usedTurn = false;
 
     switch (command.type) {
-      case 'move':
-        usedTurn = this.tryMovePlayer(command.dx, command.dy);
+      case 'face':
+        this.face(command.dx, command.dy);
+        break;
+      case 'forward':
+        usedTurn = this.tryMovePlayer(this.facing.x, this.facing.y);
         break;
       case 'wait':
         this.pushMessage('You listen to the dungeon breathe.');
@@ -69,8 +74,10 @@ export class Game {
       case 'pickup':
         usedTurn = this.pickup();
         break;
-      case 'usePotion':
+      case 'useItem':
         usedTurn = this.usePotion();
+        break;
+      case 'item':
         break;
       case 'descend':
         usedTurn = this.descend();
@@ -90,6 +97,7 @@ export class Game {
     this.depth = 1;
     this.xp = 0;
     this.potions = 1;
+    this.facing = { x: 0, y: 1 };
     this.gameOver = false;
     this.generateLevel('You enter the dungeon.');
   }
@@ -207,6 +215,14 @@ export class Game {
     player.x = targetX;
     player.y = targetY;
     return true;
+  }
+
+  private face(dx: number, dy: number): void {
+    if (dx === 0 && dy === 0) {
+      return;
+    }
+
+    this.facing = { x: Math.sign(dx), y: Math.sign(dy) };
   }
 
   private pickup(): boolean {

@@ -8,37 +8,39 @@ type BindInputOptions = {
 };
 
 const KEY_COMMANDS = new Map<string, Command>([
-  ['ArrowUp', { type: 'move', dx: 0, dy: -1 }],
-  ['ArrowDown', { type: 'move', dx: 0, dy: 1 }],
-  ['ArrowLeft', { type: 'move', dx: -1, dy: 0 }],
-  ['ArrowRight', { type: 'move', dx: 1, dy: 0 }],
-  ['Home', { type: 'move', dx: -1, dy: -1 }],
-  ['PageUp', { type: 'move', dx: 1, dy: -1 }],
-  ['End', { type: 'move', dx: -1, dy: 1 }],
-  ['PageDown', { type: 'move', dx: 1, dy: 1 }],
-  ['Numpad8', { type: 'move', dx: 0, dy: -1 }],
-  ['Numpad2', { type: 'move', dx: 0, dy: 1 }],
-  ['Numpad4', { type: 'move', dx: -1, dy: 0 }],
-  ['Numpad6', { type: 'move', dx: 1, dy: 0 }],
-  ['Numpad7', { type: 'move', dx: -1, dy: -1 }],
-  ['Numpad9', { type: 'move', dx: 1, dy: -1 }],
-  ['Numpad1', { type: 'move', dx: -1, dy: 1 }],
-  ['Numpad3', { type: 'move', dx: 1, dy: 1 }],
+  ['ArrowUp', { type: 'face', dx: 0, dy: -1 }],
+  ['ArrowDown', { type: 'face', dx: 0, dy: 1 }],
+  ['ArrowLeft', { type: 'face', dx: -1, dy: 0 }],
+  ['ArrowRight', { type: 'face', dx: 1, dy: 0 }],
+  ['Home', { type: 'face', dx: -1, dy: -1 }],
+  ['PageUp', { type: 'face', dx: 1, dy: -1 }],
+  ['End', { type: 'face', dx: -1, dy: 1 }],
+  ['PageDown', { type: 'face', dx: 1, dy: 1 }],
+  ['Numpad8', { type: 'face', dx: 0, dy: -1 }],
+  ['Numpad2', { type: 'face', dx: 0, dy: 1 }],
+  ['Numpad4', { type: 'face', dx: -1, dy: 0 }],
+  ['Numpad6', { type: 'face', dx: 1, dy: 0 }],
+  ['Numpad7', { type: 'face', dx: -1, dy: -1 }],
+  ['Numpad9', { type: 'face', dx: 1, dy: -1 }],
+  ['Numpad1', { type: 'face', dx: -1, dy: 1 }],
+  ['Numpad3', { type: 'face', dx: 1, dy: 1 }],
   ['Numpad5', { type: 'wait' }],
+  ['Enter', { type: 'forward' }],
+  [' ', { type: 'forward' }],
   ['.', { type: 'wait' }],
   ['>', { type: 'descend' }],
   ['g', { type: 'pickup' }],
-  ['p', { type: 'usePotion' }],
+  ['i', { type: 'item' }],
   ['r', { type: 'restart' }],
   ['?', { type: 'help' }],
-  ['h', { type: 'move', dx: -1, dy: 0 }],
-  ['j', { type: 'move', dx: 0, dy: 1 }],
-  ['k', { type: 'move', dx: 0, dy: -1 }],
-  ['l', { type: 'move', dx: 1, dy: 0 }],
-  ['y', { type: 'move', dx: -1, dy: -1 }],
-  ['u', { type: 'move', dx: 1, dy: -1 }],
-  ['b', { type: 'move', dx: -1, dy: 1 }],
-  ['n', { type: 'move', dx: 1, dy: 1 }],
+  ['h', { type: 'face', dx: -1, dy: 0 }],
+  ['j', { type: 'face', dx: 0, dy: 1 }],
+  ['k', { type: 'face', dx: 0, dy: -1 }],
+  ['l', { type: 'face', dx: 1, dy: 0 }],
+  ['y', { type: 'face', dx: -1, dy: -1 }],
+  ['u', { type: 'face', dx: 1, dy: -1 }],
+  ['b', { type: 'face', dx: -1, dy: 1 }],
+  ['n', { type: 'face', dx: 1, dy: 1 }],
 ]);
 
 export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOptions) => {
@@ -56,16 +58,16 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
   root.querySelectorAll<HTMLElement>('[data-command]').forEach((button) => {
     button.addEventListener('click', () => {
       const command = button.dataset.command;
-      if (command === 'wait' || command === 'pickup' || command === 'usePotion' || command === 'descend' || command === 'restart' || command === 'help') {
+      if (command === 'wait' || command === 'pickup' || command === 'forward' || command === 'item' || command === 'descend' || command === 'restart' || command === 'help') {
         onCommand({ type: command });
       }
     });
   });
 
-  root.querySelectorAll<HTMLElement>('[data-move]').forEach((button) => {
+  root.querySelectorAll<HTMLElement>('[data-face]').forEach((button) => {
     button.addEventListener('click', () => {
-      const [dx, dy] = button.dataset.move?.split(',').map(Number) ?? [0, 0];
-      onCommand({ type: 'move', dx, dy });
+      const [dx, dy] = button.dataset.face?.split(',').map(Number) ?? [0, 0];
+      onCommand({ type: 'face', dx, dy });
     });
   });
 
@@ -92,7 +94,7 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
     const dx = Math.sign(x - player.x);
     const dy = Math.sign(y - player.y);
     if (dx !== 0 || dy !== 0) {
-      onCommand({ type: 'move', dx, dy });
+      onCommand({ type: 'face', dx, dy });
     }
   });
 };

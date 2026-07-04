@@ -4,10 +4,12 @@ export type Point = {
 };
 
 export type Command =
-  | { type: 'move'; dx: number; dy: number }
+  | { type: 'face'; dx: number; dy: number }
+  | { type: 'forward' }
   | { type: 'wait' }
   | { type: 'pickup' }
-  | { type: 'usePotion' }
+  | { type: 'item' }
+  | { type: 'useItem'; item: 'potion' }
   | { type: 'descend' }
   | { type: 'restart' }
   | { type: 'help' };
@@ -47,6 +49,7 @@ export type PlayerState = {
   depth: number;
   xp: number;
   potions: number;
+  facing: Point;
 };
 
 export type GameSnapshot = {

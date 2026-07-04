@@ -41,31 +41,33 @@
           <section class="panel-block controls-block">
             <h2>Controls</h2>
             <div class="mobile-controls" aria-label="Touch controls">
-              <div class="dpad" aria-label="Movement">
-                <button data-move="-1,-1" aria-label="Move northwest">NW</button>
-                <button data-move="0,-1" aria-label="Move north">N</button>
-                <button data-move="1,-1" aria-label="Move northeast">NE</button>
-                <button data-move="-1,0" aria-label="Move west">W</button>
+              <div class="dpad" aria-label="Facing">
+                <button data-face="-1,-1" aria-label="Face northwest">NW</button>
+                <button data-face="0,-1" aria-label="Face north">N</button>
+                <button data-face="1,-1" aria-label="Face northeast">NE</button>
+                <button data-face="-1,0" aria-label="Face west">W</button>
                 <button data-command="wait" aria-label="Wait">Wait</button>
-                <button data-move="1,0" aria-label="Move east">E</button>
-                <button data-move="-1,1" aria-label="Move southwest">SW</button>
-                <button data-move="0,1" aria-label="Move south">S</button>
-                <button data-move="1,1" aria-label="Move southeast">SE</button>
+                <button data-face="1,0" aria-label="Face east">E</button>
+                <button data-face="-1,1" aria-label="Face southwest">SW</button>
+                <button data-face="0,1" aria-label="Face south">S</button>
+                <button data-face="1,1" aria-label="Face southeast">SE</button>
               </div>
               <div class="quick-actions" aria-label="Actions">
                 <button data-command="pickup">Pick</button>
-                <button data-command="usePotion">Potion</button>
+                <button data-command="forward">Forward</button>
                 <button data-command="descend">&gt;</button>
+                <button data-command="item">Item</button>
               </div>
             </div>
           </section>
           <section class="panel-block keyboard-block">
             <h2>Keyboard</h2>
             <div class="key-list">
-              <span>Move: arrows, numpad, hjklyubn</span>
+              <span>Face: arrows, numpad, hjklyubn</span>
+              <span>Forward: enter / space</span>
               <span>Wait: . / 5</span>
               <span>Pick up: g</span>
-              <span>Potion: p</span>
+              <span>Items: i</span>
               <span>Stairs: &gt;</span>
             </div>
           </section>
@@ -76,9 +78,19 @@
     <dialog id="help-dialog" class="help-dialog">
       <form method="dialog">
         <h2>Roguelike Prototype</h2>
-        <p>Explore the dungeon, fight enemies, drink potions, and descend when you find stairs.</p>
-        <p>Turns advance when you move, wait, use an item, or descend. The engine is split into reusable state, systems, input, and renderer modules.</p>
+        <p>Face a direction, move forward, fight enemies, use items, and descend when you find stairs.</p>
+        <p>Turns advance when you move forward, wait, use an item, or descend. Facing changes do not spend a turn.</p>
         <button class="text-button">Close</button>
+      </form>
+    </dialog>
+
+    <dialog id="item-dialog" class="item-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <h2>Items</h2>
+          <button class="icon-button">X</button>
+        </div>
+        <div id="item-list" class="item-list"></div>
       </form>
     </dialog>
 

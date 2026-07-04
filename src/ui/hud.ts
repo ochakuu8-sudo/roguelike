@@ -3,19 +3,20 @@ import type { GameSnapshot } from '../engine/types';
 type HudRoots = {
   statusRoot: HTMLElement;
   inventoryRoot: HTMLElement;
+  itemListRoot: HTMLElement;
   logRoot: HTMLOListElement;
+  onUseItem: (item: 'potion') => void;
 };
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
-  const potionButton = document.querySelector<HTMLButtonElement>('[data-command="usePotion"]');
 
   roots.statusRoot.replaceChildren(
     metric('HP', `${Math.max(0, stats?.hp ?? 0)} / ${stats?.maxHp ?? 0}`),
     metric('Floor', String(snapshot.player.depth)),
+    metric('Facing', directionLabel(snapshot.player.facing.x, snapshot.player.facing.y)),
     metric('Attack', String(stats?.attack ?? 0)),
-    metric('XP', String(snapshot.player.xp)),
   );
 
   roots.inventoryRoot.replaceChildren(
@@ -30,9 +31,9 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
     }),
   );
 
-  if (potionButton) {
-    potionButton.textContent = `Potion x${snapshot.player.potions}`;
-  }
+  roots.itemListRoot.replaceChildren(
+    inventoryAction('Healing Potion', snapshot.player.potions, 'Recover up to 10 HP.', () => roots.onUseItem('potion')),
+  );
 };
 
 const metric = (label: string, value: string) => {
@@ -64,4 +65,51 @@ const inventoryItem = (name: string, count: number, description: string) => {
 
   item.append(label, value, detail);
   return item;
+};
+
+const inventoryAction = (name: string, count: number, description: string, onUse: () => void) => {
+  const item = document.createElement('div');
+  item.className = 'item-row';
+
+  const body = document.createElement('div');
+  const label = document.createElement('strong');
+  label.textContent = name;
+
+  const detail = document.createElement('small');
+  detail.textContent = `${description} x${count}`;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Use';
+  button.disabled = count <= 0;
+  button.addEventListener('click', onUse);
+
+  body.append(label, detail);
+  item.append(body, button);
+  return item;
+};
+
+const directionLabel = (dx: number, dy: number) => {
+  if (dx === 0 && dy < 0) {
+    return 'N';
+  }
+  if (dx > 0 && dy < 0) {
+    return 'NE';
+  }
+  if (dx > 0 && dy === 0) {
+    return 'E';
+  }
+  if (dx > 0 && dy > 0) {
+    return 'SE';
+  }
+  if (dx === 0 && dy > 0) {
+    return 'S';
+  }
+  if (dx < 0 && dy > 0) {
+    return 'SW';
+  }
+  if (dx < 0 && dy === 0) {
+    return 'W';
+  }
+  return 'NW';
 };

@@ -40,6 +40,7 @@ export class CanvasRenderer {
 
     this.drawTiles(snapshot, cellSize, offsetX, offsetY);
     this.drawEntities(snapshot, cellSize, offsetX, offsetY);
+    this.drawFacing(snapshot, cellSize, offsetX, offsetY);
 
     if (snapshot.gameOver) {
       this.drawOverlay(displayWidth, displayHeight, 'You died', 'Press Restart to enter a new dungeon.');
@@ -84,6 +85,32 @@ export class CanvasRenderer {
       this.context.fillStyle = entity.color;
       this.context.fillText(entity.glyph, offsetX + entity.x * cellSize + cellSize / 2, offsetY + entity.y * cellSize + cellSize / 2);
     });
+  }
+
+  private drawFacing(snapshot: GameSnapshot, cellSize: number, offsetX: number, offsetY: number): void {
+    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+    if (!player) {
+      return;
+    }
+
+    const markerX = player.x + snapshot.player.facing.x;
+    const markerY = player.y + snapshot.player.facing.y;
+    if (markerX < 0 || markerY < 0 || markerX >= snapshot.width || markerY >= snapshot.height) {
+      return;
+    }
+
+    const tile = snapshot.tiles[indexAt(markerX, markerY, snapshot.width)];
+    if (!tile.visible) {
+      return;
+    }
+
+    const centerX = offsetX + markerX * cellSize + cellSize / 2;
+    const centerY = offsetY + markerY * cellSize + cellSize / 2;
+    const radius = Math.max(2, cellSize * 0.16);
+    this.context.beginPath();
+    this.context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    this.context.fillStyle = 'rgba(125, 211, 252, 0.92)';
+    this.context.fill();
   }
 
   private drawOverlay(width: number, height: number, title: string, subtitle: string): void {
