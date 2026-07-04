@@ -119,8 +119,8 @@ export class CanvasRenderer {
 
   private createCamera(snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera {
     const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
-    const baseCell = Math.floor(Math.min(displayWidth / 24, displayHeight / 15));
-    const cellSize = clamp(baseCell, 18, 34);
+    const baseCell = Math.floor(Math.min(displayWidth / 31, displayHeight / 20));
+    const cellSize = clamp(baseCell, 14, 28);
     const focusX = player?.x ?? Math.floor(snapshot.width / 2);
     const focusY = player?.y ?? Math.floor(snapshot.height / 2);
     const offsetX = Math.floor(displayWidth / 2 - (focusX + 0.5) * cellSize);
@@ -220,7 +220,7 @@ export class CanvasRenderer {
     const centerY = targetTop + cellSize / 2;
     const dx = snapshot.player.facing.x;
     const dy = snapshot.player.facing.y;
-    const markerSize = Math.max(3, Math.floor(cellSize * 0.12));
+    const markerSize = Math.max(4, Math.floor(cellSize * 0.2));
     const distance = Math.max(4, Math.floor(cellSize * 0.34));
     const tipX = centerX - dx * distance;
     const tipY = centerY - dy * distance;
