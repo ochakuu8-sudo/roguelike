@@ -20,7 +20,6 @@ body {
   margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -55,7 +54,7 @@ button:active {
   height: 100dvh;
   overflow: hidden;
   background: #080b0d;
-  touch-action: none;
+  touch-action: manipulation;
 }
 
 .topbar {
@@ -141,7 +140,7 @@ h2 {
   border: 0;
   border-radius: 0;
   background: #080b0d;
-  touch-action: none;
+  touch-action: manipulation;
 }
 
 .side-panel {
