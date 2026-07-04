@@ -9,7 +9,7 @@ export type Command =
   | { type: 'wait' }
   | { type: 'pickup' }
   | { type: 'item' }
-  | { type: 'useItem'; item: 'potion' }
+  | { type: 'useItem'; item: ItemKind }
   | { type: 'descend' }
   | { type: 'restart' }
   | { type: 'help' };
@@ -31,6 +31,8 @@ export type ActorStats = {
 };
 
 export type EntityKind = 'player' | 'monster' | 'item';
+export type ItemKind = 'potion' | 'impFang' | 'gnollHide';
+export type Inventory = Record<ItemKind, number>;
 
 export type Entity = {
   id: string;
@@ -43,7 +45,7 @@ export type Entity = {
   blocks: boolean;
   stats?: ActorStats;
   ai?: 'hostile';
-  item?: 'potion';
+  item?: ItemKind;
 };
 
 export type CombatEffect = {
@@ -62,7 +64,7 @@ export type CombatEffect = {
 export type PlayerState = {
   depth: number;
   xp: number;
-  potions: number;
+  inventory: Inventory;
   facing: Point;
 };
 

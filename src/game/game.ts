@@ -1,6 +1,7 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { CombatEffect, Command, Entity, GameSnapshot, Tile } from '../engine/types';
+import type { CombatEffect, Command, Entity, GameSnapshot, Inventory, ItemKind, Tile } from '../engine/types';
+import { createInventory, ITEM_DEFINITIONS } from './items';
 
 const MAP_WIDTH = 56;
 const MAP_HEIGHT = 34;
@@ -27,7 +28,8 @@ export class Game {
   private seed = Date.now();
   private depth = 1;
   private xp = 0;
-  private potions = 1;
+  private inventory: Inventory = createInventory();
+  private dropId = 0;
   private facing = { x: 0, y: 1 };
   private gameOver = false;
 
@@ -45,7 +47,7 @@ export class Game {
       player: {
         depth: this.depth,
         xp: this.xp,
-        potions: this.potions,
+        inventory: { ...this.inventory },
         facing: { ...this.facing },
       },
       messages: [...this.messages],
@@ -87,7 +89,7 @@ export class Game {
         turnResult = { usedTurn: this.pickup() };
         break;
       case 'useItem':
-        turnResult = { usedTurn: this.usePotion() };
+        turnResult = { usedTurn: this.useItem(command.item) };
         break;
       case 'item':
         break;
@@ -108,7 +110,8 @@ export class Game {
     this.seed = Date.now();
     this.depth = 1;
     this.xp = 0;
-    this.potions = 1;
+    this.inventory = createInventory();
+    this.dropId = 0;
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
     this.combatEffects = [];
@@ -190,17 +193,7 @@ export class Game {
         const itemX = cx + (ROT.RNG.getUniform() < 0.5 ? -1 : 1);
         const itemY = cy;
         if (this.isWalkable(itemX, itemY)) {
-          this.entities.push({
-            id: `potion-${this.depth}-${itemIndex++}`,
-            kind: 'item',
-            name: 'Healing Potion',
-            glyph: '!',
-            color: '#7dd3fc',
-            x: itemX,
-            y: itemY,
-            blocks: false,
-            item: 'potion',
-          });
+          this.entities.push(createItemEntity(`potion-${this.depth}-${itemIndex++}`, 'potion', itemX, itemY));
         }
       }
     });
@@ -248,17 +241,22 @@ export class Game {
       return false;
     }
 
-    if (item.item === 'potion') {
-      this.potions += 1;
+    if (item.item) {
+      this.addItem(item.item);
       this.entities = this.entities.filter((entity) => entity.id !== item.id);
-      this.pushMessage('You pick up a healing potion.');
+      this.pushMessage(`You pick up ${ITEM_DEFINITIONS[item.item].name}.`);
       return true;
     }
 
     return false;
   }
 
-  private usePotion(): boolean {
+  private useItem(item: ItemKind): boolean {
+    if (item !== 'potion') {
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name} is a crafting material.`);
+      return false;
+    }
+
     const player = this.player();
     const stats = player.stats;
 
@@ -266,7 +264,7 @@ export class Game {
       return false;
     }
 
-    if (this.potions <= 0) {
+    if (this.inventory.potion <= 0) {
       this.pushMessage('You have no potions.');
       return false;
     }
@@ -276,7 +274,7 @@ export class Game {
       return false;
     }
 
-    this.potions -= 1;
+    this.inventory.potion -= 1;
     const healed = Math.min(10, stats.maxHp - stats.hp);
     stats.hp += healed;
     this.pushMessage(`You drink a potion and recover ${healed} HP.`);
@@ -414,6 +412,7 @@ export class Game {
     if (killer.kind === 'player') {
       this.xp += 1;
       this.pushMessage(`${entity.name} dies.`);
+      this.dropMaterial(entity);
     }
   }
 
@@ -469,6 +468,17 @@ export class Game {
     this.messages = [...this.messages, message].slice(-8);
   }
 
+  private addItem(item: ItemKind, amount = 1): void {
+    this.inventory[item] += amount;
+  }
+
+  private dropMaterial(entity: Entity): void {
+    const item = materialFor(entity);
+    const definition = ITEM_DEFINITIONS[item];
+    this.entities.push(createItemEntity(`drop-${this.depth}-${++this.dropId}`, item, entity.x, entity.y));
+    this.pushMessage(`${entity.name} drops ${definition.name}.`);
+  }
+
   private pushCombatEffect(attacker: Entity, defender: Entity, damage: number): void {
     this.combatEffects = [
       {
@@ -492,6 +502,23 @@ const roomCenter = (room: RoomLike): [number, number] => {
   const [x = 0, y = 0] = room.getCenter();
   return [x, y];
 };
+
+const createItemEntity = (id: string, item: ItemKind, x: number, y: number): Entity => {
+  const definition = ITEM_DEFINITIONS[item];
+  return {
+    id,
+    kind: 'item',
+    name: definition.name,
+    glyph: definition.glyph,
+    color: definition.color,
+    x,
+    y,
+    blocks: false,
+    item,
+  };
+};
+
+const materialFor = (entity: Entity): ItemKind => (entity.name.includes('Gnoll') ? 'gnollHide' : 'impFang');
 
 const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   if (attacker.kind === 'player') {

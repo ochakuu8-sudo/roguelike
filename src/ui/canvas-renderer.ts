@@ -64,6 +64,16 @@ const SPRITES = {
     '..999...',
     '........',
   ],
+  material: [
+    '........',
+    '..CC....',
+    '.CDDC...',
+    '.CDDC...',
+    '..CC....',
+    '........',
+    '........',
+    '........',
+  ],
   stairs: [
     '........',
     '....BB..',
@@ -88,6 +98,8 @@ const PALETTE: Record<string, string> = {
   '9': '#5fc6e8',
   A: '#2b7fb3',
   B: '#6ee7b7',
+  C: '#d9f99d',
+  D: '#a16207',
 };
 
 export class CanvasRenderer {
@@ -508,7 +520,7 @@ const spriteFor = (entity: Entity) => {
     return SPRITES.player;
   }
   if (entity.kind === 'item') {
-    return SPRITES.potion;
+    return entity.item === 'potion' ? SPRITES.potion : SPRITES.material;
   }
   if (entity.name.includes('Gnoll')) {
     return SPRITES.gnoll;

@@ -245,6 +245,12 @@ h2 {
   gap: 3px 10px;
 }
 
+.empty-list {
+  margin: 0;
+  color: #9fb0ba;
+  font-size: 0.82rem;
+}
+
 .inventory-item small {
   grid-column: 1 / -1;
 }
