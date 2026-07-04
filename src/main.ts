@@ -1,6 +1,7 @@
 import './styles.css';
 import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
+import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
 import { updateBaseHud, updateHud } from './ui/hud';
 
@@ -13,10 +14,30 @@ const moneyRoot = document.querySelector<HTMLElement>('#money');
 const stashRoot = document.querySelector<HTMLElement>('#stash-list');
 const baseLogRoot = document.querySelector<HTMLOListElement>('#base-log');
 const startRaidButton = document.querySelector<HTMLButtonElement>('#start-raid-button');
+const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
+const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
+const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
+const compendiumListRoot = document.querySelector<HTMLElement>('#compendium-list');
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog');
 const itemDialog = document.querySelector<HTMLDialogElement>('#item-dialog');
 
-if (!canvas || !statusRoot || !inventoryRoot || !itemListRoot || !logRoot || !moneyRoot || !stashRoot || !baseLogRoot || !startRaidButton || !helpDialog || !itemDialog) {
+if (
+  !canvas ||
+  !statusRoot ||
+  !inventoryRoot ||
+  !itemListRoot ||
+  !logRoot ||
+  !moneyRoot ||
+  !stashRoot ||
+  !baseLogRoot ||
+  !startRaidButton ||
+  !compendiumButton ||
+  !compendiumDialog ||
+  !compendiumTabsRoot ||
+  !compendiumListRoot ||
+  !helpDialog ||
+  !itemDialog
+) {
   throw new Error('Missing app root elements.');
 }
 
@@ -52,6 +73,11 @@ const refresh = () => {
 startRaidButton.addEventListener('click', () => {
   game.dispatch({ type: 'startRaid' });
   refresh();
+});
+
+compendiumButton.addEventListener('click', () => {
+  updateCompendium({ tabsRoot: compendiumTabsRoot, listRoot: compendiumListRoot });
+  compendiumDialog.showModal();
 });
 
 bindInput({
