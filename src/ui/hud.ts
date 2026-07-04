@@ -9,6 +9,7 @@ type HudRoots = {
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
+  const potionButton = document.querySelector<HTMLButtonElement>('[data-command="usePotion"]');
 
   roots.statusRoot.replaceChildren(
     metric('HP', `${Math.max(0, stats?.hp ?? 0)} / ${stats?.maxHp ?? 0}`),
@@ -28,6 +29,10 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
       return item;
     }),
   );
+
+  if (potionButton) {
+    potionButton.textContent = `Potion x${snapshot.player.potions}`;
+  }
 };
 
 const metric = (label: string, value: string) => {
