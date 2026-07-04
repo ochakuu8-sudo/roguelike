@@ -31,6 +31,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
       return item;
     }),
   );
+  roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
   roots.itemListRoot.replaceChildren(
     inventoryAction('Healing Potion', snapshot.player.potions, 'Recover up to 10 HP.', () => roots.onUseItem('potion')),

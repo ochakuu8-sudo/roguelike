@@ -466,7 +466,7 @@ export class Game {
   }
 
   private pushMessage(message: string): void {
-    this.messages = [message, ...this.messages].slice(0, 8);
+    this.messages = [...this.messages, message].slice(-8);
   }
 
   private pushCombatEffect(attacker: Entity, defender: Entity, damage: number): void {

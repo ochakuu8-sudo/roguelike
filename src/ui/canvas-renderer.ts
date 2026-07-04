@@ -258,6 +258,27 @@ export class CanvasRenderer {
     visibleEntities.forEach((entity) => {
       this.drawEntity(entity, cellSize, offsetX, offsetY, combatEffects);
     });
+
+    this.drawCombatGhosts(snapshot, camera, combatEffects, new Set(visibleEntities.map((entity) => entity.id)));
+  }
+
+  private drawCombatGhosts(snapshot: GameSnapshot, camera: Camera, combatEffects: ActiveCombatEffect[], visibleEntityIds: Set<string>): void {
+    const ghosts = combatEffects.flatMap((effect) => [
+      combatGhost(effect, 'attacker'),
+      combatGhost(effect, 'defender'),
+    ]);
+
+    ghosts
+      .filter((entity) => !visibleEntityIds.has(entity.id))
+      .filter((entity) => {
+        const left = camera.offsetX + entity.x * camera.cellSize;
+        const top = camera.offsetY + entity.y * camera.cellSize;
+        return isInViewport(left, top, camera.cellSize, camera) && snapshot.tiles[indexAt(entity.x, entity.y, snapshot.width)]?.explored;
+      })
+      .sort((a, b) => entityLayer(a) - entityLayer(b))
+      .forEach((entity) => {
+        this.drawEntity(entity, camera.cellSize, camera.offsetX, camera.offsetY, combatEffects);
+      });
   }
 
   private drawTileTexture(tile: Tile, x: number, y: number, cellSize: number, offsetX: number, offsetY: number): void {
@@ -443,6 +464,44 @@ const tileCenter = (point: { x: number; y: number }, camera: Camera) => ({
 });
 
 const easeOut = (value: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, value)), 3);
+
+const combatGhost = (effect: CombatEffect, role: 'attacker' | 'defender'): Entity => {
+  const isAttacker = role === 'attacker';
+  const kind = isAttacker ? effect.attackerKind : effect.defenderKind;
+  const name = isAttacker ? effect.attackerName : effect.defenderName;
+  const point = isAttacker ? effect.from : effect.to;
+
+  return {
+    id: isAttacker ? effect.attackerId : effect.defenderId,
+    kind,
+    name,
+    glyph: glyphFor(kind, name),
+    color: colorFor(kind, name),
+    x: point.x,
+    y: point.y,
+    blocks: false,
+  };
+};
+
+const glyphFor = (kind: Entity['kind'], name: string) => {
+  if (kind === 'player') {
+    return '@';
+  }
+  if (kind === 'item') {
+    return '!';
+  }
+  return name.includes('Gnoll') ? 'G' : 'i';
+};
+
+const colorFor = (kind: Entity['kind'], name: string) => {
+  if (kind === 'player') {
+    return '#e8f6ff';
+  }
+  if (kind === 'item') {
+    return '#7dd3fc';
+  }
+  return name.includes('Gnoll') ? '#f0a95b' : '#d97878';
+};
 
 const spriteFor = (entity: Entity) => {
   if (entity.kind === 'player') {
