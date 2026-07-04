@@ -7,7 +7,7 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
   stairs: '#152f2d',
 };
 
-const FIXED_CELL_SIZE = 14;
+const FIXED_CELL_SIZE = 15;
 
 type Camera = {
   cellSize: number;
