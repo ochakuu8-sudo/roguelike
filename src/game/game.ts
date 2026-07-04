@@ -185,7 +185,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.createBase('拠点に戻った。施設の前で調べると利用できる。');
+    this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
   private startRaid(): void {
@@ -365,9 +365,10 @@ export class Game {
   }
 
   private interactBase(): void {
-    const station = this.stationInFront();
+    const station = this.stationForInteraction();
     if (!station) {
-      this.pushMessage('正面には利用できる施設がない。');
+      const nearest = this.nearestStation();
+      this.pushMessage(nearest ? `${nearest.name}は${directionFromPlayer(nearest, this.player())}にある。近づいて調べよう。` : '利用できる施設がない。');
       return;
     }
 
@@ -662,14 +663,28 @@ export class Game {
     return player;
   }
 
-  private stationInFront(): Entity | undefined {
+  private stationForInteraction(): Entity | undefined {
     const player = this.player();
-    return this.entities.find(
+    const inFront = this.entities.find(
       (entity) =>
         entity.kind === 'station' &&
         entity.x === player.x + this.facing.x &&
         entity.y === player.y + this.facing.y,
     );
+    if (inFront) {
+      return inFront;
+    }
+
+    return this.entities
+      .filter((entity) => entity.kind === 'station' && chebyshev(entity, player) <= 1)
+      .sort((a, b) => a.id.localeCompare(b.id))[0];
+  }
+
+  private nearestStation(): Entity | undefined {
+    const player = this.player();
+    return this.entities
+      .filter((entity) => entity.kind === 'station')
+      .sort((a, b) => chebyshev(a, player) - chebyshev(b, player))[0];
   }
 
   private stashSummary(): string {
@@ -780,6 +795,34 @@ const createStationEntity = (id: string, station: StationKind, name: string, gly
   blocks: true,
   station,
 });
+
+const directionFromPlayer = (target: Entity, player: Entity) => {
+  const dx = Math.sign(target.x - player.x);
+  const dy = Math.sign(target.y - player.y);
+
+  if (dx === 0 && dy < 0) {
+    return '北';
+  }
+  if (dx > 0 && dy < 0) {
+    return '北東';
+  }
+  if (dx > 0 && dy === 0) {
+    return '東';
+  }
+  if (dx > 0 && dy > 0) {
+    return '南東';
+  }
+  if (dx === 0 && dy > 0) {
+    return '南';
+  }
+  if (dx < 0 && dy > 0) {
+    return '南西';
+  }
+  if (dx < 0 && dy === 0) {
+    return '西';
+  }
+  return '北西';
+};
 
 const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   if (attacker.kind === 'player') {

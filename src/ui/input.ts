@@ -28,6 +28,7 @@ const KEY_COMMANDS = new Map<string, Command>([
   ['Enter', { type: 'forward' }],
   [' ', { type: 'forward' }],
   ['e', { type: 'interact' }],
+  ['E', { type: 'interact' }],
   ['.', { type: 'wait' }],
   ['>', { type: 'descend' }],
   ['g', { type: 'pickup' }],
