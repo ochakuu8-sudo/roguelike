@@ -19,6 +19,10 @@ body {
   min-width: 320px;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 body {
@@ -51,6 +55,7 @@ button:active {
   height: 100dvh;
   overflow: hidden;
   background: #080b0d;
+  touch-action: none;
 }
 
 .topbar {
@@ -136,6 +141,7 @@ h2 {
   border: 0;
   border-radius: 0;
   background: #080b0d;
+  touch-action: none;
 }
 
 .side-panel {
