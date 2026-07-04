@@ -1,4 +1,4 @@
-import { clamp, indexAt } from '../engine/grid';
+import { indexAt } from '../engine/grid';
 import type { Entity, GameSnapshot, Tile } from '../engine/types';
 
 const TILE_COLORS: Record<Tile['kind'], string> = {
@@ -6,6 +6,8 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
   floor: '#12181b',
   stairs: '#152f2d',
 };
+
+const FIXED_CELL_SIZE = 16;
 
 type Camera = {
   cellSize: number;
@@ -119,8 +121,7 @@ export class CanvasRenderer {
 
   private createCamera(snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera {
     const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
-    const baseCell = Math.floor(Math.min(displayWidth / 31, displayHeight / 20));
-    const cellSize = clamp(baseCell, 14, 28);
+    const cellSize = FIXED_CELL_SIZE;
     const focusX = player?.x ?? Math.floor(snapshot.width / 2);
     const focusY = player?.y ?? Math.floor(snapshot.height / 2);
     const offsetX = Math.floor(displayWidth / 2 - (focusX + 0.5) * cellSize);
