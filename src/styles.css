@@ -156,7 +156,7 @@ h2 {
 .base-layout {
   display: grid;
   grid-template-columns: minmax(220px, 0.9fr) minmax(160px, 0.55fr) minmax(260px, 1fr);
-  grid-template-rows: auto minmax(120px, 1fr);
+  grid-template-rows: auto auto minmax(110px, 1fr);
   gap: 10px;
   max-width: 1040px;
   margin: 0 auto;
@@ -165,6 +165,7 @@ h2 {
 .base-summary,
 .base-panel {
   min-width: 0;
+  min-height: 0;
   border: 1px solid rgba(122, 146, 158, 0.34);
   border-radius: 8px;
   background: rgba(14, 21, 25, 0.78);
@@ -172,7 +173,7 @@ h2 {
 }
 
 .base-summary {
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
 }
 
 .base-summary p {
@@ -203,11 +204,17 @@ h2 {
 }
 
 .stash-panel {
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
 }
 
 .base-log-panel {
   grid-column: 2;
+}
+
+.craft-panel .item-list,
+.stash-panel .item-list {
+  max-height: 100%;
+  overflow: auto;
 }
 
 #game-canvas {
@@ -638,20 +645,24 @@ h2 {
 
   .base-screen {
     padding-top: max(58px, calc(env(safe-area-inset-top) + 54px));
+    overflow: hidden;
   }
 
   .base-layout {
     grid-template-columns: minmax(180px, 0.85fr) minmax(140px, 0.55fr) minmax(230px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
+    height: calc(100dvh - max(58px, calc(env(safe-area-inset-top) + 54px)) - max(10px, env(safe-area-inset-bottom)));
   }
 
   .base-summary,
   .base-panel {
     padding: 9px;
+    overflow: auto;
   }
 
   .base-summary p {
-    font-size: 0.78rem;
+    display: none;
   }
 }
 

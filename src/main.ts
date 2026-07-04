@@ -12,6 +12,7 @@ const itemListRoot = document.querySelector<HTMLElement>('#item-list');
 const logRoot = document.querySelector<HTMLOListElement>('#message-log');
 const moneyRoot = document.querySelector<HTMLElement>('#money');
 const stashRoot = document.querySelector<HTMLElement>('#stash-list');
+const craftRoot = document.querySelector<HTMLElement>('#craft-list');
 const baseLogRoot = document.querySelector<HTMLOListElement>('#base-log');
 const startRaidButton = document.querySelector<HTMLButtonElement>('#start-raid-button');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
@@ -29,6 +30,7 @@ if (
   !logRoot ||
   !moneyRoot ||
   !stashRoot ||
+  !craftRoot ||
   !baseLogRoot ||
   !startRaidButton ||
   !compendiumButton ||
@@ -62,9 +64,14 @@ const refresh = () => {
   updateBaseHud(snapshot, {
     moneyRoot,
     stashRoot,
+    craftRoot,
     baseLogRoot,
     onSellItem: (item) => {
       game.dispatch({ type: 'sellItem', item });
+      refresh();
+    },
+    onCraftItem: (recipe) => {
+      game.dispatch({ type: 'craftItem', recipe });
       refresh();
     },
   });

@@ -1,4 +1,5 @@
 import { ITEM_DEFINITIONS, ITEM_KINDS } from './items';
+import { CRAFTING_RECIPES, formatStack } from './recipes';
 
 export type EnemyEntry = {
   id: string;
@@ -60,13 +61,11 @@ export const ITEM_ENTRIES: ItemEntry[] = ITEM_KINDS.map((id) => {
   };
 });
 
-export const RECIPE_ENTRIES: RecipeEntry[] = [
-  {
-    id: 'potion',
-    name: '回復薬',
-    description: '探索に持ち込む基本的な回復アイテム。クラフト機能追加後に作成可能になる予定。',
-    ingredients: ['インプの牙 ×1', 'ノールの皮 ×1'],
-    result: '回復薬 ×1',
-    facility: '作業台 Lv.1',
-  },
-];
+export const RECIPE_ENTRIES: RecipeEntry[] = CRAFTING_RECIPES.map((recipe) => ({
+  id: recipe.id,
+  name: ITEM_DEFINITIONS[recipe.result.item].name,
+  description: recipe.description,
+  ingredients: recipe.ingredients.map(formatStack),
+  result: formatStack(recipe.result),
+  facility: recipe.facility,
+}));

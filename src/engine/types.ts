@@ -13,6 +13,7 @@ export type Command =
   | { type: 'descend' }
   | { type: 'startRaid' }
   | { type: 'sellItem'; item: ItemKind }
+  | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
   | { type: 'help' };
 
@@ -34,6 +35,7 @@ export type ActorStats = {
 
 export type EntityKind = 'player' | 'monster' | 'item';
 export type ItemKind = 'potion' | 'impFang' | 'gnollHide';
+export type RecipeId = 'potion';
 export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';
 

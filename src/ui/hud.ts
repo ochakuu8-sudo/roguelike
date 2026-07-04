@@ -1,5 +1,6 @@
-import type { GameSnapshot, ItemKind } from '../engine/types';
+import type { GameSnapshot, ItemKind, RecipeId } from '../engine/types';
 import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { CRAFTING_RECIPES, formatStack, hasIngredients } from '../game/recipes';
 
 type HudRoots = {
   statusRoot: HTMLElement;
@@ -12,8 +13,10 @@ type HudRoots = {
 type BaseRoots = {
   moneyRoot: HTMLElement;
   stashRoot: HTMLElement;
+  craftRoot: HTMLElement;
   baseLogRoot: HTMLOListElement;
   onSellItem: (item: ItemKind) => void;
+  onCraftItem: (recipe: RecipeId) => void;
 };
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
@@ -65,6 +68,12 @@ export const updateBaseHud = (snapshot: GameSnapshot, roots: BaseRoots) => {
       '倉庫は空です',
     ),
   );
+  roots.craftRoot.replaceChildren(
+    ...CRAFTING_RECIPES.map((recipe) =>
+      recipeAction(recipe, hasIngredients(snapshot.stash, recipe), () => roots.onCraftItem(recipe.id)),
+    ),
+  );
+
   roots.baseLogRoot.replaceChildren(
     ...snapshot.messages.slice(-6).map((message) => {
       const item = document.createElement('li');
@@ -149,6 +158,29 @@ const stashAction = (itemKind: ItemKind, count: number, onSell: () => void) => {
   button.textContent = '売る';
   button.disabled = count <= 0;
   button.addEventListener('click', onSell);
+
+  body.append(label, detail);
+  item.append(body, button);
+  return item;
+};
+
+const recipeAction = (recipe: (typeof CRAFTING_RECIPES)[number], canCraft: boolean, onCraft: () => void) => {
+  const result = ITEM_DEFINITIONS[recipe.result.item];
+  const item = document.createElement('div');
+  item.className = 'item-row';
+
+  const body = document.createElement('div');
+  const label = document.createElement('strong');
+  label.textContent = formatStack(recipe.result);
+
+  const detail = document.createElement('small');
+  detail.textContent = `${recipe.ingredients.map(formatStack).join(' / ')} → ${result.name}`;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '作る';
+  button.disabled = !canCraft;
+  button.addEventListener('click', onCraft);
 
   body.append(label, detail);
   item.append(body, button);

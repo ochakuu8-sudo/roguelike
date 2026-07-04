@@ -1,7 +1,8 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, Tile } from '../engine/types';
+import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, Tile } from '../engine/types';
 import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, RAID_CAPACITY } from './items';
+import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 56;
 const MAP_HEIGHT = 34;
@@ -81,6 +82,11 @@ export class Game {
 
     if (command.type === 'sellItem') {
       this.sellItem(command.item);
+      return;
+    }
+
+    if (command.type === 'craftItem') {
+      this.craftItem(command.recipe);
       return;
     }
 
@@ -363,6 +369,28 @@ export class Game {
     this.stash[item] -= 1;
     this.money += ITEM_DEFINITIONS[item].value;
     this.pushMessage(`${ITEM_DEFINITIONS[item].name}を${ITEM_DEFINITIONS[item].value}Gで売却した。`);
+  }
+
+  private craftItem(recipeId: RecipeId): void {
+    if (this.mode !== 'base') {
+      this.pushMessage('クラフトは拠点でのみ行える。');
+      return;
+    }
+
+    const recipe = recipeById(recipeId);
+    if (!recipe) {
+      this.pushMessage('そのレシピはまだ使えない。');
+      return;
+    }
+
+    if (!hasIngredients(this.stash, recipe)) {
+      this.pushMessage(`${formatStack(recipe.result)}の素材が足りない。`);
+      return;
+    }
+
+    consumeIngredients(this.stash, recipe);
+    addRecipeResult(this.stash, recipe);
+    this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
   }
 
   private enemyTurn(skipEnemyId?: string): void {
