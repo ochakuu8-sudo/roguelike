@@ -155,13 +155,6 @@ h2 {
   pointer-events: auto;
 }
 
-@supports (backdrop-filter: blur(10px)) {
-  .panel-block,
-  button {
-    backdrop-filter: blur(10px);
-  }
-}
-
 .status-block {
   top: max(64px, calc(env(safe-area-inset-top) + 58px));
   left: max(10px, env(safe-area-inset-left));
