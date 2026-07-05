@@ -16,7 +16,6 @@ type HudRoots = {
   interactButton: HTMLButtonElement;
   attackButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
-  onUseItem: (item: ItemKind) => void;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
 
@@ -38,15 +37,14 @@ type ContextAction = {
 type InventoryGridOptions = {
   layout: 'stash' | 'raidBag' | 'hand';
   location: InventoryLocation;
-  moveTarget: InventoryLocation;
   minSlots: number;
-  onUseItem?: (item: ItemKind) => void;
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
 
 const STASH_MIN_SLOTS = 60;
 const EQUIPMENT_SLOTS = 6;
-const SWIPE_MOVE_THRESHOLD = 28;
+
+let selectedInventoryTransfer: { item: ItemKind; from: InventoryLocation } | null = null;
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
@@ -54,7 +52,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
   updateHandSwitcher(snapshot, roots);
 
-  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot, undefined, roots.onMoveItem));
+  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem));
 
   roots.logRoot.replaceChildren(
     ...snapshot.messages.map((message) => {
@@ -65,7 +63,9 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   );
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
-  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onUseItem, roots.onMoveItem));
+  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem));
+  clearInvalidInventorySelection(snapshot);
+  updateInventorySelectionStyles();
 
   updateActionControls(snapshot, roots);
 };
@@ -273,7 +273,6 @@ const slotText = (labelText: string, detailText: string) => {
 
 const inventoryPanelNodes = (
   snapshot: GameSnapshot,
-  onUseItem?: (item: ItemKind) => void,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
 ) => {
   if (snapshot.mode === 'base') {
@@ -284,7 +283,6 @@ const inventoryPanelNodes = (
       inventoryGrid(loadout, {
         layout: 'hand',
         location: 'hand',
-        moveTarget: 'stash',
         minSlots: EQUIPMENT_SLOTS,
         onMoveItem,
       }),
@@ -292,7 +290,6 @@ const inventoryPanelNodes = (
       inventoryGrid(storage, {
         layout: 'stash',
         location: 'stash',
-        moveTarget: 'hand',
         minSlots: STASH_MIN_SLOTS,
         onMoveItem,
       }),
@@ -308,9 +305,7 @@ const inventoryPanelNodes = (
     inventoryGrid(snapshot.player.handInventory, {
       layout: 'hand',
       location: 'hand',
-      moveTarget: 'raidBag',
       minSlots: EQUIPMENT_SLOTS,
-      onUseItem,
       onMoveItem,
     }),
     inventorySummary(
@@ -321,7 +316,6 @@ const inventoryPanelNodes = (
     inventoryGrid(snapshot.player.raidInventory, {
       layout: 'raidBag',
       location: 'raidBag',
-      moveTarget: 'hand',
       minSlots: snapshot.player.raidCapacity,
       onMoveItem,
     }),
@@ -351,6 +345,13 @@ const inventoryGrid = (
   const grid = document.createElement('div');
   grid.className = `inventory-grid inventory-grid-${options.layout}`;
   grid.dataset.inventoryLocation = options.location;
+  grid.addEventListener('click', (event) => {
+    if (event.target instanceof HTMLElement && event.target.closest('.inventory-slot:not(.is-empty)')) {
+      return;
+    }
+
+    moveSelectedItemTo(options.location, options.onMoveItem);
+  });
 
   for (let index = 0; index < slotCount; index += 1) {
     const item = items[index];
@@ -362,27 +363,14 @@ const inventoryGrid = (
 
 const inventorySlot = (itemKind: ItemKind, countValue: number, options: InventoryGridOptions) => {
   const definition = ITEM_DEFINITIONS[itemKind];
-  const interactive = Boolean(options.onUseItem && definition.category === 'consumable');
-  const slot = document.createElement(interactive ? 'button' : 'div');
+  const slot = document.createElement('button');
   slot.className = 'inventory-slot';
+  slot.type = 'button';
   slot.dataset.item = itemKind;
   slot.dataset.inventoryLocation = options.location;
   slot.setAttribute('aria-label', `${definition.name} x${countValue}`);
   slot.title = `${definition.name} x${countValue}: ${definition.description}`;
-
-  if (slot instanceof HTMLButtonElement) {
-    slot.type = 'button';
-    slot.addEventListener('click', (event) => {
-      if (slot.dataset.swipeMoved === 'true') {
-        event.preventDefault();
-        slot.dataset.swipeMoved = '';
-        return;
-      }
-      options.onUseItem?.(itemKind);
-    });
-  }
-
-  bindInventorySwipe(slot, itemKind, options);
+  slot.addEventListener('click', () => handleInventorySlotTap(itemKind, options));
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
@@ -400,117 +388,88 @@ const inventorySlot = (itemKind: ItemKind, countValue: number, options: Inventor
   return slot;
 };
 
-const bindInventorySwipe = (slot: HTMLElement, itemKind: ItemKind, options: InventoryGridOptions) => {
-  if (!options.onMoveItem) {
+const handleInventorySlotTap = (itemKind: ItemKind, options: InventoryGridOptions) => {
+  if (selectedInventoryTransfer) {
+    if (selectedInventoryTransfer.from !== options.location) {
+      options.onMoveItem?.(selectedInventoryTransfer.item, selectedInventoryTransfer.from, options.location);
+      selectedInventoryTransfer = null;
+      updateInventorySelectionStyles();
+      return;
+    }
+
+    if (selectedInventoryTransfer.item === itemKind) {
+      selectedInventoryTransfer = null;
+      updateInventorySelectionStyles();
+      return;
+    }
+  }
+
+  selectedInventoryTransfer = { item: itemKind, from: options.location };
+  updateInventorySelectionStyles();
+};
+
+const moveSelectedItemTo = (
+  location: InventoryLocation,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+) => {
+  if (!selectedInventoryTransfer || selectedInventoryTransfer.from === location) {
     return;
   }
 
-  let startX = 0;
-  let startY = 0;
-  let pointerId: number | null = null;
-  let activeInput: 'pointer' | 'mouse' | null = null;
-
-  const beginSwipe = (x: number, y: number, input: 'pointer' | 'mouse') => {
-    if (activeInput && activeInput !== input) {
-      return false;
-    }
-
-    activeInput = input;
-    startX = x;
-    startY = y;
-    slot.classList.add('is-swiping');
-    return true;
-  };
-
-  const cancelSwipe = () => {
-    pointerId = null;
-    activeInput = null;
-    slot.classList.remove('is-swiping');
-  };
-
-  const finishSwipe = (x: number, y: number, event: Event) => {
-    if (!activeInput) {
-      return;
-    }
-
-    const dx = x - startX;
-    const dy = y - startY;
-    const distance = Math.hypot(dx, dy);
-    cancelSwipe();
-
-    if (distance < SWIPE_MOVE_THRESHOLD) {
-      return;
-    }
-
-    const target = inventoryDropTarget(x, y, options.location) ?? directionalMoveTarget(dy, options);
-    if (!target) {
-      return;
-    }
-
-    slot.dataset.swipeMoved = 'true';
-    event.preventDefault();
-    options.onMoveItem?.(itemKind, options.location, target);
-  };
-
-  slot.addEventListener('pointerdown', (event) => {
-    pointerId = event.pointerId;
-    beginSwipe(event.clientX, event.clientY, 'pointer');
-    slot.setPointerCapture(event.pointerId);
-
-    const onPointerUp = (pointerUpEvent: PointerEvent) => {
-      if (pointerId !== pointerUpEvent.pointerId) {
-        return;
-      }
-
-      document.removeEventListener('pointerup', onPointerUp);
-      pointerId = null;
-      finishSwipe(pointerUpEvent.clientX, pointerUpEvent.clientY, pointerUpEvent);
-    };
-
-    document.addEventListener('pointerup', onPointerUp);
-  });
-
-  slot.addEventListener('pointercancel', cancelSwipe);
-
-  slot.addEventListener('lostpointercapture', () => {
-    slot.classList.remove('is-swiping');
-  });
-
-  slot.addEventListener('pointerup', (event) => {
-    if (pointerId !== event.pointerId) {
-      return;
-    }
-
-    pointerId = null;
-    finishSwipe(event.clientX, event.clientY, event);
-  });
-
-  slot.addEventListener('mousedown', (event) => {
-    if (event.button !== 0 || !beginSwipe(event.clientX, event.clientY, 'mouse')) {
-      return;
-    }
-
-    const onMouseUp = (mouseUpEvent: MouseEvent) => {
-      document.removeEventListener('mouseup', onMouseUp);
-      finishSwipe(mouseUpEvent.clientX, mouseUpEvent.clientY, mouseUpEvent);
-    };
-
-    document.addEventListener('mouseup', onMouseUp);
-  });
+  onMoveItem?.(selectedInventoryTransfer.item, selectedInventoryTransfer.from, location);
+  selectedInventoryTransfer = null;
+  updateInventorySelectionStyles();
 };
 
-const inventoryDropTarget = (x: number, y: number, source: InventoryLocation): InventoryLocation | undefined => {
-  const element = document.elementFromPoint(x, y);
-  const grid = element?.closest<HTMLElement>('.inventory-grid');
-  const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
-  return location && location !== source ? location : undefined;
-};
+const updateInventorySelectionStyles = () => {
+  document.querySelectorAll<HTMLElement>('.inventory-slot.is-selected').forEach((slot) => {
+    slot.classList.remove('is-selected');
+    slot.removeAttribute('aria-pressed');
+  });
 
-const directionalMoveTarget = (dy: number, options: InventoryGridOptions): InventoryLocation | undefined => {
-  if (options.moveTarget === 'hand') {
-    return dy < -SWIPE_MOVE_THRESHOLD * 0.6 ? options.moveTarget : undefined;
+  if (!selectedInventoryTransfer) {
+    return;
   }
-  return dy > SWIPE_MOVE_THRESHOLD * 0.6 ? options.moveTarget : undefined;
+
+  document
+    .querySelectorAll<HTMLElement>(
+      `.inventory-slot[data-item="${selectedInventoryTransfer.item}"][data-inventory-location="${selectedInventoryTransfer.from}"]`,
+    )
+    .forEach((slot) => {
+      slot.classList.add('is-selected');
+      slot.setAttribute('aria-pressed', 'true');
+    });
+};
+
+const clearInvalidInventorySelection = (snapshot: GameSnapshot) => {
+  if (!selectedInventoryTransfer) {
+    return;
+  }
+
+  const inventory = inventoryForSnapshotLocation(snapshot, selectedInventoryTransfer.from);
+  if (!inventory || inventory[selectedInventoryTransfer.item] <= 0) {
+    selectedInventoryTransfer = null;
+  }
+};
+
+const inventoryForSnapshotLocation = (snapshot: GameSnapshot, location: InventoryLocation): Inventory | undefined => {
+  if (snapshot.mode === 'base') {
+    if (location === 'hand') {
+      return snapshot.baseLoadout;
+    }
+    if (location === 'stash') {
+      return snapshot.stash;
+    }
+    return undefined;
+  }
+
+  if (location === 'hand') {
+    return snapshot.player.handInventory;
+  }
+  if (location === 'raidBag') {
+    return snapshot.player.raidInventory;
+  }
+  return undefined;
 };
 
 const emptyInventorySlot = (index: number) => {

@@ -87,11 +87,6 @@ const refresh = () => {
     interactButton,
     attackButton,
     heldActionButton,
-    onUseItem: (item) => {
-      game.dispatch({ type: 'useItem', item });
-      itemDialog.close();
-      refresh();
-    },
     onMoveItem: (item, from, to) => {
       game.dispatch({ type: 'moveItem', item, from, to });
       refresh();
