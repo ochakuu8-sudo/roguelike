@@ -1,6 +1,7 @@
 import './styles.css';
 import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
+import type { Command, Entity, GameSnapshot } from './engine/types';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
 import { updateBasePlanning, updateHud } from './ui/hud';
@@ -66,6 +67,35 @@ if (
 const game = new Game();
 const renderer = new CanvasRenderer(canvas);
 
+const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+
+const stationInFront = (snapshot: GameSnapshot, player: Entity) =>
+  snapshot.entities.find(
+    (entity) =>
+      entity.kind === 'station' &&
+      entity.x === player.x + snapshot.player.facing.x &&
+      entity.y === player.y + snapshot.player.facing.y,
+  );
+
+const shouldOpenBasePlanning = (command: Command) => {
+  if (command.type !== 'interact') {
+    return false;
+  }
+
+  const snapshot = game.snapshot();
+  const player = playerEntity(snapshot);
+  if (snapshot.mode !== 'base' || !player) {
+    return false;
+  }
+
+  return stationInFront(snapshot, player)?.station === 'raidGate';
+};
+
+const openBasePlanning = () => {
+  refresh();
+  document.body.classList.add('show-base-planning');
+};
+
 const refresh = () => {
   const snapshot = game.snapshot();
   document.body.classList.toggle('is-base', snapshot.mode === 'base');
@@ -116,10 +146,7 @@ const refresh = () => {
   baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
 };
 
-basePlanningButton.addEventListener('click', () => {
-  refresh();
-  document.body.classList.add('show-base-planning');
-});
+basePlanningButton.addEventListener('click', openBasePlanning);
 
 basePlanningCloseButton.addEventListener('click', () => {
   document.body.classList.remove('show-base-planning');
@@ -143,6 +170,11 @@ bindInput({
     if (command.type === 'item') {
       refresh();
       itemDialog.showModal();
+      return;
+    }
+
+    if (shouldOpenBasePlanning(command)) {
+      openBasePlanning();
       return;
     }
 

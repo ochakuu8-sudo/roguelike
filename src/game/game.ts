@@ -594,7 +594,7 @@ export class Game {
   private useStation(station: Entity): void {
     switch (station.station) {
       case 'raidGate':
-        this.startRaid();
+        this.pushMessage('出撃ゲートを起動した。作戦画面で探索先のバイオームを選んで出撃しよう。');
         return;
       case 'stash':
         this.pushMessage(this.stashSummary());

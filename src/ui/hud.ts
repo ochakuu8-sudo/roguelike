@@ -1102,7 +1102,7 @@ const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
 const stationHint = (station: Entity, stash: Inventory) => {
   switch (station.station) {
     case 'raidGate':
-      return '出撃ゲートを調べると探索へ出撃する。';
+      return '出撃ゲートを調べると作戦画面を開く。探索先のバイオームを選んで出撃する。';
     case 'stash':
       return '倉庫を調べると中身と所持金をログに表示する。';
     case 'craft': {
