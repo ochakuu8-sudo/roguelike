@@ -13,7 +13,15 @@ type HudRoots = {
   nextHandButton: HTMLButtonElement;
   pickupButton: HTMLButtonElement;
   interactButton: HTMLButtonElement;
+  attackButton: HTMLButtonElement;
+  heldActionButton: HTMLButtonElement;
   onUseItem: (item: ItemKind) => void;
+};
+
+type ContextAction = {
+  label: string;
+  hint: string;
+  disabled?: boolean;
 };
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
@@ -161,7 +169,9 @@ const inventoryAction = (itemKind: ItemKind, count: number, onUse: () => void) =
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   const pickup = pickupAction(snapshot);
   const interact = interactAction(snapshot);
-  const hints = [pickup?.hint, interact?.hint].filter(Boolean);
+  const attack = attackAction(snapshot);
+  const held = heldItemAction(snapshot);
+  const hints = [pickup?.hint, interact?.hint, attack?.hint, held?.hint].filter(Boolean);
 
   roots.pickupButton.hidden = !pickup;
   roots.pickupButton.disabled = !pickup;
@@ -173,11 +183,21 @@ const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.interactButton.textContent = interact?.label ?? '調べる';
   roots.interactButton.setAttribute('aria-label', interact?.hint ?? '調べる');
 
+  roots.attackButton.hidden = !attack;
+  roots.attackButton.disabled = !attack || attack.disabled === true;
+  roots.attackButton.textContent = attack?.label ?? '攻撃';
+  roots.attackButton.setAttribute('aria-label', attack?.hint ?? '攻撃');
+
+  roots.heldActionButton.hidden = !held;
+  roots.heldActionButton.disabled = !held || held.disabled === true;
+  roots.heldActionButton.textContent = held?.label ?? '使う';
+  roots.heldActionButton.setAttribute('aria-label', held?.hint ?? '使う');
+
   roots.actionHintRoot.hidden = hints.length === 0;
   roots.actionHintRoot.textContent = hints.join(' / ');
 };
 
-const pickupAction = (snapshot: GameSnapshot) => {
+const pickupAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   if (snapshot.mode !== 'raid') {
     return undefined;
   }
@@ -199,7 +219,7 @@ const pickupAction = (snapshot: GameSnapshot) => {
   };
 };
 
-const interactAction = (snapshot: GameSnapshot) => {
+const interactAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   const player = playerEntity(snapshot);
   if (!player) {
     return undefined;
@@ -228,10 +248,65 @@ const interactAction = (snapshot: GameSnapshot) => {
   return undefined;
 };
 
+const attackAction = (snapshot: GameSnapshot): ContextAction | undefined => {
+  if (snapshot.mode !== 'raid') {
+    return undefined;
+  }
+
+  const player = playerEntity(snapshot);
+  const target = player ? entityInFront(snapshot, player) : undefined;
+  if (target?.kind !== 'monster') {
+    return undefined;
+  }
+
+  return {
+    label: '攻撃',
+    hint: `${target.name}を攻撃する。`,
+  };
+};
+
+const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
+  if (snapshot.mode !== 'raid') {
+    return undefined;
+  }
+
+  const selected = snapshot.player.selectedHandItem;
+  if (!selected || snapshot.player.handInventory[selected] <= 0) {
+    return undefined;
+  }
+
+  const player = playerEntity(snapshot);
+  const stats = player?.stats;
+  const definition = ITEM_DEFINITIONS[selected];
+
+  if (selected === 'potion') {
+    const canHeal = Boolean(stats && stats.hp < stats.maxHp);
+    return {
+      label: '回復',
+      hint: canHeal ? `${definition.name}を使ってHPを回復する。` : 'HPが最大なので回復薬はまだ使えない。',
+      disabled: !canHeal,
+    };
+  }
+
+  return {
+    label: '使う',
+    hint: `${definition.name}は今は使えない。`,
+    disabled: true,
+  };
+};
+
 const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
 
 const itemAt = (snapshot: GameSnapshot, x: number, y: number) =>
   snapshot.entities.find((entity) => entity.kind === 'item' && entity.x === x && entity.y === y);
+
+const entityInFront = (snapshot: GameSnapshot, player: Entity) =>
+  snapshot.entities.find(
+    (entity) =>
+      entity.blocks &&
+      entity.x === player.x + snapshot.player.facing.x &&
+      entity.y === player.y + snapshot.player.facing.y,
+  );
 
 const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
   const inFront = snapshot.entities.find(

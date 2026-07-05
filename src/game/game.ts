@@ -126,6 +126,9 @@ export class Game {
       case 'forward':
         turnResult = this.tryMovePlayer(this.facing.x, this.facing.y);
         break;
+      case 'attack':
+        turnResult = this.attackFacing();
+        break;
       case 'wait':
         this.pushMessage('ダンジョンの気配に耳を澄ませた。');
         turnResult = { usedTurn: true };
@@ -135,6 +138,9 @@ export class Game {
         break;
       case 'useItem':
         turnResult = { usedTurn: this.useItem(command.item) };
+        break;
+      case 'useHeldItem':
+        turnResult = { usedTurn: this.useHeldItem() };
         break;
       case 'item':
         break;
@@ -162,6 +168,9 @@ export class Game {
       case 'forward':
         this.tryMovePlayer(this.facing.x, this.facing.y);
         return;
+      case 'attack':
+        this.pushMessage('拠点で攻撃する相手はいない。');
+        return;
       case 'interact':
       case 'pickup':
       case 'descend':
@@ -181,6 +190,7 @@ export class Game {
       case 'startRaid':
       case 'sellItem':
       case 'craftItem':
+      case 'useHeldItem':
       case 'previousHandItem':
       case 'nextHandItem':
       case 'restart':
@@ -358,8 +368,8 @@ export class Game {
     const target = this.blockingEntityAt(targetX, targetY);
 
     if (target?.kind === 'monster') {
-      this.resolveMeleeExchange(player, target);
-      return { usedTurn: true, skipEnemyId: target.id };
+      this.pushMessage(`${target.name}が正面にいる。攻撃するには攻撃を押してください。`);
+      return { usedTurn: false };
     }
 
     if (target?.kind === 'station') {
@@ -375,6 +385,19 @@ export class Game {
     player.x = targetX;
     player.y = targetY;
     return { usedTurn: true };
+  }
+
+  private attackFacing(): TurnResult {
+    const player = this.player();
+    const target = this.blockingEntityAt(player.x + this.facing.x, player.y + this.facing.y);
+
+    if (target?.kind !== 'monster') {
+      this.pushMessage('正面に攻撃できる敵はいない。');
+      return { usedTurn: false };
+    }
+
+    this.resolveMeleeExchange(player, target);
+    return { usedTurn: true, skipEnemyId: target.id };
   }
 
   private face(dx: number, dy: number): void {
@@ -481,6 +504,16 @@ export class Game {
     stats.hp += healed;
     this.pushMessage(`回復薬を飲み、HPを${healed}回復した。`);
     return true;
+  }
+
+  private useHeldItem(): boolean {
+    const item = this.selectedHandItem;
+    if (!item || this.handInventory[item] <= 0) {
+      this.pushMessage('手に持っているアイテムがない。');
+      return false;
+    }
+
+    return this.useItem(item);
   }
 
   private extract(): boolean {

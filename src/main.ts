@@ -16,6 +16,8 @@ const previousHandButton = document.querySelector<HTMLButtonElement>('[data-comm
 const nextHandButton = document.querySelector<HTMLButtonElement>('[data-command="nextHandItem"]');
 const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="pickup"]');
 const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
+const attackButton = document.querySelector<HTMLButtonElement>('[data-command="attack"]');
+const heldActionButton = document.querySelector<HTMLButtonElement>('[data-command="useHeldItem"]');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
 const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
 const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
@@ -35,6 +37,8 @@ if (
   !nextHandButton ||
   !pickupButton ||
   !interactButton ||
+  !attackButton ||
+  !heldActionButton ||
   !compendiumButton ||
   !compendiumDialog ||
   !compendiumTabsRoot ||
@@ -63,6 +67,8 @@ const refresh = () => {
     nextHandButton,
     pickupButton,
     interactButton,
+    attackButton,
+    heldActionButton,
     onUseItem: (item) => {
       game.dispatch({ type: 'useItem', item });
       itemDialog.close();
