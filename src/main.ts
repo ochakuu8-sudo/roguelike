@@ -7,10 +7,13 @@ import { updateHud } from './ui/hud';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const statusRoot = document.querySelector<HTMLElement>('#status');
+const handSlotRoot = document.querySelector<HTMLElement>('#hand-slot');
 const inventoryRoot = document.querySelector<HTMLElement>('#inventory');
 const itemListRoot = document.querySelector<HTMLElement>('#item-list');
 const logRoot = document.querySelector<HTMLOListElement>('#message-log');
 const actionHintRoot = document.querySelector<HTMLElement>('#action-hint');
+const previousHandButton = document.querySelector<HTMLButtonElement>('[data-command="previousHandItem"]');
+const nextHandButton = document.querySelector<HTMLButtonElement>('[data-command="nextHandItem"]');
 const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="pickup"]');
 const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
@@ -23,10 +26,13 @@ const itemDialog = document.querySelector<HTMLDialogElement>('#item-dialog');
 if (
   !canvas ||
   !statusRoot ||
+  !handSlotRoot ||
   !inventoryRoot ||
   !itemListRoot ||
   !logRoot ||
   !actionHintRoot ||
+  !previousHandButton ||
+  !nextHandButton ||
   !pickupButton ||
   !interactButton ||
   !compendiumButton ||
@@ -48,10 +54,13 @@ const refresh = () => {
   renderer.render(snapshot);
   updateHud(snapshot, {
     statusRoot,
+    handSlotRoot,
     inventoryRoot,
     itemListRoot,
     logRoot,
     actionHintRoot,
+    previousHandButton,
+    nextHandButton,
     pickupButton,
     interactButton,
     onUseItem: (item) => {

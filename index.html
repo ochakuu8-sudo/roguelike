@@ -27,6 +27,12 @@
         </section>
 
         <aside class="side-panel">
+          <section class="equipment-switcher" aria-label="手持ちインベントリ">
+            <button data-command="previousHandItem" type="button" aria-label="前の手持ち">◀</button>
+            <div id="hand-slot" class="hand-slot" aria-live="polite"></div>
+            <button data-command="nextHandItem" type="button" aria-label="次の手持ち">▶</button>
+          </section>
+
           <section class="panel-block status-block">
             <h2>状態</h2>
             <div id="status" class="status-grid"></div>

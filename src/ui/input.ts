@@ -33,6 +33,8 @@ const KEY_COMMANDS = new Map<string, Command>([
   ['>', { type: 'descend' }],
   ['g', { type: 'pickup' }],
   ['i', { type: 'item' }],
+  ['[', { type: 'previousHandItem' }],
+  [']', { type: 'nextHandItem' }],
   ['r', { type: 'restart' }],
   ['?', { type: 'help' }],
   ['h', { type: 'face', dx: -1, dy: 0 }],
@@ -60,7 +62,18 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
   root.querySelectorAll<HTMLElement>('[data-command]').forEach((button) => {
     button.addEventListener('click', () => {
       const command = button.dataset.command;
-      if (command === 'wait' || command === 'pickup' || command === 'interact' || command === 'forward' || command === 'item' || command === 'descend' || command === 'restart' || command === 'help') {
+      if (
+        command === 'wait' ||
+        command === 'pickup' ||
+        command === 'interact' ||
+        command === 'forward' ||
+        command === 'item' ||
+        command === 'previousHandItem' ||
+        command === 'nextHandItem' ||
+        command === 'descend' ||
+        command === 'restart' ||
+        command === 'help'
+      ) {
         onCommand({ type: command });
       }
     });

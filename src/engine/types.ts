@@ -10,6 +10,8 @@ export type Command =
   | { type: 'pickup' }
   | { type: 'interact' }
   | { type: 'item' }
+  | { type: 'previousHandItem' }
+  | { type: 'nextHandItem' }
   | { type: 'useItem'; item: ItemKind }
   | { type: 'descend' }
   | { type: 'startRaid' }
@@ -75,6 +77,8 @@ export type PlayerState = {
   depth: number;
   xp: number;
   raidInventory: Inventory;
+  handInventory: Inventory;
+  selectedHandItem: ItemKind | null;
   raidCapacity: number;
   facing: Point;
 };

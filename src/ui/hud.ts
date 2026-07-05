@@ -4,10 +4,13 @@ import { CRAFTING_RECIPES, formatStack, hasIngredients } from '../game/recipes';
 
 type HudRoots = {
   statusRoot: HTMLElement;
+  handSlotRoot: HTMLElement;
   inventoryRoot: HTMLElement;
   itemListRoot: HTMLElement;
   logRoot: HTMLOListElement;
   actionHintRoot: HTMLElement;
+  previousHandButton: HTMLButtonElement;
+  nextHandButton: HTMLButtonElement;
   pickupButton: HTMLButtonElement;
   interactButton: HTMLButtonElement;
   onUseItem: (item: ItemKind) => void;
@@ -17,9 +20,12 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
   const inventorySource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.raidInventory;
+  const itemDialogSource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.handInventory;
   roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
+  updateHandSwitcher(snapshot, roots);
 
   const inventoryEntries = ITEM_KINDS.filter((item) => inventorySource[item] > 0);
+  const itemDialogEntries = ITEM_KINDS.filter((item) => itemDialogSource[item] > 0);
 
   roots.inventoryRoot.replaceChildren(
     ...nonEmptyNodes(
@@ -40,8 +46,8 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.itemListRoot.replaceChildren(
     ...nonEmptyNodes(
       snapshot.mode === 'base'
-        ? inventoryEntries.map((item) => inventoryItem(item, inventorySource[item]))
-        : inventoryEntries.map((item) => inventoryAction(item, inventorySource[item], () => roots.onUseItem(item))),
+        ? itemDialogEntries.map((item) => inventoryItem(item, itemDialogSource[item]))
+        : itemDialogEntries.map((item) => inventoryAction(item, itemDialogSource[item], () => roots.onUseItem(item))),
       snapshot.mode === 'base' ? '倉庫は空です' : '道具なし',
     ),
   );
@@ -69,6 +75,44 @@ const hpBar = (hp: number, maxHp: number) => {
   track.append(fill);
   root.append(label, track, value);
   return root;
+};
+
+const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
+  const handItems = ITEM_KINDS.filter((item) => snapshot.player.handInventory[item] > 0);
+  const selected = snapshot.player.selectedHandItem;
+  const selectedCount = selected ? snapshot.player.handInventory[selected] : 0;
+
+  roots.previousHandButton.disabled = handItems.length <= 1;
+  roots.nextHandButton.disabled = handItems.length <= 1;
+
+  if (!selected || selectedCount <= 0) {
+    roots.handSlotRoot.classList.add('is-empty');
+    roots.handSlotRoot.replaceChildren(slotText('手持ちなし', '装備インベントリは空です'));
+    return;
+  }
+
+  const definition = ITEM_DEFINITIONS[selected];
+  const name = document.createElement('strong');
+  name.textContent = definition.name;
+
+  const count = document.createElement('span');
+  count.textContent = `x${selectedCount}`;
+
+  const detail = document.createElement('small');
+  detail.textContent = definition.category === 'consumable' ? '使用できる道具' : '手持ち装備';
+
+  roots.handSlotRoot.classList.remove('is-empty');
+  roots.handSlotRoot.replaceChildren(name, count, detail);
+};
+
+const slotText = (labelText: string, detailText: string) => {
+  const fragment = document.createDocumentFragment();
+  const label = document.createElement('strong');
+  label.textContent = labelText;
+  const detail = document.createElement('small');
+  detail.textContent = detailText;
+  fragment.append(label, detail);
+  return fragment;
 };
 
 const inventoryItem = (itemKind: ItemKind, count: number) => {
@@ -231,6 +275,7 @@ const stationHint = (station: Entity, stash: Inventory) => {
 };
 
 const canCarry = (inventory: Inventory, item: ItemKind, capacity: number) =>
+  ITEM_DEFINITIONS[item].category === 'consumable' ||
   ITEM_KINDS.reduce((total, itemKind) => total + inventory[itemKind] * ITEM_DEFINITIONS[itemKind].size, 0) + ITEM_DEFINITIONS[item].size <= capacity;
 
 const hasSellableMaterial = (stash: Inventory) =>

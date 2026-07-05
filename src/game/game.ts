@@ -2,7 +2,7 @@ import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
 import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, StationKind, Tile } from '../engine/types';
 import { chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
-import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, RAID_CAPACITY } from './items';
+import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 56;
@@ -35,6 +35,8 @@ export class Game {
   private mode: GameMode = 'base';
   private stash: Inventory = createStartingStash();
   private raidInventory: Inventory = createEmptyInventory();
+  private handInventory: Inventory = createEmptyInventory();
+  private selectedHandItem: ItemKind | null = null;
   private money = 0;
   private dropId = 0;
   private facing = { x: 0, y: 1 };
@@ -56,6 +58,8 @@ export class Game {
         depth: this.depth,
         xp: this.xp,
         raidInventory: { ...this.raidInventory },
+        handInventory: { ...this.handInventory },
+        selectedHandItem: this.selectedHandItem,
         raidCapacity: RAID_CAPACITY,
         facing: { ...this.facing },
       },
@@ -90,6 +94,16 @@ export class Game {
 
     if (command.type === 'craftItem') {
       this.craftItem(command.recipe);
+      return;
+    }
+
+    if (command.type === 'previousHandItem') {
+      this.selectHandItem(-1);
+      return;
+    }
+
+    if (command.type === 'nextHandItem') {
+      this.selectHandItem(1);
       return;
     }
 
@@ -167,6 +181,8 @@ export class Game {
       case 'startRaid':
       case 'sellItem':
       case 'craftItem':
+      case 'previousHandItem':
+      case 'nextHandItem':
       case 'restart':
         return;
     }
@@ -179,6 +195,8 @@ export class Game {
     this.mode = 'base';
     this.stash = createStartingStash();
     this.raidInventory = createEmptyInventory();
+    this.handInventory = createEmptyInventory();
+    this.selectedHandItem = null;
     this.money = 0;
     this.dropId = 0;
     this.facing = { x: 0, y: 1 };
@@ -198,9 +216,12 @@ export class Game {
     this.height = MAP_HEIGHT;
     this.depth = 1;
     this.raidInventory = createEmptyInventory();
+    this.handInventory = createEmptyInventory();
+    this.selectedHandItem = null;
     if (this.stash.potion > 0) {
       this.stash.potion -= 1;
-      this.raidInventory.potion = 1;
+      this.handInventory.potion = 1;
+      this.selectedHandItem = 'potion';
     }
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
@@ -422,7 +443,7 @@ export class Game {
         return false;
       }
 
-      this.addRaidItem(item.item);
+      this.addLootItem(item.item);
       this.entities = this.entities.filter((entity) => entity.id !== item.id);
       this.pushMessage(`${ITEM_DEFINITIONS[item.item].name}を拾った。`);
       return true;
@@ -444,7 +465,7 @@ export class Game {
       return false;
     }
 
-    if (this.raidInventory.potion <= 0) {
+    if (this.handInventory.potion <= 0) {
       this.pushMessage('回復薬を持っていない。');
       return false;
     }
@@ -454,7 +475,8 @@ export class Game {
       return false;
     }
 
-    this.raidInventory.potion -= 1;
+    this.handInventory.potion -= 1;
+    this.syncSelectedHandItem();
     const healed = Math.min(10, stats.maxHp - stats.hp);
     stats.hp += healed;
     this.pushMessage(`回復薬を飲み、HPを${healed}回復した。`);
@@ -623,6 +645,8 @@ export class Game {
     if (entity.kind === 'player') {
       this.gameOver = true;
       this.raidInventory = createEmptyInventory();
+      this.handInventory = createEmptyInventory();
+      this.selectedHandItem = null;
       this.createBase('探索に失敗した。探索中の荷物は失われた。');
       return;
     }
@@ -723,19 +747,67 @@ export class Game {
     this.stash[item] += amount;
   }
 
-  private addRaidItem(item: ItemKind, amount = 1): void {
+  private addLootItem(item: ItemKind, amount = 1): void {
+    if (ITEM_DEFINITIONS[item].category === 'consumable') {
+      this.handInventory[item] += amount;
+      this.syncSelectedHandItem(item);
+      return;
+    }
+
     this.raidInventory[item] += amount;
   }
 
   private canCarry(item: ItemKind): boolean {
+    if (ITEM_DEFINITIONS[item].category === 'consumable') {
+      return true;
+    }
+
     return inventoryUsedSize(this.raidInventory) + ITEM_DEFINITIONS[item].size <= RAID_CAPACITY;
   }
 
   private transferRaidInventoryToStash(): void {
-    Object.keys(this.raidInventory).forEach((item) => {
-      this.addItem(item as ItemKind, this.raidInventory[item as ItemKind]);
-    });
+    this.transferInventoryToStash(this.handInventory);
+    this.handInventory = createEmptyInventory();
+    this.selectedHandItem = null;
+    this.transferInventoryToStash(this.raidInventory);
     this.raidInventory = createEmptyInventory();
+  }
+
+  private transferInventoryToStash(inventory: Inventory): void {
+    ITEM_KINDS.forEach((item) => {
+      this.addItem(item, inventory[item]);
+    });
+  }
+
+  private selectHandItem(direction: -1 | 1): void {
+    const items = this.availableHandItems();
+    if (items.length === 0) {
+      this.selectedHandItem = null;
+      this.pushMessage('手持ちアイテムがありません。');
+      return;
+    }
+
+    const currentIndex = this.selectedHandItem ? items.indexOf(this.selectedHandItem) : -1;
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + direction + items.length) % items.length;
+    this.selectedHandItem = items[nextIndex];
+    this.pushMessage(`${ITEM_DEFINITIONS[this.selectedHandItem].name}を手に持った。`);
+  }
+
+  private syncSelectedHandItem(preferred?: ItemKind): void {
+    if (preferred && this.handInventory[preferred] > 0) {
+      this.selectedHandItem = preferred;
+      return;
+    }
+
+    if (this.selectedHandItem && this.handInventory[this.selectedHandItem] > 0) {
+      return;
+    }
+
+    this.selectedHandItem = this.availableHandItems()[0] ?? null;
+  }
+
+  private availableHandItems(): ItemKind[] {
+    return ITEM_KINDS.filter((item) => this.handInventory[item] > 0);
   }
 
   private dropMaterial(entity: Entity): void {
