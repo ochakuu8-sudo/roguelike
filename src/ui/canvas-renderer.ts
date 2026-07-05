@@ -344,6 +344,9 @@ export class CanvasRenderer {
     this.context.fillStyle = 'rgba(0, 0, 0, 0.32)';
     this.context.fillRect(left + cellSize * 0.22, top + cellSize * 0.78, cellSize * 0.56, shadowHeight);
     this.drawSprite(sprite, left, top, cellSize, 1);
+    if (entity.kind === 'monster') {
+      this.drawEnemyHealthBar(entity, left, top, cellSize);
+    }
     if (entity.kind === 'station') {
       this.drawStationGlyph(entity, left, top, cellSize);
     }
@@ -468,6 +471,27 @@ export class CanvasRenderer {
     this.context.fillStyle = entity.color;
     this.context.strokeText(entity.glyph, left + cellSize / 2, top + cellSize / 2);
     this.context.fillText(entity.glyph, left + cellSize / 2, top + cellSize / 2);
+    this.context.restore();
+  }
+
+  private drawEnemyHealthBar(entity: Entity, left: number, top: number, cellSize: number): void {
+    if (!entity.stats || entity.stats.maxHp <= 0 || entity.stats.hp >= entity.stats.maxHp) {
+      return;
+    }
+
+    const ratio = Math.max(0, Math.min(1, entity.stats.hp / entity.stats.maxHp));
+    const width = Math.max(8, Math.floor(cellSize * 0.72));
+    const height = Math.max(2, Math.floor(cellSize * 0.13));
+    const x = Math.floor(left + (cellSize - width) / 2);
+    const y = Math.floor(top + Math.max(1, cellSize * 0.04));
+
+    this.context.save();
+    this.context.fillStyle = 'rgba(3, 7, 10, 0.78)';
+    this.context.fillRect(x - 1, y - 1, width + 2, height + 2);
+    this.context.fillStyle = 'rgba(80, 97, 108, 0.9)';
+    this.context.fillRect(x, y, width, height);
+    this.context.fillStyle = ratio > 0.45 ? '#fbbf24' : '#fb7185';
+    this.context.fillRect(x, y, Math.max(1, Math.floor(width * ratio)), height);
     this.context.restore();
   }
 
