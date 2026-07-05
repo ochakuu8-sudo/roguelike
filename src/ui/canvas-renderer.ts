@@ -1,5 +1,6 @@
 import { indexAt } from '../engine/grid';
 import type { CombatEffect, Entity, GameSnapshot, Tile } from '../engine/types';
+import { BIOME_DEFINITIONS } from '../game/biomes';
 
 const TILE_COLORS: Record<Tile['kind'], string> = {
   wall: '#26333a',
@@ -263,7 +264,7 @@ export class CanvasRenderer {
         return;
       }
 
-      this.context.fillStyle = tile.visible ? TILE_COLORS[tile.kind] : '#0f1316';
+      this.context.fillStyle = tile.visible ? tileColor(tile, snapshot) : '#0f1316';
       this.context.fillRect(left, top, cellSize, cellSize);
       this.drawTileTexture(tile, x, y, cellSize, offsetX, offsetY);
 
@@ -546,6 +547,19 @@ const easeOut = (value: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, valu
 
 const isGatheringTile = (kind: Tile['kind']) =>
   kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
+
+const tileColor = (tile: Tile, snapshot: GameSnapshot) => {
+  const biome = snapshot.biome ? BIOME_DEFINITIONS[snapshot.biome] : null;
+  if (biome && tile.kind === 'floor') {
+    return biome.floorColor;
+  }
+
+  if (biome && tile.kind === 'wall') {
+    return biome.wallColor;
+  }
+
+  return TILE_COLORS[tile.kind];
+};
 
 const gatheringAccent = (kind: Tile['kind']) => {
   if (kind === 'forage') {

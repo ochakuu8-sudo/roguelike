@@ -17,11 +17,54 @@ const BASE_LOADOUT_ITEMS: ItemKind[] = ['potion', 'sword', 'bow', 'pickaxe'];
 
 type RoomLike = {
   getCenter(): number[];
+  getLeft(): number;
+  getRight(): number;
+  getTop(): number;
+  getBottom(): number;
+};
+
+type MapGenerationProfile = {
+  roomWidth: [number, number];
+  roomHeight: [number, number];
+  corridorLength: [number, number];
+  dugPercentage: number;
+  nodeBonus: number;
 };
 
 type TurnResult = {
   usedTurn: boolean;
   skipEnemyId?: string;
+};
+
+const BIOME_MAP_PROFILES: Record<BiomeId, MapGenerationProfile> = {
+  mine: {
+    roomWidth: [3, 7],
+    roomHeight: [3, 6],
+    corridorLength: [5, 14],
+    dugPercentage: 0.18,
+    nodeBonus: 4,
+  },
+  forest: {
+    roomWidth: [6, 14],
+    roomHeight: [5, 10],
+    corridorLength: [2, 5],
+    dugPercentage: 0.31,
+    nodeBonus: 6,
+  },
+  fortress: {
+    roomWidth: [5, 10],
+    roomHeight: [5, 9],
+    corridorLength: [3, 7],
+    dugPercentage: 0.24,
+    nodeBonus: 2,
+  },
+  lab: {
+    roomWidth: [4, 8],
+    roomHeight: [4, 8],
+    corridorLength: [2, 6],
+    dugPercentage: 0.26,
+    nodeBonus: 3,
+  },
 };
 
 export class Game {
@@ -295,6 +338,8 @@ export class Game {
 
   private generateLevel(entryMessage: string): void {
     ROT.RNG.setSeed(this.seed + this.depth * 1009);
+    const biome = this.currentBiome();
+    const profile = BIOME_MAP_PROFILES[biome.id];
     this.tiles = Array.from({ length: this.width * this.height }, () => ({
       kind: 'wall',
       visible: false,
@@ -302,18 +347,14 @@ export class Game {
     }));
     this.entities = [];
 
-    const digger = new ROT.Map.Digger(this.width, this.height, {
-      roomWidth: [4, 10],
-      roomHeight: [4, 8],
-      corridorLength: [2, 8],
-      dugPercentage: 0.22,
-    });
+    const digger = new ROT.Map.Digger(this.width, this.height, profile);
 
     digger.create((x, y, value) => {
       this.tileAt(x, y).kind = value === 0 ? 'floor' : 'wall';
     });
 
     const rooms = digger.getRooms() as RoomLike[];
+    this.applyBiomeTerrain(biome.id, rooms);
     const firstRoom = rooms[0];
     const lastRoom = rooms.at(-1) ?? firstRoom;
     const [playerX, playerY] = roomCenter(firstRoom);
@@ -336,6 +377,86 @@ export class Game {
     this.placeGatheringNodes();
     this.messages = [entryMessage];
     this.updateFov();
+  }
+
+  private applyBiomeTerrain(biome: BiomeId, rooms: RoomLike[]): void {
+    switch (biome) {
+      case 'mine':
+        this.addRoomPillars(rooms, 0.15);
+        break;
+      case 'forest':
+        this.widenForestClearings();
+        break;
+      case 'fortress':
+        this.addRoomPartitions(rooms, 0.55);
+        break;
+      case 'lab':
+        this.addRoomPartitions(rooms, 0.35);
+        this.addRoomPillars(rooms, 0.08);
+        break;
+    }
+  }
+
+  private widenForestClearings(): void {
+    const candidates: Array<[number, number]> = [];
+
+    for (let y = 1; y < this.height - 1; y += 1) {
+      for (let x = 1; x < this.width - 1; x += 1) {
+        if (this.tileAt(x, y).kind === 'wall' && this.hasAdjacentFloor(x, y)) {
+          candidates.push([x, y]);
+        }
+      }
+    }
+
+    const targetCount = Math.floor(candidates.length * 0.28);
+    for (let carved = 0; carved < targetCount && candidates.length > 0; carved += 1) {
+      const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
+      const [x, y] = candidates.splice(index, 1)[0];
+      this.tileAt(x, y).kind = 'floor';
+    }
+  }
+
+  private addRoomPillars(rooms: RoomLike[], chance: number): void {
+    rooms.forEach((room) => {
+      const [centerX, centerY] = roomCenter(room);
+
+      for (let y = room.getTop() + 1; y <= room.getBottom() - 1; y += 1) {
+        for (let x = room.getLeft() + 1; x <= room.getRight() - 1; x += 1) {
+          const isCenterArea = Math.abs(x - centerX) <= 1 && Math.abs(y - centerY) <= 1;
+          if (!isCenterArea && this.tileAt(x, y).kind === 'floor' && ROT.RNG.getUniform() < chance) {
+            this.tileAt(x, y).kind = 'wall';
+          }
+        }
+      }
+    });
+  }
+
+  private addRoomPartitions(rooms: RoomLike[], chance: number): void {
+    rooms.forEach((room) => {
+      const width = room.getRight() - room.getLeft() + 1;
+      const height = room.getBottom() - room.getTop() + 1;
+      if (width < 7 || height < 7 || ROT.RNG.getUniform() > chance) {
+        return;
+      }
+
+      const [centerX, centerY] = roomCenter(room);
+      const vertical = ROT.RNG.getUniform() < 0.5;
+
+      if (vertical) {
+        for (let y = room.getTop() + 1; y <= room.getBottom() - 1; y += 1) {
+          if (Math.abs(y - centerY) > 1 && this.tileAt(centerX, y).kind === 'floor') {
+            this.tileAt(centerX, y).kind = 'wall';
+          }
+        }
+        return;
+      }
+
+      for (let x = room.getLeft() + 1; x <= room.getRight() - 1; x += 1) {
+        if (Math.abs(x - centerX) > 1 && this.tileAt(x, centerY).kind === 'floor') {
+          this.tileAt(x, centerY).kind = 'wall';
+        }
+      }
+    });
   }
 
   private populateRooms(rooms: RoomLike[]): void {
@@ -377,8 +498,9 @@ export class Game {
 
   private placeGatheringNodes(): void {
     const biome = this.currentBiome();
+    const profile = BIOME_MAP_PROFILES[biome.id];
     let placed = 0;
-    const targetCount = 8 + biome.danger * 2 + this.depth;
+    const targetCount = 8 + biome.danger * 2 + this.depth + profile.nodeBonus;
     const candidates: Array<[number, number]> = [];
 
     for (let y = 1; y < this.height - 1; y += 1) {
