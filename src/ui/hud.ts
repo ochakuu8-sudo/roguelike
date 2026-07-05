@@ -1,6 +1,6 @@
 import type { BiomeId, Entity, GameSnapshot, Inventory, ItemKind, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from '../game/biomes';
-import { inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { createEmptyInventory, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 
 type HudRoots = {
@@ -34,25 +34,17 @@ type ContextAction = {
   disabled?: boolean;
 };
 
-const STASH_MIN_SLOTS = 24;
+const STASH_MIN_SLOTS = 60;
 const EQUIPMENT_SLOTS = 6;
+const BASE_LOADOUT_ITEMS: ItemKind[] = ['potion', 'sword', 'bow', 'pickaxe'];
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
-  const inventorySource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.raidInventory;
-  const itemDialogSource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.raidInventory;
   roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
   updateHandSwitcher(snapshot, roots);
 
-  roots.inventoryRoot.replaceChildren(
-    ...equipmentNodes(snapshot),
-    inventorySummary(snapshot, inventorySource),
-    inventoryGrid(inventorySource, {
-      layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
-      minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
-    }),
-  );
+  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot));
 
   roots.logRoot.replaceChildren(
     ...snapshot.messages.map((message) => {
@@ -63,15 +55,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   );
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
-  roots.itemListRoot.replaceChildren(
-    ...equipmentNodes(snapshot),
-    inventorySummary(snapshot, itemDialogSource),
-    inventoryGrid(itemDialogSource, {
-      layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
-      minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
-      onUseItem: roots.onUseItem,
-    }),
-  );
+  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onUseItem));
 
   updateActionControls(snapshot, roots);
 };
@@ -230,6 +214,16 @@ const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe:
 };
 
 const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
+  if (snapshot.mode === 'base') {
+    const loadout = baseLoadoutInventory(snapshot.stash);
+    const loadoutCount = inventoryItemCount(loadout);
+    roots.previousHandButton.disabled = true;
+    roots.nextHandButton.disabled = true;
+    roots.handSlotRoot.classList.remove('is-empty');
+    roots.handSlotRoot.replaceChildren(slotText('手持ち予定', `${loadoutCount}/${EQUIPMENT_SLOTS}枠 次の出撃で持ち込み`));
+    return;
+  }
+
   const handItems = ITEM_KINDS.filter((item) => snapshot.player.handInventory[item] > 0);
   const selected = snapshot.player.selectedHandItem;
   const selectedCount = selected ? snapshot.player.handInventory[selected] : 0;
@@ -267,49 +261,59 @@ const slotText = (labelText: string, detailText: string) => {
   return fragment;
 };
 
-const inventorySummary = (snapshot: GameSnapshot, inventory: Inventory) => {
+const inventoryPanelNodes = (snapshot: GameSnapshot, onUseItem?: (item: ItemKind) => void) => {
+  if (snapshot.mode === 'base') {
+    const loadout = baseLoadoutInventory(snapshot.stash);
+    const storage = baseStorageInventory(snapshot.stash, loadout);
+    return [
+      inventorySummary('手持ち予定', `${inventoryItemCount(loadout)}/${EQUIPMENT_SLOTS}枠`, '次の探索で自動的に持ち込む装備と道具です。'),
+      inventoryGrid(loadout, {
+        layout: 'hand',
+        minSlots: EQUIPMENT_SLOTS,
+      }),
+      inventorySummary('倉庫', `${inventoryItemCount(storage)}個`, '拠点に保管している素材と予備品です。大量保管用に小さくまとめて表示します。'),
+      inventoryGrid(storage, {
+        layout: 'stash',
+        minSlots: STASH_MIN_SLOTS,
+      }),
+    ];
+  }
+
+  return [
+    inventorySummary(
+      '手持ち',
+      `${inventoryItemCount(snapshot.player.handInventory)}/${EQUIPMENT_SLOTS}枠`,
+      '上部の切り替えに出る装備と消耗品です。',
+    ),
+    inventoryGrid(snapshot.player.handInventory, {
+      layout: 'hand',
+      minSlots: EQUIPMENT_SLOTS,
+      onUseItem,
+    }),
+    inventorySummary(
+      '持ち帰りバッグ',
+      `${inventoryItemCount(snapshot.player.raidInventory)}/${snapshot.player.raidCapacity}枠`,
+      'ここに入った素材だけが拠点へ持ち帰れます。',
+    ),
+    inventoryGrid(snapshot.player.raidInventory, {
+      layout: 'raidBag',
+      minSlots: snapshot.player.raidCapacity,
+    }),
+  ];
+};
+
+const inventorySummary = (labelText: string, countText: string, detailText: string) => {
   const root = document.createElement('div');
   root.className = 'inventory-summary';
 
   const label = document.createElement('strong');
-  const detail = document.createElement('small');
+  label.textContent = `${labelText} ${countText}`;
 
-  if (snapshot.mode === 'raid') {
-    const used = inventoryItemCount(inventory);
-    label.textContent = `持ち帰りバッグ ${used}/${snapshot.player.raidCapacity}枠`;
-    detail.textContent = 'この枠に入った素材だけ拠点へ持ち帰れる。';
-  } else {
-    const stored = inventoryItemCount(inventory);
-    label.textContent = `倉庫 ${stored}個`;
-    detail.textContent = `拠点保管。探索で持ち帰れるバッグは${snapshot.player.raidCapacity}枠。`;
-  }
+  const detail = document.createElement('small');
+  detail.textContent = detailText;
 
   root.append(label, detail);
   return root;
-};
-
-const equipmentNodes = (snapshot: GameSnapshot) => {
-  if (snapshot.mode !== 'raid') {
-    return [];
-  }
-
-  const summary = document.createElement('div');
-  summary.className = 'inventory-summary equipment-summary';
-
-  const label = document.createElement('strong');
-  label.textContent = `装備 ${inventoryItemCount(snapshot.player.handInventory)}/${EQUIPMENT_SLOTS}枠`;
-
-  const detail = document.createElement('small');
-  detail.textContent = 'この枠のアイテムが右上の手持ち切り替えに表示される。';
-
-  summary.append(label, detail);
-  return [
-    summary,
-    inventoryGrid(snapshot.player.handInventory, {
-      layout: 'hand',
-      minSlots: EQUIPMENT_SLOTS,
-    }),
-  ];
 };
 
 const inventoryGrid = (
@@ -320,26 +324,26 @@ const inventoryGrid = (
     onUseItem?: (item: ItemKind) => void;
   },
 ) => {
-  const items = inventoryItems(inventory);
+  const items = inventoryEntries(inventory);
   const slotCount = Math.max(options.minSlots, items.length);
   const grid = document.createElement('div');
   grid.className = `inventory-grid inventory-grid-${options.layout}`;
 
   for (let index = 0; index < slotCount; index += 1) {
     const item = items[index];
-    grid.append(item ? inventorySlot(item, options.onUseItem) : emptyInventorySlot(index));
+    grid.append(item ? inventorySlot(item.item, item.count, options.onUseItem) : emptyInventorySlot(index));
   }
 
   return grid;
 };
 
-const inventorySlot = (itemKind: ItemKind, onUseItem?: (item: ItemKind) => void) => {
+const inventorySlot = (itemKind: ItemKind, countValue: number, onUseItem?: (item: ItemKind) => void) => {
   const definition = ITEM_DEFINITIONS[itemKind];
   const interactive = Boolean(onUseItem && definition.category === 'consumable');
   const slot = document.createElement(interactive ? 'button' : 'div');
   slot.className = 'inventory-slot';
-  slot.setAttribute('aria-label', definition.name);
-  slot.title = `${definition.name}: ${definition.description}`;
+  slot.setAttribute('aria-label', `${definition.name} x${countValue}`);
+  slot.title = `${definition.name} x${countValue}: ${definition.description}`;
 
   if (slot instanceof HTMLButtonElement) {
     slot.type = 'button';
@@ -354,7 +358,11 @@ const inventorySlot = (itemKind: ItemKind, onUseItem?: (item: ItemKind) => void)
   const name = document.createElement('small');
   name.textContent = definition.name;
 
-  slot.append(glyph, name);
+  const count = document.createElement('b');
+  count.className = 'inventory-slot-count';
+  count.textContent = `x${countValue}`;
+
+  slot.append(glyph, count, name);
   return slot;
 };
 
@@ -365,8 +373,29 @@ const emptyInventorySlot = (index: number) => {
   return slot;
 };
 
-const inventoryItems = (inventory: Inventory) =>
-  ITEM_KINDS.flatMap((item) => Array.from({ length: inventory[item] }, () => item));
+const inventoryEntries = (inventory: Inventory) =>
+  ITEM_KINDS.filter((item) => inventory[item] > 0).map((item) => ({
+    item,
+    count: inventory[item],
+  }));
+
+const baseLoadoutInventory = (stash: Inventory) => {
+  const inventory = createEmptyInventory();
+  BASE_LOADOUT_ITEMS.forEach((item) => {
+    if (stash[item] > 0) {
+      inventory[item] = 1;
+    }
+  });
+  return inventory;
+};
+
+const baseStorageInventory = (stash: Inventory, loadout: Inventory) => {
+  const inventory = { ...stash };
+  ITEM_KINDS.forEach((item) => {
+    inventory[item] = Math.max(0, inventory[item] - loadout[item]);
+  });
+  return inventory;
+};
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   const pickup = pickupAction(snapshot);
