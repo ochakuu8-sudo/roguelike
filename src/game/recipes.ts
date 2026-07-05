@@ -191,6 +191,6 @@ function recipe(
   };
 }
 
-const uniqueBiomes = (biomes: BiomeId[]) =>
-  biomes.filter((biome, index) => biomes.indexOf(biome) === index && Boolean(BIOME_DEFINITIONS[biome]));
-
+function uniqueBiomes(biomes: BiomeId[]) {
+  return biomes.filter((biome, index) => biomes.indexOf(biome) === index && Boolean(BIOME_DEFINITIONS[biome]));
+}
