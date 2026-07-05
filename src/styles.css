@@ -144,13 +144,8 @@ h2 {
   padding: max(78px, calc(env(safe-area-inset-top) + 70px)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 
-.is-base .base-screen {
+.show-base-planning .base-screen {
   display: block;
-}
-
-.is-base .side-panel,
-.is-base .equipment-switcher {
-  display: none;
 }
 
 .base-layout {
@@ -188,6 +183,10 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+#base-planning-close {
+  width: 100%;
 }
 
 .base-money {

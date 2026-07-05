@@ -18,6 +18,8 @@ const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="p
 const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
 const attackButton = document.querySelector<HTMLButtonElement>('[data-command="attack"]');
 const heldActionButton = document.querySelector<HTMLButtonElement>('[data-command="useHeldItem"]');
+const basePlanningButton = document.querySelector<HTMLButtonElement>('#base-planning-button');
+const basePlanningCloseButton = document.querySelector<HTMLButtonElement>('#base-planning-close');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
 const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
 const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
@@ -44,6 +46,8 @@ if (
   !interactButton ||
   !attackButton ||
   !heldActionButton ||
+  !basePlanningButton ||
+  !basePlanningCloseButton ||
   !compendiumButton ||
   !compendiumDialog ||
   !compendiumTabsRoot ||
@@ -65,6 +69,10 @@ const renderer = new CanvasRenderer(canvas);
 const refresh = () => {
   const snapshot = game.snapshot();
   document.body.classList.toggle('is-base', snapshot.mode === 'base');
+  if (snapshot.mode !== 'base') {
+    document.body.classList.remove('show-base-planning');
+  }
+  basePlanningButton.hidden = snapshot.mode !== 'base';
   renderer.render(snapshot);
   updateHud(snapshot, {
     statusRoot,
@@ -108,6 +116,15 @@ const refresh = () => {
   );
   baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
 };
+
+basePlanningButton.addEventListener('click', () => {
+  refresh();
+  document.body.classList.add('show-base-planning');
+});
+
+basePlanningCloseButton.addEventListener('click', () => {
+  document.body.classList.remove('show-base-planning');
+});
 
 compendiumButton.addEventListener('click', () => {
   updateCompendium({ tabsRoot: compendiumTabsRoot, listRoot: compendiumListRoot });
