@@ -724,23 +724,38 @@ button.inventory-slot:hover {
   position: fixed;
   z-index: 1000;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
   place-items: center;
   width: var(--inventory-slot-size, 34px);
   aspect-ratio: 1;
-  border: 1px solid rgba(125, 211, 252, 0.94);
-  border-radius: 6px;
-  background: rgba(14, 26, 32, 0.82);
-  box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.5),
-    0 0 0 2px rgba(125, 211, 252, 0.24);
-  opacity: 0.72;
-  padding: 3px 2px 2px;
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.68)) drop-shadow(0 0 8px rgba(125, 211, 252, 0.32));
+  opacity: 0.78;
   pointer-events: none;
   touch-action: none;
   transform: translate3d(-9999px, -9999px, 0);
   transition: none;
   will-change: transform;
+}
+
+.inventory-drag-ghost-glyph {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 1.32rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.inventory-drag-ghost-count {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 999px;
+  background: rgba(5, 10, 14, 0.86);
+  color: #f8fafc;
+  padding: 1px 4px;
+  font-size: 0.56rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .inventory-slot.is-empty {

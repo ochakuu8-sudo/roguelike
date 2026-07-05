@@ -581,13 +581,25 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
 
 const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
   const definition = ITEM_DEFINITIONS[itemKind];
-  const ghost = sourceSlot.cloneNode(true) as HTMLElement;
+  const ghost = document.createElement('div');
   const sourceRect = sourceSlot.getBoundingClientRect();
-  ghost.className = 'inventory-slot inventory-drag-ghost';
+  const sourceCount = sourceSlot.querySelector<HTMLElement>('.inventory-slot-count')?.textContent;
+  ghost.className = 'inventory-drag-ghost';
   ghost.style.width = `${sourceRect.width}px`;
   ghost.style.left = '0px';
   ghost.style.top = '0px';
   ghost.style.setProperty('--item-color', definition.color);
+
+  const glyph = document.createElement('span');
+  glyph.className = 'inventory-drag-ghost-glyph';
+  glyph.textContent = definition.glyph;
+  glyph.style.color = definition.color;
+
+  const count = document.createElement('b');
+  count.className = 'inventory-drag-ghost-count';
+  count.textContent = sourceCount ?? '';
+
+  ghost.append(glyph, count);
   return ghost;
 };
 
