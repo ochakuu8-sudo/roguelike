@@ -415,10 +415,24 @@ h2 {
 .inventory-grid {
   --inventory-slot-size: 42px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--inventory-slot-size));
+  grid-template-columns: repeat(var(--inventory-columns, 4), var(--inventory-slot-size));
   gap: 6px;
+  width: max-content;
+  max-width: 100%;
   max-height: 224px;
   overflow: auto;
+}
+
+.inventory-grid-stash {
+  --inventory-columns: 6;
+}
+
+.inventory-grid-raidBag {
+  --inventory-columns: 4;
+}
+
+.inventory-grid-hand {
+  --inventory-columns: 6;
 }
 
 .inventory-summary {

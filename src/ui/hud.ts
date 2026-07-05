@@ -38,6 +38,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.inventoryRoot.replaceChildren(
     inventorySummary(snapshot, inventorySource),
     inventoryGrid(inventorySource, {
+      layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
       minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
     }),
   );
@@ -53,6 +54,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 
   roots.itemListRoot.replaceChildren(
     inventoryGrid(itemDialogSource, {
+      layout: snapshot.mode === 'base' ? 'stash' : 'hand',
       minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : HAND_MIN_SLOTS,
       onUseItem: snapshot.mode === 'raid' ? roots.onUseItem : undefined,
     }),
@@ -145,6 +147,7 @@ const inventorySummary = (snapshot: GameSnapshot, inventory: Inventory) => {
 const inventoryGrid = (
   inventory: Inventory,
   options: {
+    layout: 'stash' | 'raidBag' | 'hand';
     minSlots: number;
     onUseItem?: (item: ItemKind) => void;
   },
@@ -152,7 +155,7 @@ const inventoryGrid = (
   const items = inventoryItems(inventory);
   const slotCount = Math.max(options.minSlots, items.length);
   const grid = document.createElement('div');
-  grid.className = 'inventory-grid';
+  grid.className = `inventory-grid inventory-grid-${options.layout}`;
 
   for (let index = 0; index < slotCount; index += 1) {
     const item = items[index];
