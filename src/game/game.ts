@@ -342,7 +342,7 @@ export class Game {
     }
 
     if (target?.kind === 'station') {
-      this.useStation(target);
+      this.pushMessage(`${target.name}がある。利用するには調べるを押してください。`);
       return { usedTurn: false };
     }
 
