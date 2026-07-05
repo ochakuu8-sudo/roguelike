@@ -25,13 +25,12 @@ type ContextAction = {
 };
 
 const STASH_MIN_SLOTS = 24;
-const HAND_MIN_SLOTS = 6;
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
   const inventorySource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.raidInventory;
-  const itemDialogSource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.handInventory;
+  const itemDialogSource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.raidInventory;
   roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
   updateHandSwitcher(snapshot, roots);
 
@@ -53,10 +52,10 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
   roots.itemListRoot.replaceChildren(
+    inventorySummary(snapshot, itemDialogSource),
     inventoryGrid(itemDialogSource, {
-      layout: snapshot.mode === 'base' ? 'stash' : 'hand',
-      minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : HAND_MIN_SLOTS,
-      onUseItem: snapshot.mode === 'raid' ? roots.onUseItem : undefined,
+      layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
+      minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
     }),
   );
 
