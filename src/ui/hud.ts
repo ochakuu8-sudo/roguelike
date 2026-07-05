@@ -528,7 +528,8 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
 
     endInventoryDrag(false);
     const ghost = inventoryDragGhost(itemKind, slot, isTouchDrag);
-    document.body.append(ghost);
+    const ghostHost = slot.closest('dialog') ?? document.body;
+    ghostHost.append(ghost);
     inventoryDragState = {
       item: itemKind,
       from: options.location,
@@ -587,7 +588,7 @@ const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement, isTouch
   const sourceRect = sourceSlot.getBoundingClientRect();
   const sourceCount = sourceSlot.querySelector<HTMLElement>('.inventory-slot-count')?.textContent;
   ghost.className = isTouchDrag ? 'inventory-drag-ghost is-touch-drag' : 'inventory-drag-ghost';
-  ghost.style.width = `${sourceRect.width}px`;
+  ghost.style.setProperty('--drag-item-size', `${sourceRect.width}px`);
   ghost.style.left = '0px';
   ghost.style.top = '0px';
   ghost.style.setProperty('--item-color', definition.color);

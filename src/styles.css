@@ -725,7 +725,7 @@ button.inventory-slot:hover {
   z-index: 1000;
   display: grid;
   place-items: center;
-  width: var(--inventory-slot-size, 34px);
+  width: var(--drag-item-size, var(--inventory-slot-size, 34px));
   aspect-ratio: 1;
   border: 0;
   background: transparent;
@@ -739,7 +739,7 @@ button.inventory-slot:hover {
 }
 
 .inventory-drag-ghost.is-touch-drag {
-  width: calc(var(--inventory-slot-size, 34px) * 1.28);
+  width: calc(var(--drag-item-size, var(--inventory-slot-size, 34px)) * 1.28);
   opacity: 0.84;
 }
 
