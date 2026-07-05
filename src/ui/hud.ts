@@ -612,10 +612,20 @@ const moveInventoryGhost = (x: number, y: number) => {
     return;
   }
 
-  const visualX = inventoryDragState.isTouchDrag ? x + TOUCH_DRAG_GHOST_OFFSET : x;
-  const visualY = inventoryDragState.isTouchDrag ? y + TOUCH_DRAG_GHOST_OFFSET : y;
-  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(visualX)}px, ${Math.round(visualY)}px, 0) translate(-50%, -50%)`;
-  updateInventoryDropPreview(x, y);
+  const point = inventoryDragPoint(x, y);
+  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translate(-50%, -50%)`;
+  updateInventoryDropPreview(point.x, point.y);
+};
+
+const inventoryDragPoint = (x: number, y: number) => {
+  if (!inventoryDragState?.isTouchDrag) {
+    return { x, y };
+  }
+
+  return {
+    x: x + TOUCH_DRAG_GHOST_OFFSET,
+    y: y + TOUCH_DRAG_GHOST_OFFSET,
+  };
 };
 
 const updateInventoryDropPreview = (x: number, y: number) => {
@@ -683,7 +693,9 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   }
 
   const distance = Math.hypot(x - state.startX, y - state.startY);
-  const target = commit && distance >= DRAG_MOVE_THRESHOLD && state.target && !state.target.blocked ? state.target : undefined;
+  const point = inventoryDragPoint(x, y);
+  const currentTarget = commit && distance >= DRAG_MOVE_THRESHOLD ? inventoryDropTargetAtPoint(point.x, point.y) ?? state.target : undefined;
+  const target = currentTarget && !currentTarget.blocked ? currentTarget : undefined;
   state.ghost.remove();
   inventoryDragState = null;
   document.querySelectorAll<HTMLElement>('.inventory-slot.is-drag-source').forEach((slot) => {
