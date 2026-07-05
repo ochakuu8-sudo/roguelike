@@ -92,6 +92,10 @@ const refresh = () => {
       itemDialog.close();
       refresh();
     },
+    onMoveItem: (item, from, to) => {
+      game.dispatch({ type: 'moveItem', item, from, to });
+      refresh();
+    },
   });
   updateBasePlanning(snapshot, {
     biomeRoot: baseBiomeRoot,

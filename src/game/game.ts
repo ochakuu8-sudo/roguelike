@@ -1,6 +1,6 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, InventoryLocation, ItemKind, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS } from './biomes';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
@@ -12,6 +12,8 @@ const BASE_WIDTH = 34;
 const BASE_HEIGHT = 24;
 const FOV_RADIUS = 9;
 const PLAYER_ID = 'player';
+const HAND_CAPACITY = 6;
+const BASE_LOADOUT_ITEMS: ItemKind[] = ['potion', 'sword', 'bow', 'pickaxe'];
 
 type RoomLike = {
   getCenter(): number[];
@@ -36,6 +38,7 @@ export class Game {
   private mode: GameMode = 'base';
   private biome: BiomeId | null = null;
   private stash: Inventory = createStartingStash();
+  private baseLoadout: Inventory = createEmptyInventory();
   private raidInventory: Inventory = createEmptyInventory();
   private handInventory: Inventory = createEmptyInventory();
   private selectedHandItem: ItemKind | null = null;
@@ -66,6 +69,7 @@ export class Game {
         facing: { ...this.facing },
       },
       stash: { ...this.stash },
+      baseLoadout: { ...this.baseLoadout },
       money: this.money,
       messages: [...this.messages],
       combatEffects: this.combatEffects.map((effect) => ({
@@ -97,6 +101,11 @@ export class Game {
 
     if (command.type === 'craftItem') {
       this.craftItem(command.recipe);
+      return;
+    }
+
+    if (command.type === 'moveItem') {
+      this.moveItem(command.item, command.from, command.to);
       return;
     }
 
@@ -190,6 +199,8 @@ export class Game {
       case 'useItem':
         this.pushMessage('拠点ではバッグのアイテムを使わない。');
         return;
+      case 'moveItem':
+        return;
       case 'startRaid':
       case 'sellItem':
       case 'craftItem':
@@ -208,6 +219,8 @@ export class Game {
     this.mode = 'base';
     this.biome = null;
     this.stash = createStartingStash();
+    this.baseLoadout = createEmptyInventory();
+    this.prepareBaseLoadout();
     this.raidInventory = createEmptyInventory();
     this.handInventory = createEmptyInventory();
     this.selectedHandItem = null;
@@ -233,15 +246,8 @@ export class Game {
     this.raidInventory = createEmptyInventory();
     this.handInventory = createEmptyInventory();
     this.selectedHandItem = null;
-    if (this.stash.potion > 0) {
-      this.stash.potion -= 1;
-      this.handInventory.potion = 1;
-      this.selectedHandItem = 'potion';
-    }
-    this.equipFromStash('sword');
-    this.equipFromStash('bow');
-    this.equipFromStash('pickaxe');
-    this.syncSelectedHandItem(this.selectedHandItem ?? 'sword');
+    this.transferBaseLoadoutToHand();
+    this.syncSelectedHandItem(this.handInventory.potion > 0 ? 'potion' : 'sword');
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
     this.combatEffects = [];
@@ -681,6 +687,49 @@ export class Game {
     this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
   }
 
+  private moveItem(item: ItemKind, from: InventoryLocation, to: InventoryLocation): void {
+    if (from === to) {
+      return;
+    }
+
+    const source = this.inventoryForLocation(from);
+    const target = this.inventoryForLocation(to);
+
+    if (!source || !target) {
+      this.pushMessage('その移動は今はできない。');
+      return;
+    }
+
+    if (source[item] <= 0) {
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}は移動元にない。`);
+      return;
+    }
+
+    if (to === 'hand' && !this.canMoveToHand(item)) {
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}は手持ちに入れられない。`);
+      return;
+    }
+
+    if (to === 'hand' && inventoryItemCount(target) >= HAND_CAPACITY) {
+      this.pushMessage('手持ちがいっぱいで移動できない。');
+      return;
+    }
+
+    if (to === 'raidBag' && inventoryItemCount(target) >= RAID_CAPACITY) {
+      this.pushMessage('持ち帰りバッグがいっぱいで移動できない。');
+      return;
+    }
+
+    source[item] -= 1;
+    target[item] += 1;
+
+    if (this.mode === 'raid') {
+      this.syncSelectedHandItem(to === 'hand' ? item : undefined);
+    }
+
+    this.pushMessage(`${ITEM_DEFINITIONS[item].name}を${inventoryLocationLabel(to)}へ移した。`);
+  }
+
   private sellAllMaterials(): void {
     const sellable = Object.entries(this.stash).filter(([item, count]) => ITEM_DEFINITIONS[item as ItemKind].category === 'material' && count > 0);
     if (sellable.length === 0) {
@@ -939,21 +988,14 @@ export class Game {
     return inventoryItemCount(this.raidInventory) + 1 <= RAID_CAPACITY;
   }
 
-  private equipFromStash(item: ItemKind): void {
-    if (this.stash[item] <= 0) {
-      return;
-    }
-
-    this.stash[item] -= 1;
-    this.handInventory[item] += 1;
-  }
-
   private transferRaidInventoryToStash(): void {
     this.transferInventoryToStash(this.handInventory);
     this.handInventory = createEmptyInventory();
     this.selectedHandItem = null;
     this.transferInventoryToStash(this.raidInventory);
     this.raidInventory = createEmptyInventory();
+    this.baseLoadout = createEmptyInventory();
+    this.prepareBaseLoadout();
   }
 
   private transferInventoryToStash(inventory: Inventory): void {
@@ -987,6 +1029,49 @@ export class Game {
     }
 
     this.selectedHandItem = this.availableHandItems()[0] ?? null;
+  }
+
+  private inventoryForLocation(location: InventoryLocation): Inventory | undefined {
+    if (this.mode === 'base') {
+      if (location === 'hand') {
+        return this.baseLoadout;
+      }
+      if (location === 'stash') {
+        return this.stash;
+      }
+      return undefined;
+    }
+
+    if (location === 'hand') {
+      return this.handInventory;
+    }
+    if (location === 'raidBag') {
+      return this.raidInventory;
+    }
+    return undefined;
+  }
+
+  private prepareBaseLoadout(): void {
+    BASE_LOADOUT_ITEMS.forEach((item) => {
+      if (this.stash[item] <= 0 || inventoryItemCount(this.baseLoadout) >= HAND_CAPACITY) {
+        return;
+      }
+
+      this.stash[item] -= 1;
+      this.baseLoadout[item] += 1;
+    });
+  }
+
+  private transferBaseLoadoutToHand(): void {
+    ITEM_KINDS.forEach((item) => {
+      this.handInventory[item] += this.baseLoadout[item];
+    });
+    this.baseLoadout = createEmptyInventory();
+  }
+
+  private canMoveToHand(item: ItemKind): boolean {
+    const category = ITEM_DEFINITIONS[item].category;
+    return category === 'consumable' || category === 'equipment';
   }
 
   private availableHandItems(): ItemKind[] {
@@ -1089,6 +1174,16 @@ const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
   }
 
   return `${attacker.name}が${defender.name}に${damage}ダメージを与えた。`;
+};
+
+const inventoryLocationLabel = (location: InventoryLocation) => {
+  if (location === 'hand') {
+    return '手持ち';
+  }
+  if (location === 'stash') {
+    return '倉庫';
+  }
+  return '持ち帰りバッグ';
 };
 
 const compareActionOrder = (a: Entity, b: Entity) => {

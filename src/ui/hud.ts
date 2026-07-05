@@ -1,6 +1,6 @@
-import type { BiomeId, Entity, GameSnapshot, Inventory, ItemKind, RecipeId } from '../engine/types';
+import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from '../game/biomes';
-import { createEmptyInventory, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 
 type HudRoots = {
@@ -17,6 +17,7 @@ type HudRoots = {
   attackButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
   onUseItem: (item: ItemKind) => void;
+  onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
 
 type BasePlanningRoots = {
@@ -34,9 +35,18 @@ type ContextAction = {
   disabled?: boolean;
 };
 
+type InventoryGridOptions = {
+  layout: 'stash' | 'raidBag' | 'hand';
+  location: InventoryLocation;
+  moveTarget: InventoryLocation;
+  minSlots: number;
+  onUseItem?: (item: ItemKind) => void;
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+};
+
 const STASH_MIN_SLOTS = 60;
 const EQUIPMENT_SLOTS = 6;
-const BASE_LOADOUT_ITEMS: ItemKind[] = ['potion', 'sword', 'bow', 'pickaxe'];
+const SWIPE_MOVE_THRESHOLD = 28;
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
@@ -44,7 +54,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
   updateHandSwitcher(snapshot, roots);
 
-  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot));
+  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot, undefined, roots.onMoveItem));
 
   roots.logRoot.replaceChildren(
     ...snapshot.messages.map((message) => {
@@ -55,7 +65,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   );
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
-  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onUseItem));
+  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onUseItem, roots.onMoveItem));
 
   updateActionControls(snapshot, roots);
 };
@@ -215,7 +225,7 @@ const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe:
 
 const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
   if (snapshot.mode === 'base') {
-    const loadout = baseLoadoutInventory(snapshot.stash);
+    const loadout = snapshot.baseLoadout;
     const loadoutCount = inventoryItemCount(loadout);
     roots.previousHandButton.disabled = true;
     roots.nextHandButton.disabled = true;
@@ -261,20 +271,30 @@ const slotText = (labelText: string, detailText: string) => {
   return fragment;
 };
 
-const inventoryPanelNodes = (snapshot: GameSnapshot, onUseItem?: (item: ItemKind) => void) => {
+const inventoryPanelNodes = (
+  snapshot: GameSnapshot,
+  onUseItem?: (item: ItemKind) => void,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+) => {
   if (snapshot.mode === 'base') {
-    const loadout = baseLoadoutInventory(snapshot.stash);
-    const storage = baseStorageInventory(snapshot.stash, loadout);
+    const loadout = snapshot.baseLoadout;
+    const storage = snapshot.stash;
     return [
       inventorySummary('手持ち予定', `${inventoryItemCount(loadout)}/${EQUIPMENT_SLOTS}枠`, '次の探索で自動的に持ち込む装備と道具です。'),
       inventoryGrid(loadout, {
         layout: 'hand',
+        location: 'hand',
+        moveTarget: 'stash',
         minSlots: EQUIPMENT_SLOTS,
+        onMoveItem,
       }),
       inventorySummary('倉庫', `${inventoryItemCount(storage)}個`, '拠点に保管している素材と予備品です。大量保管用に小さくまとめて表示します。'),
       inventoryGrid(storage, {
         layout: 'stash',
+        location: 'stash',
+        moveTarget: 'hand',
         minSlots: STASH_MIN_SLOTS,
+        onMoveItem,
       }),
     ];
   }
@@ -287,8 +307,11 @@ const inventoryPanelNodes = (snapshot: GameSnapshot, onUseItem?: (item: ItemKind
     ),
     inventoryGrid(snapshot.player.handInventory, {
       layout: 'hand',
+      location: 'hand',
+      moveTarget: 'raidBag',
       minSlots: EQUIPMENT_SLOTS,
       onUseItem,
+      onMoveItem,
     }),
     inventorySummary(
       '持ち帰りバッグ',
@@ -297,7 +320,10 @@ const inventoryPanelNodes = (snapshot: GameSnapshot, onUseItem?: (item: ItemKind
     ),
     inventoryGrid(snapshot.player.raidInventory, {
       layout: 'raidBag',
+      location: 'raidBag',
+      moveTarget: 'hand',
       minSlots: snapshot.player.raidCapacity,
+      onMoveItem,
     }),
   ];
 };
@@ -318,37 +344,45 @@ const inventorySummary = (labelText: string, countText: string, detailText: stri
 
 const inventoryGrid = (
   inventory: Inventory,
-  options: {
-    layout: 'stash' | 'raidBag' | 'hand';
-    minSlots: number;
-    onUseItem?: (item: ItemKind) => void;
-  },
+  options: InventoryGridOptions,
 ) => {
   const items = inventoryEntries(inventory);
   const slotCount = Math.max(options.minSlots, items.length);
   const grid = document.createElement('div');
   grid.className = `inventory-grid inventory-grid-${options.layout}`;
+  grid.dataset.inventoryLocation = options.location;
 
   for (let index = 0; index < slotCount; index += 1) {
     const item = items[index];
-    grid.append(item ? inventorySlot(item.item, item.count, options.onUseItem) : emptyInventorySlot(index));
+    grid.append(item ? inventorySlot(item.item, item.count, options) : emptyInventorySlot(index));
   }
 
   return grid;
 };
 
-const inventorySlot = (itemKind: ItemKind, countValue: number, onUseItem?: (item: ItemKind) => void) => {
+const inventorySlot = (itemKind: ItemKind, countValue: number, options: InventoryGridOptions) => {
   const definition = ITEM_DEFINITIONS[itemKind];
-  const interactive = Boolean(onUseItem && definition.category === 'consumable');
+  const interactive = Boolean(options.onUseItem && definition.category === 'consumable');
   const slot = document.createElement(interactive ? 'button' : 'div');
   slot.className = 'inventory-slot';
+  slot.dataset.item = itemKind;
+  slot.dataset.inventoryLocation = options.location;
   slot.setAttribute('aria-label', `${definition.name} x${countValue}`);
   slot.title = `${definition.name} x${countValue}: ${definition.description}`;
 
   if (slot instanceof HTMLButtonElement) {
     slot.type = 'button';
-    slot.addEventListener('click', () => onUseItem?.(itemKind));
+    slot.addEventListener('click', (event) => {
+      if (slot.dataset.swipeMoved === 'true') {
+        event.preventDefault();
+        slot.dataset.swipeMoved = '';
+        return;
+      }
+      options.onUseItem?.(itemKind);
+    });
   }
+
+  bindInventorySwipe(slot, itemKind, options);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
@@ -366,6 +400,119 @@ const inventorySlot = (itemKind: ItemKind, countValue: number, onUseItem?: (item
   return slot;
 };
 
+const bindInventorySwipe = (slot: HTMLElement, itemKind: ItemKind, options: InventoryGridOptions) => {
+  if (!options.onMoveItem) {
+    return;
+  }
+
+  let startX = 0;
+  let startY = 0;
+  let pointerId: number | null = null;
+  let activeInput: 'pointer' | 'mouse' | null = null;
+
+  const beginSwipe = (x: number, y: number, input: 'pointer' | 'mouse') => {
+    if (activeInput && activeInput !== input) {
+      return false;
+    }
+
+    activeInput = input;
+    startX = x;
+    startY = y;
+    slot.classList.add('is-swiping');
+    return true;
+  };
+
+  const cancelSwipe = () => {
+    pointerId = null;
+    activeInput = null;
+    slot.classList.remove('is-swiping');
+  };
+
+  const finishSwipe = (x: number, y: number, event: Event) => {
+    if (!activeInput) {
+      return;
+    }
+
+    const dx = x - startX;
+    const dy = y - startY;
+    const distance = Math.hypot(dx, dy);
+    cancelSwipe();
+
+    if (distance < SWIPE_MOVE_THRESHOLD) {
+      return;
+    }
+
+    const target = inventoryDropTarget(x, y, options.location) ?? directionalMoveTarget(dy, options);
+    if (!target) {
+      return;
+    }
+
+    slot.dataset.swipeMoved = 'true';
+    event.preventDefault();
+    options.onMoveItem?.(itemKind, options.location, target);
+  };
+
+  slot.addEventListener('pointerdown', (event) => {
+    pointerId = event.pointerId;
+    beginSwipe(event.clientX, event.clientY, 'pointer');
+    slot.setPointerCapture(event.pointerId);
+
+    const onPointerUp = (pointerUpEvent: PointerEvent) => {
+      if (pointerId !== pointerUpEvent.pointerId) {
+        return;
+      }
+
+      document.removeEventListener('pointerup', onPointerUp);
+      pointerId = null;
+      finishSwipe(pointerUpEvent.clientX, pointerUpEvent.clientY, pointerUpEvent);
+    };
+
+    document.addEventListener('pointerup', onPointerUp);
+  });
+
+  slot.addEventListener('pointercancel', cancelSwipe);
+
+  slot.addEventListener('lostpointercapture', () => {
+    slot.classList.remove('is-swiping');
+  });
+
+  slot.addEventListener('pointerup', (event) => {
+    if (pointerId !== event.pointerId) {
+      return;
+    }
+
+    pointerId = null;
+    finishSwipe(event.clientX, event.clientY, event);
+  });
+
+  slot.addEventListener('mousedown', (event) => {
+    if (event.button !== 0 || !beginSwipe(event.clientX, event.clientY, 'mouse')) {
+      return;
+    }
+
+    const onMouseUp = (mouseUpEvent: MouseEvent) => {
+      document.removeEventListener('mouseup', onMouseUp);
+      finishSwipe(mouseUpEvent.clientX, mouseUpEvent.clientY, mouseUpEvent);
+    };
+
+    document.addEventListener('mouseup', onMouseUp);
+  });
+};
+
+const inventoryDropTarget = (x: number, y: number, source: InventoryLocation): InventoryLocation | undefined => {
+  const element = document.elementFromPoint(x, y);
+  const grid = element?.closest<HTMLElement>('.inventory-grid');
+  const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
+  return location && location !== source ? location : undefined;
+};
+
+const directionalMoveTarget = (dy: number, options: InventoryGridOptions): InventoryLocation | undefined => {
+  if (options.moveTarget === 'hand') {
+    return dy < -SWIPE_MOVE_THRESHOLD * 0.6 ? options.moveTarget : undefined;
+  }
+  return dy > SWIPE_MOVE_THRESHOLD * 0.6 ? options.moveTarget : undefined;
+};
+
 const emptyInventorySlot = (index: number) => {
   const slot = document.createElement('div');
   slot.className = 'inventory-slot is-empty';
@@ -378,24 +525,6 @@ const inventoryEntries = (inventory: Inventory) =>
     item,
     count: inventory[item],
   }));
-
-const baseLoadoutInventory = (stash: Inventory) => {
-  const inventory = createEmptyInventory();
-  BASE_LOADOUT_ITEMS.forEach((item) => {
-    if (stash[item] > 0) {
-      inventory[item] = 1;
-    }
-  });
-  return inventory;
-};
-
-const baseStorageInventory = (stash: Inventory, loadout: Inventory) => {
-  const inventory = { ...stash };
-  ITEM_KINDS.forEach((item) => {
-    inventory[item] = Math.max(0, inventory[item] - loadout[item]);
-  });
-  return inventory;
-};
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   const pickup = pickupAction(snapshot);

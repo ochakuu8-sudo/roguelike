@@ -15,6 +15,7 @@ export type Command =
   | { type: 'previousHandItem' }
   | { type: 'nextHandItem' }
   | { type: 'useItem'; item: ItemKind }
+  | { type: 'moveItem'; item: ItemKind; from: InventoryLocation; to: InventoryLocation }
   | { type: 'descend' }
   | { type: 'startRaid'; biome?: BiomeId }
   | { type: 'sellItem'; item: ItemKind }
@@ -131,6 +132,7 @@ export type RecipeId =
   | 'lockpickTool';
 export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';
+export type InventoryLocation = 'hand' | 'stash' | 'raidBag';
 
 export type Entity = {
   id: string;
@@ -180,6 +182,7 @@ export type GameSnapshot = {
   playerId: string;
   player: PlayerState;
   stash: Inventory;
+  baseLoadout: Inventory;
   money: number;
   messages: string[];
   combatEffects: CombatEffect[];
