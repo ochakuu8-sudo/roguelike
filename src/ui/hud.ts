@@ -44,11 +44,20 @@ type InventoryGridOptions = {
 type InventoryDragState = {
   item: ItemKind;
   from: InventoryLocation;
+  fromSlotIndex: number;
   startX: number;
   startY: number;
   ghost: HTMLElement;
-  target?: InventoryLocation;
+  target?: InventoryDropTarget;
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+};
+
+type InventoryDropTarget = {
+  location: InventoryLocation;
+  slotIndex: number;
+  slot: HTMLElement;
+  grid: HTMLElement;
+  blocked: boolean;
 };
 
 const STASH_MIN_SLOTS = 60;
@@ -56,6 +65,15 @@ const EQUIPMENT_SLOTS = 6;
 const DRAG_MOVE_THRESHOLD = 12;
 
 let inventoryDragState: InventoryDragState | null = null;
+
+const inventorySlotLayouts: Record<InventoryLocation, Array<ItemKind | null>> = {
+  hand: [],
+  stash: [],
+  raidBag: [],
+};
+
+const inventoryCountsByLocation: Partial<Record<InventoryLocation, Inventory>> = {};
+const inventoryOptionsByLocation: Partial<Record<InventoryLocation, InventoryGridOptions>> = {};
 
 document.addEventListener('pointermove', (event) => {
   if (inventoryDragState) {
@@ -81,6 +99,33 @@ document.addEventListener('mousemove', (event) => {
 
 document.addEventListener('mouseup', (event) => {
   endInventoryDrag(true, event.clientX, event.clientY);
+});
+
+document.addEventListener(
+  'touchmove',
+  (event) => {
+    if (!inventoryDragState) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) {
+      return;
+    }
+
+    event.preventDefault();
+    moveInventoryGhost(touch.clientX, touch.clientY);
+  },
+  { passive: false },
+);
+
+document.addEventListener('touchend', (event) => {
+  const touch = event.changedTouches[0];
+  endInventoryDrag(true, touch?.clientX ?? 0, touch?.clientY ?? 0);
+});
+
+document.addEventListener('touchcancel', () => {
+  endInventoryDrag(false);
 });
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
@@ -375,30 +420,84 @@ const inventoryGrid = (
   inventory: Inventory,
   options: InventoryGridOptions,
 ) => {
-  const items = inventoryEntries(inventory);
-  const slotCount = Math.max(options.minSlots, items.length);
+  inventoryCountsByLocation[options.location] = inventory;
+  inventoryOptionsByLocation[options.location] = options;
+
   const grid = document.createElement('div');
   grid.className = `inventory-grid inventory-grid-${options.layout}`;
   grid.dataset.inventoryLocation = options.location;
-
-  for (let index = 0; index < slotCount; index += 1) {
-    const item = items[index];
-    grid.append(item ? inventorySlot(item.item, item.count, options) : emptyInventorySlot(index));
-  }
-
+  populateInventoryGrid(grid, inventory, options);
   return grid;
 };
 
-const inventorySlot = (itemKind: ItemKind, countValue: number, options: InventoryGridOptions) => {
+const populateInventoryGrid = (grid: HTMLElement, inventory: Inventory, options: InventoryGridOptions) => {
+  const layout = syncInventorySlotLayout(options.location, inventory, options.minSlots);
+  grid.replaceChildren();
+
+  for (let index = 0; index < layout.length; index += 1) {
+    const item = layout[index];
+    const countValue = item ? inventory[item] : 0;
+    grid.append(item && countValue > 0 ? inventorySlot(item, countValue, options, index) : emptyInventorySlot(index, options));
+  }
+};
+
+const syncInventorySlotLayout = (location: InventoryLocation, inventory: Inventory, minSlots: number) => {
+  const items = inventoryEntries(inventory).map(({ item }) => item);
+  const slotCount = Math.max(minSlots, items.length, inventorySlotLayouts[location].length);
+  const layout = Array.from({ length: slotCount }, (_, index) => inventorySlotLayouts[location][index] ?? null);
+  const placed = new Set<ItemKind>();
+
+  for (let index = 0; index < layout.length; index += 1) {
+    const item = layout[index];
+    if (!item || inventory[item] <= 0 || placed.has(item)) {
+      layout[index] = null;
+      continue;
+    }
+
+    placed.add(item);
+  }
+
+  items.forEach((item) => {
+    if (placed.has(item)) {
+      return;
+    }
+
+    const emptyIndex = layout.findIndex((slotItem) => slotItem === null);
+    if (emptyIndex === -1) {
+      layout.push(item);
+    } else {
+      layout[emptyIndex] = item;
+    }
+    placed.add(item);
+  });
+
+  inventorySlotLayouts[location] = layout;
+  return layout;
+};
+
+const rerenderInventoryLocation = (location: InventoryLocation) => {
+  const inventory = inventoryCountsByLocation[location];
+  const options = inventoryOptionsByLocation[location];
+  if (!inventory || !options) {
+    return;
+  }
+
+  document.querySelectorAll<HTMLElement>(`.inventory-grid[data-inventory-location="${location}"]`).forEach((grid) => {
+    populateInventoryGrid(grid, inventory, options);
+  });
+};
+
+const inventorySlot = (itemKind: ItemKind, countValue: number, options: InventoryGridOptions, slotIndex: number) => {
   const definition = ITEM_DEFINITIONS[itemKind];
   const slot = document.createElement('button');
   slot.className = 'inventory-slot';
   slot.type = 'button';
   slot.dataset.item = itemKind;
   slot.dataset.inventoryLocation = options.location;
+  slot.dataset.slotIndex = String(slotIndex);
   slot.setAttribute('aria-label', `${definition.name} x${countValue}`);
   slot.title = `${definition.name} x${countValue}: ${definition.description}`;
-  bindInventoryDrag(slot, itemKind, options);
+  bindInventoryDrag(slot, itemKind, options, slotIndex);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
@@ -416,18 +515,23 @@ const inventorySlot = (itemKind: ItemKind, countValue: number, options: Inventor
   return slot;
 };
 
-const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: InventoryGridOptions) => {
+const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: InventoryGridOptions, slotIndex: number) => {
   if (!options.onMoveItem) {
     return;
   }
 
   const beginDrag = (x: number, y: number) => {
+    if (inventoryDragState) {
+      return;
+    }
+
     endInventoryDrag(false);
     const ghost = inventoryDragGhost(itemKind, slot);
     document.body.append(ghost);
     inventoryDragState = {
       item: itemKind,
       from: options.location,
+      fromSlotIndex: slotIndex,
       startX: x,
       startY: y,
       ghost,
@@ -440,7 +544,11 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
   slot.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     beginDrag(event.clientX, event.clientY);
-    slot.setPointerCapture(event.pointerId);
+    try {
+      slot.setPointerCapture(event.pointerId);
+    } catch {
+      // Some touch browsers do not allow capture after DOM updates.
+    }
   });
 
   slot.addEventListener('mousedown', (event) => {
@@ -451,6 +559,24 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
     event.preventDefault();
     beginDrag(event.clientX, event.clientY);
   });
+
+  slot.addEventListener(
+    'touchstart',
+    (event) => {
+      if (inventoryDragState) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (!touch) {
+        return;
+      }
+
+      event.preventDefault();
+      beginDrag(touch.clientX, touch.clientY);
+    },
+    { passive: false },
+  );
 };
 
 const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
@@ -459,6 +585,8 @@ const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
   const sourceRect = sourceSlot.getBoundingClientRect();
   ghost.className = 'inventory-slot inventory-drag-ghost';
   ghost.style.width = `${sourceRect.width}px`;
+  ghost.style.left = '0px';
+  ghost.style.top = '0px';
   ghost.style.setProperty('--item-color', definition.color);
   return ghost;
 };
@@ -468,7 +596,7 @@ const moveInventoryGhost = (x: number, y: number) => {
     return;
   }
 
-  inventoryDragState.ghost.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
+  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -50%)`;
   updateInventoryDropPreview(x, y);
 };
 
@@ -478,37 +606,55 @@ const updateInventoryDropPreview = (x: number, y: number) => {
     return;
   }
 
-  const grid = inventoryGridAtPoint(x, y);
-  const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
-  inventoryDragState.target = location && location !== inventoryDragState.from ? location : undefined;
+  const target = inventoryDropTargetAtPoint(x, y);
+  inventoryDragState.target = target;
 
-  if (!grid || !location) {
+  if (!target) {
     return;
   }
 
-  if (!inventoryDragState.target) {
-    grid.classList.add('is-drop-blocked');
+  if (target.blocked) {
+    target.grid.classList.add('is-drop-blocked');
+    target.slot.classList.add('is-drop-blocked');
     return;
   }
 
-  grid.classList.add('is-drop-target');
-  const previewSlot =
-    grid.querySelector<HTMLElement>(`.inventory-slot[data-item="${inventoryDragState.item}"]`) ??
-    grid.querySelector<HTMLElement>('.inventory-slot.is-empty');
-  previewSlot?.classList.add('is-drop-preview');
+  target.grid.classList.add('is-drop-target');
+  target.slot.classList.add('is-drop-preview');
 };
 
-const inventoryGridAtPoint = (x: number, y: number) => {
+const inventoryDropTargetAtPoint = (x: number, y: number): InventoryDropTarget | undefined => {
+  if (!inventoryDragState) {
+    return undefined;
+  }
+
   const element = document.elementFromPoint(x, y);
-  return element?.closest<HTMLElement>('.inventory-grid');
+  const slot = element?.closest<HTMLElement>('.inventory-slot');
+  const grid = slot?.closest<HTMLElement>('.inventory-grid') ?? element?.closest<HTMLElement>('.inventory-grid');
+  const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
+  const slotIndex = Number(slot?.dataset.slotIndex);
+
+  if (!grid || !slot || !location || !Number.isInteger(slotIndex)) {
+    return undefined;
+  }
+
+  const target: InventoryDropTarget = {
+    location,
+    slotIndex,
+    slot,
+    grid,
+    blocked: false,
+  };
+  target.blocked = !canDropInventoryItem(inventoryDragState, target);
+  return target;
 };
 
 const clearInventoryDropPreview = () => {
   document.querySelectorAll<HTMLElement>('.inventory-grid.is-drop-target, .inventory-grid.is-drop-blocked').forEach((grid) => {
     grid.classList.remove('is-drop-target', 'is-drop-blocked');
   });
-  document.querySelectorAll<HTMLElement>('.inventory-slot.is-drop-preview').forEach((slot) => {
-    slot.classList.remove('is-drop-preview');
+  document.querySelectorAll<HTMLElement>('.inventory-slot.is-drop-preview, .inventory-slot.is-drop-blocked').forEach((slot) => {
+    slot.classList.remove('is-drop-preview', 'is-drop-blocked');
   });
 };
 
@@ -519,7 +665,7 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   }
 
   const distance = Math.hypot(x - state.startX, y - state.startY);
-  const target = commit && distance >= DRAG_MOVE_THRESHOLD ? state.target : undefined;
+  const target = commit && distance >= DRAG_MOVE_THRESHOLD && state.target && !state.target.blocked ? state.target : undefined;
   state.ghost.remove();
   inventoryDragState = null;
   document.querySelectorAll<HTMLElement>('.inventory-slot.is-drag-source').forEach((slot) => {
@@ -528,12 +674,80 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   clearInventoryDropPreview();
 
   if (target) {
-    state.onMoveItem?.(state.item, state.from, target);
+    reserveInventoryDrop(state, target);
+    if (target.location === state.from) {
+      rerenderInventoryLocation(state.from);
+      return;
+    }
+
+    state.onMoveItem?.(state.item, state.from, target.location);
   }
 };
 
-const emptyInventorySlot = (index: number) => {
+const canDropInventoryItem = (state: InventoryDragState, target: InventoryDropTarget) => {
+  if (target.location === state.from && target.slotIndex === state.fromSlotIndex) {
+    return false;
+  }
+
+  const targetItem = inventorySlotLayouts[target.location][target.slotIndex] ?? null;
+  if (target.location === state.from) {
+    return true;
+  }
+
+  if (targetItem && targetItem !== state.item) {
+    return false;
+  }
+
+  if (target.location === 'hand') {
+    const category = ITEM_DEFINITIONS[state.item].category;
+    if (category !== 'consumable' && category !== 'equipment') {
+      return false;
+    }
+  }
+
+  if (target.location === 'stash') {
+    return true;
+  }
+
+  const targetInventory = inventoryCountsByLocation[target.location];
+  const options = inventoryOptionsByLocation[target.location];
+  if (!targetInventory || !options) {
+    return true;
+  }
+
+  return inventoryItemCount(targetInventory) < options.minSlots;
+};
+
+const reserveInventoryDrop = (state: InventoryDragState, target: InventoryDropTarget) => {
+  const fromLayout = inventorySlotLayouts[state.from];
+  const targetLayout = inventorySlotLayouts[target.location];
+  const sourceIndex = fromLayout[state.fromSlotIndex] === state.item ? state.fromSlotIndex : fromLayout.indexOf(state.item);
+
+  if (sourceIndex < 0) {
+    return;
+  }
+
+  if (target.location === state.from) {
+    const targetItem = targetLayout[target.slotIndex] ?? null;
+    targetLayout[target.slotIndex] = state.item;
+    targetLayout[sourceIndex] = target.slotIndex === sourceIndex ? state.item : targetItem;
+    return;
+  }
+
+  const sourceInventory = inventoryCountsByLocation[state.from];
+  if ((sourceInventory?.[state.item] ?? 0) <= 1) {
+    fromLayout[sourceIndex] = null;
+  }
+
+  if (targetLayout[target.slotIndex] !== state.item) {
+    targetLayout[target.slotIndex] = state.item;
+  }
+};
+
+const emptyInventorySlot = (index: number, options: InventoryGridOptions) => {
   const slot = document.createElement('div');
+  slot.dataset.inventoryLocation = options.location;
+  slot.dataset.slotIndex = String(index);
   slot.className = 'inventory-slot is-empty';
   slot.setAttribute('aria-label', `空きスロット ${index + 1}`);
   return slot;

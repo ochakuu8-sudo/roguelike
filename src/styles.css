@@ -691,7 +691,7 @@ button.inventory-slot:hover {
 }
 
 .inventory-slot.is-drag-source {
-  opacity: 0.45;
+  opacity: 0.35;
 }
 
 .inventory-grid.is-drop-target {
@@ -712,9 +712,17 @@ button.inventory-slot:hover {
     0 0 0 2px rgba(125, 211, 252, 0.28);
 }
 
+.inventory-slot.is-drop-blocked {
+  border-color: rgba(248, 113, 113, 0.92);
+  background: rgba(55, 20, 24, 0.86);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 0 2px rgba(248, 113, 113, 0.22);
+}
+
 .inventory-drag-ghost {
   position: fixed;
-  z-index: 50;
+  z-index: 1000;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   place-items: center;
@@ -722,14 +730,17 @@ button.inventory-slot:hover {
   aspect-ratio: 1;
   border: 1px solid rgba(125, 211, 252, 0.94);
   border-radius: 6px;
-  background: rgba(14, 26, 32, 0.94);
+  background: rgba(14, 26, 32, 0.82);
   box-shadow:
     0 12px 28px rgba(0, 0, 0, 0.5),
     0 0 0 2px rgba(125, 211, 252, 0.24);
+  opacity: 0.72;
   padding: 3px 2px 2px;
   pointer-events: none;
   touch-action: none;
-  transform: translate(-9999px, -9999px);
+  transform: translate3d(-9999px, -9999px, 0);
+  transition: none;
+  will-change: transform;
 }
 
 .inventory-slot.is-empty {
