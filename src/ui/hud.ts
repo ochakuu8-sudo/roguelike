@@ -24,6 +24,9 @@ type ContextAction = {
   disabled?: boolean;
 };
 
+const STASH_MIN_SLOTS = 24;
+const HAND_MIN_SLOTS = 6;
+
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
@@ -32,14 +35,10 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
   updateHandSwitcher(snapshot, roots);
 
-  const inventoryEntries = ITEM_KINDS.filter((item) => inventorySource[item] > 0);
-  const itemDialogEntries = ITEM_KINDS.filter((item) => itemDialogSource[item] > 0);
-
   roots.inventoryRoot.replaceChildren(
-    ...nonEmptyNodes(
-      inventoryEntries.map((item) => inventoryItem(item, inventorySource[item])),
-      snapshot.mode === 'base' ? '倉庫は空です' : '道具なし',
-    ),
+    inventoryGrid(inventorySource, {
+      minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
+    }),
   );
 
   roots.logRoot.replaceChildren(
@@ -52,12 +51,10 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
   roots.itemListRoot.replaceChildren(
-    ...nonEmptyNodes(
-      snapshot.mode === 'base'
-        ? itemDialogEntries.map((item) => inventoryItem(item, itemDialogSource[item]))
-        : itemDialogEntries.map((item) => inventoryAction(item, itemDialogSource[item], () => roots.onUseItem(item))),
-      snapshot.mode === 'base' ? '倉庫は空です' : '道具なし',
-    ),
+    inventoryGrid(itemDialogSource, {
+      minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : HAND_MIN_SLOTS,
+      onUseItem: snapshot.mode === 'raid' ? roots.onUseItem : undefined,
+    }),
   );
 
   updateActionControls(snapshot, roots);
@@ -123,48 +120,60 @@ const slotText = (labelText: string, detailText: string) => {
   return fragment;
 };
 
-const inventoryItem = (itemKind: ItemKind, count: number) => {
-  const definition = ITEM_DEFINITIONS[itemKind];
-  const item = document.createElement('div');
-  item.className = 'inventory-item';
+const inventoryGrid = (
+  inventory: Inventory,
+  options: {
+    minSlots: number;
+    onUseItem?: (item: ItemKind) => void;
+  },
+) => {
+  const items = inventoryItems(inventory);
+  const slotCount = Math.max(options.minSlots, items.length);
+  const grid = document.createElement('div');
+  grid.className = 'inventory-grid';
 
-  const label = document.createElement('strong');
-  label.textContent = definition.name;
-
-  const value = document.createElement('span');
-  value.textContent = `×${count}`;
-
-  const detail = document.createElement('small');
-  detail.textContent = definition.description;
-
-  item.append(label, value, detail);
-  return item;
-};
-
-const inventoryAction = (itemKind: ItemKind, count: number, onUse: () => void) => {
-  const definition = ITEM_DEFINITIONS[itemKind];
-  const item = document.createElement('div');
-  item.className = 'item-row';
-
-  const body = document.createElement('div');
-  const label = document.createElement('strong');
-  label.textContent = definition.name;
-
-  const detail = document.createElement('small');
-  detail.textContent = `${definition.description} ${count}個`;
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = definition.category === 'consumable' ? '使う' : '素材';
-  button.disabled = definition.category !== 'consumable' || count <= 0;
-  if (definition.category === 'consumable') {
-    button.addEventListener('click', onUse);
+  for (let index = 0; index < slotCount; index += 1) {
+    const item = items[index];
+    grid.append(item ? inventorySlot(item, options.onUseItem) : emptyInventorySlot(index));
   }
 
-  body.append(label, detail);
-  item.append(body, button);
-  return item;
+  return grid;
 };
+
+const inventorySlot = (itemKind: ItemKind, onUseItem?: (item: ItemKind) => void) => {
+  const definition = ITEM_DEFINITIONS[itemKind];
+  const interactive = Boolean(onUseItem && definition.category === 'consumable');
+  const slot = document.createElement(interactive ? 'button' : 'div');
+  slot.className = 'inventory-slot';
+  slot.setAttribute('aria-label', definition.name);
+  slot.title = `${definition.name}: ${definition.description}`;
+
+  if (slot instanceof HTMLButtonElement) {
+    slot.type = 'button';
+    slot.addEventListener('click', () => onUseItem?.(itemKind));
+  }
+
+  const glyph = document.createElement('span');
+  glyph.className = 'inventory-slot-glyph';
+  glyph.textContent = definition.glyph;
+  glyph.style.color = definition.color;
+
+  const name = document.createElement('small');
+  name.textContent = definition.name;
+
+  slot.append(glyph, name);
+  return slot;
+};
+
+const emptyInventorySlot = (index: number) => {
+  const slot = document.createElement('div');
+  slot.className = 'inventory-slot is-empty';
+  slot.setAttribute('aria-label', `空きスロット ${index + 1}`);
+  return slot;
+};
+
+const inventoryItems = (inventory: Inventory) =>
+  ITEM_KINDS.flatMap((item) => Array.from({ length: inventory[item] }, () => item));
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   const pickup = pickupAction(snapshot);
@@ -357,14 +366,3 @@ const hasSellableMaterial = (stash: Inventory) =>
   ITEM_KINDS.some((item) => ITEM_DEFINITIONS[item].category === 'material' && stash[item] > 0);
 
 const distance = (a: Entity, b: Entity) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-
-const nonEmptyNodes = (nodes: HTMLElement[], emptyText: string) => {
-  if (nodes.length > 0) {
-    return nodes;
-  }
-
-  const empty = document.createElement('p');
-  empty.className = 'empty-list';
-  empty.textContent = emptyText;
-  return [empty];
-};
