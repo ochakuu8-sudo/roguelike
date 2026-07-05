@@ -17,26 +17,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
   const inventorySource = snapshot.mode === 'base' ? snapshot.stash : snapshot.player.raidInventory;
-  const stashCount = ITEM_KINDS.reduce((total, item) => total + snapshot.stash[item], 0);
-  const usedSize = ITEM_KINDS.reduce((total, item) => total + snapshot.player.raidInventory[item] * ITEM_DEFINITIONS[item].size, 0);
-
-  if (snapshot.mode === 'base') {
-    roots.statusRoot.replaceChildren(
-      metric('場所', '拠点'),
-      metric('所持金', `${snapshot.money}G`),
-      metric('倉庫', `${stashCount}個`),
-      metric('向き', directionLabel(snapshot.player.facing.x, snapshot.player.facing.y)),
-      metric('操作', '調べる'),
-    );
-  } else {
-    roots.statusRoot.replaceChildren(
-      metric('HP', `${Math.max(0, stats?.hp ?? 0)} / ${stats?.maxHp ?? 0}`),
-      metric('階層', String(snapshot.player.depth)),
-      metric('向き', directionLabel(snapshot.player.facing.x, snapshot.player.facing.y)),
-      metric('攻撃', String(stats?.attack ?? 0)),
-      metric('バッグ', `${usedSize}/${snapshot.player.raidCapacity}`),
-    );
-  }
+  roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
 
   const inventoryEntries = ITEM_KINDS.filter((item) => inventorySource[item] > 0);
 
@@ -68,18 +49,26 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   updateActionControls(snapshot, roots);
 };
 
-const metric = (label: string, value: string) => {
-  const item = document.createElement('div');
-  item.className = 'metric';
+const hpBar = (hp: number, maxHp: number) => {
+  const root = document.createElement('div');
+  root.className = 'hp-bar';
 
-  const labelNode = document.createElement('span');
-  labelNode.textContent = label;
+  const label = document.createElement('span');
+  label.textContent = 'HP';
 
-  const valueNode = document.createElement('strong');
-  valueNode.textContent = value;
+  const track = document.createElement('div');
+  track.className = 'hp-bar-track';
 
-  item.append(labelNode, valueNode);
-  return item;
+  const fill = document.createElement('div');
+  fill.className = 'hp-bar-fill';
+  fill.style.width = `${maxHp > 0 ? Math.round((hp / maxHp) * 100) : 0}%`;
+
+  const value = document.createElement('strong');
+  value.textContent = `${hp}/${maxHp}`;
+
+  track.append(fill);
+  root.append(label, track, value);
+  return root;
 };
 
 const inventoryItem = (itemKind: ItemKind, count: number) => {
@@ -258,29 +247,4 @@ const nonEmptyNodes = (nodes: HTMLElement[], emptyText: string) => {
   empty.className = 'empty-list';
   empty.textContent = emptyText;
   return [empty];
-};
-
-const directionLabel = (dx: number, dy: number) => {
-  if (dx === 0 && dy < 0) {
-    return '北';
-  }
-  if (dx > 0 && dy < 0) {
-    return '北東';
-  }
-  if (dx > 0 && dy === 0) {
-    return '東';
-  }
-  if (dx > 0 && dy > 0) {
-    return '南東';
-  }
-  if (dx === 0 && dy > 0) {
-    return '南';
-  }
-  if (dx < 0 && dy > 0) {
-    return '南西';
-  }
-  if (dx < 0 && dy === 0) {
-    return '西';
-  }
-  return '北西';
 };
