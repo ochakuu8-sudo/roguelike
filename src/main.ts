@@ -10,6 +10,9 @@ const statusRoot = document.querySelector<HTMLElement>('#status');
 const inventoryRoot = document.querySelector<HTMLElement>('#inventory');
 const itemListRoot = document.querySelector<HTMLElement>('#item-list');
 const logRoot = document.querySelector<HTMLOListElement>('#message-log');
+const actionHintRoot = document.querySelector<HTMLElement>('#action-hint');
+const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="pickup"]');
+const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
 const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
 const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
@@ -23,6 +26,9 @@ if (
   !inventoryRoot ||
   !itemListRoot ||
   !logRoot ||
+  !actionHintRoot ||
+  !pickupButton ||
+  !interactButton ||
   !compendiumButton ||
   !compendiumDialog ||
   !compendiumTabsRoot ||
@@ -45,6 +51,9 @@ const refresh = () => {
     inventoryRoot,
     itemListRoot,
     logRoot,
+    actionHintRoot,
+    pickupButton,
+    interactButton,
     onUseItem: (item) => {
       game.dispatch({ type: 'useItem', item });
       itemDialog.close();
