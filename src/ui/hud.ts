@@ -1,6 +1,7 @@
-import type { Entity, GameSnapshot, Inventory, ItemKind } from '../engine/types';
+import type { BiomeId, Entity, GameSnapshot, Inventory, ItemKind, RecipeId } from '../engine/types';
+import { BIOME_DEFINITIONS, BIOME_IDS } from '../game/biomes';
 import { inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
-import { CRAFTING_RECIPES, formatStack, hasIngredients } from '../game/recipes';
+import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 
 type HudRoots = {
   statusRoot: HTMLElement;
@@ -16,6 +17,15 @@ type HudRoots = {
   attackButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
   onUseItem: (item: ItemKind) => void;
+};
+
+type BasePlanningRoots = {
+  biomeRoot: HTMLElement;
+  stashRoot: HTMLElement;
+  recipeRoot: HTMLElement;
+  moneyRoot: HTMLElement;
+  onStartRaid: (biome: BiomeId) => void;
+  onCraftRecipe: (recipe: RecipeId) => void;
 };
 
 type ContextAction = {
@@ -59,10 +69,18 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
     inventoryGrid(itemDialogSource, {
       layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
       minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
+      onUseItem: roots.onUseItem,
     }),
   );
 
   updateActionControls(snapshot, roots);
+};
+
+export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
+  roots.moneyRoot.textContent = `${snapshot.money}G`;
+  roots.biomeRoot.replaceChildren(...BIOME_IDS.map((biome) => biomeCard(biome, roots.onStartRaid)));
+  roots.stashRoot.replaceChildren(...stashCards(snapshot.stash));
+  roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
 };
 
 const hpBar = (hp: number, maxHp: number) => {
@@ -85,6 +103,130 @@ const hpBar = (hp: number, maxHp: number) => {
   track.append(fill);
   root.append(label, track, value);
   return root;
+};
+
+const biomeCard = (biomeId: BiomeId, onStartRaid: (biome: BiomeId) => void) => {
+  const biome = BIOME_DEFINITIONS[biomeId];
+  const card = document.createElement('article');
+  card.className = 'biome-card';
+  card.style.setProperty('--biome-color', biome.color);
+
+  const heading = document.createElement('h3');
+  heading.textContent = biome.name;
+
+  const meta = document.createElement('p');
+  meta.textContent = `危険度 ${biome.danger} / ${biome.purpose}`;
+
+  const terrain = document.createElement('small');
+  terrain.textContent = `${biome.terrain} / ${biome.landmark}`;
+
+  const materials = document.createElement('div');
+  materials.className = 'biome-materials';
+  biome.materials.forEach((item) => {
+    const chip = document.createElement('span');
+    chip.textContent = ITEM_DEFINITIONS[item].name;
+    materials.append(chip);
+  });
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '出撃';
+  button.addEventListener('click', () => onStartRaid(biomeId));
+
+  card.append(heading, meta, terrain, materials, button);
+  return card;
+};
+
+const stashCards = (inventory: Inventory) => {
+  const items = ITEM_KINDS.filter((item) => inventory[item] > 0 && ITEM_DEFINITIONS[item].category !== 'upgrade');
+  if (items.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-list';
+    empty.textContent = '倉庫は空です。まず探索で素材を持ち帰りましょう。';
+    return [empty];
+  }
+
+  return items.map((item) => {
+    const definition = ITEM_DEFINITIONS[item];
+    const card = document.createElement('article');
+    card.className = `stash-card stash-card-${definition.category}`;
+    card.title = `${definition.name}: ${definition.description}`;
+
+    const glyph = document.createElement('span');
+    glyph.className = 'stash-card-glyph';
+    glyph.textContent = definition.glyph;
+    glyph.style.color = definition.color;
+
+    const body = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = definition.name;
+    const detail = document.createElement('small');
+    detail.textContent = `${categoryLabel(definition.category)} / ${definition.sources.map(biomeName).join('・') || definition.obtain}`;
+    body.append(name, detail);
+
+    const count = document.createElement('b');
+    count.textContent = `x${inventory[item]}`;
+
+    card.append(glyph, body, count);
+    return card;
+  });
+};
+
+const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe: (recipe: RecipeId) => void) => {
+  const recipe = CRAFTING_RECIPES.find((candidate) => candidate.id === recipeId);
+  if (!recipe) {
+    return document.createElement('article');
+  }
+
+  const complete = hasIngredients(inventory, recipe);
+  const missing = missingIngredients(inventory, recipe);
+  const suggestions = suggestedBiomesForRecipe(inventory, recipe);
+  const card = document.createElement('article');
+  card.className = complete ? 'recipe-plan-card is-ready' : 'recipe-plan-card';
+
+  const header = document.createElement('div');
+  header.className = 'recipe-plan-header';
+  const title = document.createElement('h3');
+  title.textContent = ITEM_DEFINITIONS[recipe.result.item].name;
+  const tag = document.createElement('span');
+  tag.textContent = complete ? '作れる' : '不足';
+  header.append(title, tag);
+
+  const description = document.createElement('p');
+  description.textContent = recipe.description;
+
+  const ingredients = document.createElement('dl');
+  ingredients.className = 'recipe-ingredients';
+  recipe.ingredients.forEach((ingredient) => {
+    const definition = ITEM_DEFINITIONS[ingredient.item];
+    const owned = inventory[ingredient.item];
+    const enough = owned >= ingredient.amount;
+    const term = document.createElement('dt');
+    term.className = enough ? 'has-enough' : 'is-missing';
+    term.textContent = definition.name;
+
+    const detail = document.createElement('dd');
+    const source = definition.sources.map(biomeName).join(' / ') || definition.obtain;
+    detail.textContent = enough ? `${owned}/${ingredient.amount}` : `${owned}/${ingredient.amount} あと${ingredient.amount - owned} / ${source}`;
+    ingredients.append(term, detail);
+  });
+
+  const footer = document.createElement('div');
+  footer.className = 'recipe-plan-footer';
+  const target = document.createElement('small');
+  target.textContent =
+    missing.length === 0
+      ? `${recipe.facility}で作成可能`
+      : `次の候補: ${suggestions.map(biomeName).join(' / ') || recipe.targetBiomes.map(biomeName).join(' / ')}`;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '作る';
+  button.disabled = !complete;
+  button.addEventListener('click', () => onCraftRecipe(recipe.id));
+  footer.append(target, button);
+
+  card.append(header, description, ingredients, footer);
+  return card;
 };
 
 const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
@@ -339,21 +481,26 @@ const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   const stats = player?.stats;
   const definition = ITEM_DEFINITIONS[selected];
 
-  if (selected === 'potion') {
+  if (definition.category === 'consumable') {
     const canHeal = Boolean(stats && stats.hp < stats.maxHp);
+    const isHealingItem = selected === 'potion' || selected === 'hiPotion' || selected === 'bandage';
     return {
-      label: '回復',
-      hint: canHeal ? `${definition.name}を使ってHPを回復する。` : 'HPが最大なので回復薬はまだ使えない。',
-      disabled: !canHeal,
+      label: isHealingItem ? '回復' : '使う',
+      hint: isHealingItem
+        ? canHeal
+          ? `${definition.name}を使ってHPを回復する。`
+          : 'HPが最大なので回復系アイテムはまだ使えない。'
+        : `${definition.name}を使う。`,
+      disabled: isHealingItem && !canHeal,
     };
   }
 
   if (selected === 'pickaxe') {
     const targetTile = player ? tileInFront(snapshot, player) : undefined;
-    const canMine = targetTile?.kind === 'wall' || targetTile?.kind === 'ore';
+    const canMine = targetTile?.kind === 'wall' || Boolean(targetTile && isGatheringTile(targetTile.kind));
     return {
       label: '掘る',
-      hint: canMine ? '正面の壁や鉱石ブロックを掘る。' : '正面に掘れる壁や鉱石ブロックがない。',
+      hint: canMine ? '正面の壁や採取ポイントを調べる。' : '正面に掘れる壁や採取ポイントがない。',
       disabled: !canMine,
     };
   }
@@ -409,7 +556,7 @@ const monsterInLine = (snapshot: GameSnapshot, player: Entity, range: number) =>
     }
 
     const tile = snapshot.tiles[y * snapshot.width + x];
-    if (tile?.kind === 'wall' || tile?.kind === 'ore') {
+    if (tile?.kind === 'wall' || (tile && isGatheringTile(tile.kind))) {
       return undefined;
     }
 
@@ -472,3 +619,21 @@ const hasSellableMaterial = (stash: Inventory) =>
   ITEM_KINDS.some((item) => ITEM_DEFINITIONS[item].category === 'material' && stash[item] > 0);
 
 const distance = (a: Entity, b: Entity) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+const isGatheringTile = (kind: GameSnapshot['tiles'][number]['kind']) =>
+  kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
+
+const biomeName = (biome: BiomeId) => BIOME_DEFINITIONS[biome].name;
+
+const categoryLabel = (category: (typeof ITEM_DEFINITIONS)[ItemKind]['category']) => {
+  if (category === 'consumable') {
+    return '消耗品';
+  }
+  if (category === 'equipment') {
+    return '装備';
+  }
+  if (category === 'upgrade') {
+    return '強化';
+  }
+  return '素材';
+};

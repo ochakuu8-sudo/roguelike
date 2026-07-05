@@ -3,7 +3,7 @@ import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
-import { updateHud } from './ui/hud';
+import { updateBasePlanning, updateHud } from './ui/hud';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const statusRoot = document.querySelector<HTMLElement>('#status');
@@ -24,6 +24,11 @@ const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs
 const compendiumListRoot = document.querySelector<HTMLElement>('#compendium-list');
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog');
 const itemDialog = document.querySelector<HTMLDialogElement>('#item-dialog');
+const baseBiomeRoot = document.querySelector<HTMLElement>('#base-biomes');
+const baseStashRoot = document.querySelector<HTMLElement>('#base-stash');
+const baseRecipeRoot = document.querySelector<HTMLElement>('#base-recipes');
+const baseMoneyRoot = document.querySelector<HTMLElement>('#base-money');
+const baseLogRoot = document.querySelector<HTMLOListElement>('#base-message-log');
 
 if (
   !canvas ||
@@ -44,7 +49,12 @@ if (
   !compendiumTabsRoot ||
   !compendiumListRoot ||
   !helpDialog ||
-  !itemDialog
+  !itemDialog ||
+  !baseBiomeRoot ||
+  !baseStashRoot ||
+  !baseRecipeRoot ||
+  !baseMoneyRoot ||
+  !baseLogRoot
 ) {
   throw new Error('Missing app root elements.');
 }
@@ -75,6 +85,28 @@ const refresh = () => {
       refresh();
     },
   });
+  updateBasePlanning(snapshot, {
+    biomeRoot: baseBiomeRoot,
+    stashRoot: baseStashRoot,
+    recipeRoot: baseRecipeRoot,
+    moneyRoot: baseMoneyRoot,
+    onStartRaid: (biome) => {
+      game.dispatch({ type: 'startRaid', biome });
+      refresh();
+    },
+    onCraftRecipe: (recipe) => {
+      game.dispatch({ type: 'craftItem', recipe });
+      refresh();
+    },
+  });
+  baseLogRoot.replaceChildren(
+    ...snapshot.messages.map((message) => {
+      const item = document.createElement('li');
+      item.textContent = message;
+      return item;
+    }),
+  );
+  baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
 };
 
 compendiumButton.addEventListener('click', () => {

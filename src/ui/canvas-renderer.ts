@@ -6,6 +6,10 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
   floor: '#12181b',
   stairs: '#152f2d',
   ore: '#243247',
+  forage: '#173325',
+  crate: '#2d2117',
+  device: '#1d1d34',
+  locked: '#30251b',
 };
 
 const FIXED_CELL_SIZE = 15;
@@ -314,14 +318,14 @@ export class CanvasRenderer {
     const left = offsetX + x * cellSize;
     const top = offsetY + y * cellSize;
 
-    if (tile.kind === 'wall' || tile.kind === 'ore') {
+    if (tile.kind === 'wall' || isGatheringTile(tile.kind)) {
       this.context.fillStyle = '#34434b';
       this.context.fillRect(left, top, cellSize, Math.max(1, Math.floor(cellSize * 0.16)));
       this.context.fillStyle = '#1d282e';
       this.context.fillRect(left, top + cellSize - Math.max(1, Math.floor(cellSize * 0.12)), cellSize, Math.max(1, Math.floor(cellSize * 0.12)));
-      if (tile.kind === 'ore') {
+      if (isGatheringTile(tile.kind)) {
         const chip = Math.max(1, Math.floor(cellSize * 0.16));
-        this.context.fillStyle = '#60a5fa';
+        this.context.fillStyle = gatheringAccent(tile.kind);
         this.context.fillRect(left + Math.floor(cellSize * 0.26), top + Math.floor(cellSize * 0.32), chip, chip);
         this.context.fillStyle = '#bfdbfe';
         this.context.fillRect(left + Math.floor(cellSize * 0.62), top + Math.floor(cellSize * 0.55), chip, chip);
@@ -539,6 +543,22 @@ const tileCenter = (point: { x: number; y: number }, camera: Camera) => ({
 });
 
 const easeOut = (value: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, value)), 3);
+
+const isGatheringTile = (kind: Tile['kind']) =>
+  kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
+
+const gatheringAccent = (kind: Tile['kind']) => {
+  if (kind === 'forage') {
+    return '#86efac';
+  }
+  if (kind === 'crate' || kind === 'locked') {
+    return '#fbbf24';
+  }
+  if (kind === 'device') {
+    return '#c4b5fd';
+  }
+  return '#60a5fa';
+};
 
 const combatGhost = (effect: CombatEffect, role: 'attacker' | 'defender'): Entity => {
   const isAttacker = role === 'attacker';

@@ -26,6 +26,38 @@
           <canvas id="game-canvas" width="960" height="720"></canvas>
         </section>
 
+        <section class="base-screen" aria-label="拠点作戦画面">
+          <div class="base-layout">
+            <section class="base-summary">
+              <div>
+                <p class="eyebrow">拠点</p>
+                <h2>次の探索を決める</h2>
+              </div>
+              <p>倉庫とレシピを見比べ、足りない素材の入手先から出撃先を選びます。</p>
+              <div class="base-money">
+                <span>所持金</span>
+                <strong id="base-money">0G</strong>
+              </div>
+            </section>
+            <section class="base-panel biome-panel">
+              <h2>探索先</h2>
+              <div id="base-biomes" class="biome-list"></div>
+            </section>
+            <section class="base-panel stash-panel">
+              <h2>倉庫</h2>
+              <div id="base-stash" class="stash-list"></div>
+            </section>
+            <section class="base-panel craft-panel">
+              <h2>クラフト / 目標</h2>
+              <div id="base-recipes" class="recipe-plan-list"></div>
+            </section>
+            <section class="base-panel base-log-panel">
+              <h2>ログ</h2>
+              <ol id="base-message-log" class="message-log"></ol>
+            </section>
+          </div>
+        </section>
+
         <aside class="side-panel">
           <section class="equipment-switcher" aria-label="手持ちインベントリ">
             <button data-command="previousHandItem" type="button" aria-label="前の手持ち">◀</button>

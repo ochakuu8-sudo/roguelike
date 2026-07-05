@@ -51,6 +51,7 @@ const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number]) => {
       ['攻撃', String(entry.stats.attack)],
       ['防御', String(entry.stats.defense)],
       ['素早さ', String(entry.stats.speed)],
+      ['出現先', entry.biome],
       ['ドロップ', entry.drop],
     ]),
   );
@@ -64,6 +65,9 @@ const itemCard = (entry: (typeof ITEM_ENTRIES)[number]) => {
       ['分類', entry.category],
       ['サイズ', String(entry.size)],
       ['売値', `${entry.value}G`],
+      ['主な入手先', entry.sources],
+      ['入手方法', entry.obtain],
+      ['レア度', entry.rarity],
     ]),
   );
   return card;
@@ -76,6 +80,7 @@ const recipeCard = (entry: (typeof RECIPE_ENTRIES)[number]) => {
       ['設備', entry.facility],
       ['素材', entry.ingredients.join(' / ')],
       ['完成品', entry.result],
+      ['狙う行き先', entry.target],
     ]),
   );
   return card;

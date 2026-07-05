@@ -1,7 +1,8 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, StationKind, Tile } from '../engine/types';
-import { chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
+import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import { BIOME_DEFINITIONS } from './biomes';
+import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
@@ -33,6 +34,7 @@ export class Game {
   private depth = 1;
   private xp = 0;
   private mode: GameMode = 'base';
+  private biome: BiomeId | null = null;
   private stash: Inventory = createStartingStash();
   private raidInventory: Inventory = createEmptyInventory();
   private handInventory: Inventory = createEmptyInventory();
@@ -73,6 +75,7 @@ export class Game {
       })),
       gameOver: this.gameOver,
       seed: this.seed,
+      biome: this.biome,
     };
   }
 
@@ -83,7 +86,7 @@ export class Game {
     }
 
     if (command.type === 'startRaid') {
-      this.startRaid();
+      this.startRaid(command.biome);
       return;
     }
 
@@ -203,6 +206,7 @@ export class Game {
     this.depth = 1;
     this.xp = 0;
     this.mode = 'base';
+    this.biome = null;
     this.stash = createStartingStash();
     this.raidInventory = createEmptyInventory();
     this.handInventory = createEmptyInventory();
@@ -216,12 +220,13 @@ export class Game {
     this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
-  private startRaid(): void {
+  private startRaid(biome: BiomeId = 'mine'): void {
     if (this.mode === 'raid') {
       return;
     }
 
     this.mode = 'raid';
+    this.biome = biome;
     this.width = MAP_WIDTH;
     this.height = MAP_HEIGHT;
     this.depth = 1;
@@ -241,11 +246,12 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.generateLevel('探索に出撃した。物資を集めて脱出地点を目指そう。');
+    this.generateLevel(`${BIOME_DEFINITIONS[biome].name}へ出撃した。物資を集めて脱出地点を目指そう。`);
   }
 
   private createBase(entryMessage: string): void {
     this.mode = 'base';
+    this.biome = null;
     this.width = BASE_WIDTH;
     this.height = BASE_HEIGHT;
     this.gameOver = false;
@@ -321,12 +327,13 @@ export class Game {
 
     this.tileAt(stairsX, stairsY).kind = 'stairs';
     this.populateRooms(rooms.slice(1, -1));
-    this.placeOreBlocks();
+    this.placeGatheringNodes();
     this.messages = [entryMessage];
     this.updateFov();
   }
 
   private populateRooms(rooms: RoomLike[]): void {
+    const biome = this.currentBiome();
     let monsterIndex = 0;
     let itemIndex = 0;
 
@@ -334,8 +341,8 @@ export class Game {
       const [cx, cy] = roomCenter(room);
       const roll = ROT.RNG.getUniform();
 
-      if (roll < 0.72) {
-        const enemy = chooseEnemyKind(this.depth, ROT.RNG.getUniform());
+      if (roll < 0.64 + biome.danger * 0.08) {
+        const enemy = chooseEnemyKind(biome.id, ROT.RNG.getUniform());
         const definition = ENEMY_DEFINITIONS[enemy];
         this.entities.push({
           id: `monster-${this.depth}-${monsterIndex++}`,
@@ -348,23 +355,24 @@ export class Game {
           blocks: true,
           ai: 'hostile',
           enemy,
-          stats: scaledEnemyStats(enemy, this.depth),
+          stats: scaledEnemyStats(enemy, biome.danger + this.depth - 1),
         });
       }
 
-      if ((roomIndex + this.depth) % 4 === 0) {
+      if ((roomIndex + this.depth) % 3 === 0) {
         const itemX = cx + (ROT.RNG.getUniform() < 0.5 ? -1 : 1);
         const itemY = cy;
         if (this.isWalkable(itemX, itemY)) {
-          this.entities.push(createItemEntity(`potion-${this.depth}-${itemIndex++}`, 'potion', itemX, itemY));
+          this.entities.push(createItemEntity(`loose-${this.depth}-${itemIndex++}`, this.randomBiomeMaterial(), itemX, itemY));
         }
       }
     });
   }
 
-  private placeOreBlocks(): void {
+  private placeGatheringNodes(): void {
+    const biome = this.currentBiome();
     let placed = 0;
-    const targetCount = 8 + this.depth * 2;
+    const targetCount = 8 + biome.danger * 2 + this.depth;
     const candidates: Array<[number, number]> = [];
 
     for (let y = 1; y < this.height - 1; y += 1) {
@@ -378,7 +386,7 @@ export class Game {
     while (placed < targetCount && candidates.length > 0) {
       const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
       const [x, y] = candidates.splice(index, 1)[0];
-      this.tileAt(x, y).kind = 'ore';
+      this.tileAt(x, y).kind = biome.specialTile;
       placed += 1;
     }
   }
@@ -502,8 +510,9 @@ export class Game {
   }
 
   private useItem(item: ItemKind): boolean {
-    if (item !== 'potion') {
-      this.pushMessage(`${ITEM_DEFINITIONS[item].name}は素材だ。`);
+    const definition = ITEM_DEFINITIONS[item];
+    if (definition.category !== 'consumable') {
+      this.pushMessage(`${definition.name}はここでは使えない。`);
       return false;
     }
 
@@ -514,21 +523,29 @@ export class Game {
       return false;
     }
 
-    if (this.handInventory.potion <= 0) {
-      this.pushMessage('回復薬を持っていない。');
+    if (this.handInventory[item] <= 0) {
+      this.pushMessage(`${definition.name}を持っていない。`);
       return false;
     }
 
-    if (stats.hp >= stats.maxHp) {
-      this.pushMessage('HPはすでに最大だ。');
-      return false;
+    if (item === 'potion' || item === 'hiPotion' || item === 'bandage') {
+      if (stats.hp >= stats.maxHp) {
+        this.pushMessage('HPはすでに最大だ。');
+        return false;
+      }
+
+      this.handInventory[item] -= 1;
+      this.syncSelectedHandItem();
+      const healAmount = item === 'hiPotion' ? 20 : item === 'bandage' ? 6 : 10;
+      const healed = Math.min(healAmount, stats.maxHp - stats.hp);
+      stats.hp += healed;
+      this.pushMessage(`${definition.name}を使い、HPを${healed}回復した。`);
+      return true;
     }
 
-    this.handInventory.potion -= 1;
+    this.handInventory[item] -= 1;
     this.syncSelectedHandItem();
-    const healed = Math.min(10, stats.maxHp - stats.hp);
-    stats.hp += healed;
-    this.pushMessage(`回復薬を飲み、HPを${healed}回復した。`);
+    this.pushMessage(`${definition.name}を使った。詳しい効果は今後の状態異常/投擲実装で拡張する。`);
     return true;
   }
 
@@ -565,19 +582,20 @@ export class Game {
     }
 
     const tile = this.tileAt(targetX, targetY);
-    if (tile.kind !== 'wall' && tile.kind !== 'ore') {
-      this.pushMessage('ピッケルで掘れる壁が正面にない。');
+    if (tile.kind !== 'wall' && !this.isGatheringTile(tile.kind)) {
+      this.pushMessage('正面に採掘や採取ができる場所がない。');
       return false;
     }
 
-    const minedOre = tile.kind === 'ore';
+    const gathered = this.isGatheringTile(tile.kind);
     tile.kind = 'floor';
     tile.visible = true;
     tile.explored = true;
 
-    if (minedOre) {
-      this.entities.push(createItemEntity(`ore-${this.depth}-${++this.dropId}`, 'ore', targetX, targetY));
-      this.pushMessage('鉱石ブロックを掘り、鉱石が落ちた。');
+    if (gathered) {
+      const item = this.randomBiomeMaterial();
+      this.entities.push(createItemEntity(`node-${this.depth}-${++this.dropId}`, item, targetX, targetY));
+      this.pushMessage(`${this.currentBiome().specialTileLabel}を調べ、${ITEM_DEFINITIONS[item].name}が落ちた。`);
     } else {
       this.pushMessage('壁を掘って通路を開けた。');
     }
@@ -597,7 +615,7 @@ export class Game {
       }
 
       const tile = this.tileAt(x, y);
-      if (tile.kind === 'wall' || tile.kind === 'ore') {
+      if (tile.kind === 'wall' || this.isGatheringTile(tile.kind)) {
         break;
       }
 
@@ -794,13 +812,28 @@ export class Game {
     });
 
     const player = this.player();
-    const fov = new ROT.FOV.PreciseShadowcasting((x, y) => this.inBounds(x, y) && this.tileAt(x, y).kind !== 'wall' && this.tileAt(x, y).kind !== 'ore');
+    const fov = new ROT.FOV.PreciseShadowcasting((x, y) => this.inBounds(x, y) && this.tileAt(x, y).kind !== 'wall' && !this.isGatheringTile(this.tileAt(x, y).kind));
 
     fov.compute(player.x, player.y, FOV_RADIUS, (x, y) => {
       const tile = this.tileAt(x, y);
       tile.visible = true;
       tile.explored = true;
     });
+  }
+
+  private currentBiome() {
+    return BIOME_DEFINITIONS[this.biome ?? 'mine'];
+  }
+
+  private randomBiomeMaterial(): ItemKind {
+    const biome = this.currentBiome();
+    const pool = biome.commonMaterials;
+    const index = ROT.RNG.getUniformInt(0, pool.length - 1);
+    return pool[index] ?? biome.materials[0] ?? 'ironOre';
+  }
+
+  private isGatheringTile(kind: TileKind): boolean {
+    return kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
   }
 
   private tileAt(x: number, y: number): Tile {
@@ -961,7 +994,7 @@ export class Game {
   }
 
   private dropMaterial(entity: Entity): void {
-    const item = entity.enemy ? ENEMY_DEFINITIONS[entity.enemy].drop : 'impFang';
+    const item = entity.enemy ? chooseEnemyDrop(entity.enemy, ROT.RNG.getUniform()) : this.randomBiomeMaterial();
     const definition = ITEM_DEFINITIONS[item];
     this.entities.push(createItemEntity(`drop-${this.depth}-${++this.dropId}`, item, entity.x, entity.y));
     this.pushMessage(`${entity.name}が${definition.name}を落とした。`);

@@ -16,13 +16,13 @@ export type Command =
   | { type: 'nextHandItem' }
   | { type: 'useItem'; item: ItemKind }
   | { type: 'descend' }
-  | { type: 'startRaid' }
+  | { type: 'startRaid'; biome?: BiomeId }
   | { type: 'sellItem'; item: ItemKind }
   | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
   | { type: 'help' };
 
-export type TileKind = 'wall' | 'floor' | 'stairs' | 'ore';
+export type TileKind = 'wall' | 'floor' | 'stairs' | 'ore' | 'forage' | 'crate' | 'device' | 'locked';
 
 export type Tile = {
   kind: TileKind;
@@ -40,9 +40,95 @@ export type ActorStats = {
 
 export type EntityKind = 'player' | 'monster' | 'item' | 'station';
 export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium';
-export type EnemyKind = 'caveImp' | 'stoneGnoll' | 'venomBat' | 'rustSlime' | 'boneSentinel';
-export type ItemKind = 'potion' | 'sword' | 'bow' | 'pickaxe' | 'impFang' | 'gnollHide' | 'batWing' | 'slimeGel' | 'boneShard' | 'ore';
-export type RecipeId = 'potion';
+export type BiomeId = 'mine' | 'forest' | 'fortress' | 'lab';
+export type EnemyKind =
+  | 'caveImp'
+  | 'oreBeetle'
+  | 'tunnelGnoll'
+  | 'sporeBat'
+  | 'slime'
+  | 'herbEater'
+  | 'boneSentinel'
+  | 'fortRaider'
+  | 'crestKnight'
+  | 'failedSubject'
+  | 'observerDrone'
+  | 'arcaneGuardian';
+export type ItemKind =
+  | 'potion'
+  | 'hiPotion'
+  | 'antidote'
+  | 'bandage'
+  | 'poisonVial'
+  | 'smokeBomb'
+  | 'explosive'
+  | 'throwingKnife'
+  | 'sword'
+  | 'bow'
+  | 'pickaxe'
+  | 'ironOre'
+  | 'copperOre'
+  | 'sulfur'
+  | 'oldGear'
+  | 'hardShell'
+  | 'herb'
+  | 'blueMushroom'
+  | 'poisonSpore'
+  | 'cleanWater'
+  | 'slimeGel'
+  | 'boneShard'
+  | 'sturdyLeather'
+  | 'tornCloth'
+  | 'brokenBlade'
+  | 'crestFragment'
+  | 'glassShard'
+  | 'chemicalBottle'
+  | 'arcaneCore'
+  | 'dataRecord'
+  | 'mutantMeat'
+  | 'wood'
+  | 'oldCoin'
+  | 'keyBundle'
+  | 'mapFragment'
+  | 'swordUpgrade1'
+  | 'swordUpgrade2'
+  | 'bowUpgrade1'
+  | 'bowUpgrade2'
+  | 'pickaxeUpgrade1'
+  | 'pickaxeUpgrade2'
+  | 'armorUpgrade1'
+  | 'armorUpgrade2'
+  | 'bagUpgrade1'
+  | 'bagUpgrade2'
+  | 'stashUpgrade1'
+  | 'craftBenchUpgrade1'
+  | 'mapTable'
+  | 'returnBeacon'
+  | 'lockpickTool';
+export type RecipeId =
+  | 'potion'
+  | 'hiPotion'
+  | 'antidote'
+  | 'bandage'
+  | 'poisonVial'
+  | 'smokeBomb'
+  | 'explosive'
+  | 'throwingKnife'
+  | 'swordUpgrade1'
+  | 'swordUpgrade2'
+  | 'bowUpgrade1'
+  | 'bowUpgrade2'
+  | 'pickaxeUpgrade1'
+  | 'pickaxeUpgrade2'
+  | 'armorUpgrade1'
+  | 'armorUpgrade2'
+  | 'bagUpgrade1'
+  | 'bagUpgrade2'
+  | 'stashUpgrade1'
+  | 'craftBenchUpgrade1'
+  | 'mapTable'
+  | 'returnBeacon'
+  | 'lockpickTool';
 export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';
 
@@ -99,4 +185,5 @@ export type GameSnapshot = {
   combatEffects: CombatEffect[];
   gameOver: boolean;
   seed: number;
+  biome: BiomeId | null;
 };
