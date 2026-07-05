@@ -48,6 +48,7 @@ type InventoryDragState = {
   startX: number;
   startY: number;
   ghost: HTMLElement;
+  isTouchDrag: boolean;
   target?: InventoryDropTarget;
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
@@ -63,6 +64,7 @@ type InventoryDropTarget = {
 const STASH_MIN_SLOTS = 60;
 const EQUIPMENT_SLOTS = 6;
 const DRAG_MOVE_THRESHOLD = 12;
+const TOUCH_DRAG_GHOST_OFFSET = -18;
 
 let inventoryDragState: InventoryDragState | null = null;
 
@@ -520,7 +522,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
     return;
   }
 
-  const beginDrag = (x: number, y: number) => {
+  const beginDrag = (x: number, y: number, isTouchDrag = false) => {
     if (inventoryDragState) {
       return;
     }
@@ -536,6 +538,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
       startX: x,
       startY: y,
       ghost,
+      isTouchDrag,
       onMoveItem: options.onMoveItem,
     };
     slot.classList.add('is-drag-source');
@@ -544,7 +547,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
 
   slot.addEventListener('pointerdown', (event) => {
     event.preventDefault();
-    beginDrag(event.clientX, event.clientY);
+    beginDrag(event.clientX, event.clientY, event.pointerType === 'touch');
     try {
       slot.setPointerCapture(event.pointerId);
     } catch {
@@ -574,7 +577,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
       }
 
       event.preventDefault();
-      beginDrag(touch.clientX, touch.clientY);
+      beginDrag(touch.clientX, touch.clientY, true);
     },
     { passive: false },
   );
@@ -609,7 +612,9 @@ const moveInventoryGhost = (x: number, y: number) => {
     return;
   }
 
-  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -50%)`;
+  const visualX = inventoryDragState.isTouchDrag ? x + TOUCH_DRAG_GHOST_OFFSET : x;
+  const visualY = inventoryDragState.isTouchDrag ? y + TOUCH_DRAG_GHOST_OFFSET : y;
+  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(visualX)}px, ${Math.round(visualY)}px, 0) translate(-50%, -50%)`;
   updateInventoryDropPreview(x, y);
 };
 
