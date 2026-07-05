@@ -48,6 +48,7 @@ type InventoryDragState = {
   startX: number;
   startY: number;
   ghost: HTMLElement;
+  isTouchDrag: boolean;
   target?: InventoryDropTarget;
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
@@ -520,13 +521,13 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
     return;
   }
 
-  const beginDrag = (x: number, y: number) => {
+  const beginDrag = (x: number, y: number, isTouchDrag = false) => {
     if (inventoryDragState) {
       return;
     }
 
     endInventoryDrag(false);
-    const ghost = inventoryDragGhost(itemKind, slot);
+    const ghost = inventoryDragGhost(itemKind, slot, isTouchDrag);
     document.body.append(ghost);
     inventoryDragState = {
       item: itemKind,
@@ -535,6 +536,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
       startX: x,
       startY: y,
       ghost,
+      isTouchDrag,
       onMoveItem: options.onMoveItem,
     };
     slot.classList.add('is-drag-source');
@@ -543,7 +545,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
 
   slot.addEventListener('pointerdown', (event) => {
     event.preventDefault();
-    beginDrag(event.clientX, event.clientY);
+    beginDrag(event.clientX, event.clientY, event.pointerType === 'touch');
     try {
       slot.setPointerCapture(event.pointerId);
     } catch {
@@ -573,18 +575,18 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
       }
 
       event.preventDefault();
-      beginDrag(touch.clientX, touch.clientY);
+      beginDrag(touch.clientX, touch.clientY, true);
     },
     { passive: false },
   );
 };
 
-const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
+const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement, isTouchDrag: boolean) => {
   const definition = ITEM_DEFINITIONS[itemKind];
   const ghost = document.createElement('div');
   const sourceRect = sourceSlot.getBoundingClientRect();
   const sourceCount = sourceSlot.querySelector<HTMLElement>('.inventory-slot-count')?.textContent;
-  ghost.className = 'inventory-drag-ghost';
+  ghost.className = isTouchDrag ? 'inventory-drag-ghost is-touch-drag' : 'inventory-drag-ghost';
   ghost.style.width = `${sourceRect.width}px`;
   ghost.style.left = '0px';
   ghost.style.top = '0px';
@@ -608,7 +610,8 @@ const moveInventoryGhost = (x: number, y: number) => {
     return;
   }
 
-  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -50%)`;
+  const offset = inventoryDragState.isTouchDrag ? 'translate(-50%, calc(-100% - 18px))' : 'translate(-50%, -50%)';
+  inventoryDragState.ghost.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) ${offset}`;
   updateInventoryDropPreview(x, y);
 };
 
