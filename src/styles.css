@@ -738,20 +738,11 @@ button.inventory-slot:hover {
   will-change: transform;
 }
 
-.inventory-drag-ghost.is-touch-drag {
-  width: calc(var(--drag-item-size, var(--inventory-slot-size, 34px)) * 1.28);
-  opacity: 0.84;
-}
-
 .inventory-drag-ghost-glyph {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 1.32rem;
   font-weight: 900;
   line-height: 1;
-}
-
-.inventory-drag-ghost.is-touch-drag .inventory-drag-ghost-glyph {
-  font-size: 1.55rem;
 }
 
 .inventory-drag-ghost-count {
