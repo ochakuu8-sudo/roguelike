@@ -41,10 +41,47 @@ type InventoryGridOptions = {
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
 
+type InventoryDragState = {
+  item: ItemKind;
+  from: InventoryLocation;
+  startX: number;
+  startY: number;
+  ghost: HTMLElement;
+  target?: InventoryLocation;
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+};
+
 const STASH_MIN_SLOTS = 60;
 const EQUIPMENT_SLOTS = 6;
+const DRAG_MOVE_THRESHOLD = 12;
 
-let selectedInventoryTransfer: { item: ItemKind; from: InventoryLocation } | null = null;
+let inventoryDragState: InventoryDragState | null = null;
+
+document.addEventListener('pointermove', (event) => {
+  if (inventoryDragState) {
+    event.preventDefault();
+    moveInventoryGhost(event.clientX, event.clientY);
+  }
+});
+
+document.addEventListener('pointerup', (event) => {
+  endInventoryDrag(true, event.clientX, event.clientY);
+});
+
+document.addEventListener('pointercancel', () => {
+  endInventoryDrag(false);
+});
+
+document.addEventListener('mousemove', (event) => {
+  if (inventoryDragState) {
+    event.preventDefault();
+    moveInventoryGhost(event.clientX, event.clientY);
+  }
+});
+
+document.addEventListener('mouseup', (event) => {
+  endInventoryDrag(true, event.clientX, event.clientY);
+});
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
@@ -64,8 +101,6 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
   roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem));
-  clearInvalidInventorySelection(snapshot);
-  updateInventorySelectionStyles();
 
   updateActionControls(snapshot, roots);
 };
@@ -345,13 +380,6 @@ const inventoryGrid = (
   const grid = document.createElement('div');
   grid.className = `inventory-grid inventory-grid-${options.layout}`;
   grid.dataset.inventoryLocation = options.location;
-  grid.addEventListener('click', (event) => {
-    if (event.target instanceof HTMLElement && event.target.closest('.inventory-slot:not(.is-empty)')) {
-      return;
-    }
-
-    moveSelectedItemTo(options.location, options.onMoveItem);
-  });
 
   for (let index = 0; index < slotCount; index += 1) {
     const item = items[index];
@@ -370,7 +398,7 @@ const inventorySlot = (itemKind: ItemKind, countValue: number, options: Inventor
   slot.dataset.inventoryLocation = options.location;
   slot.setAttribute('aria-label', `${definition.name} x${countValue}`);
   slot.title = `${definition.name} x${countValue}: ${definition.description}`;
-  slot.addEventListener('click', () => handleInventorySlotTap(itemKind, options));
+  bindInventoryDrag(slot, itemKind, options);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
@@ -388,88 +416,120 @@ const inventorySlot = (itemKind: ItemKind, countValue: number, options: Inventor
   return slot;
 };
 
-const handleInventorySlotTap = (itemKind: ItemKind, options: InventoryGridOptions) => {
-  if (selectedInventoryTransfer) {
-    if (selectedInventoryTransfer.from !== options.location) {
-      options.onMoveItem?.(selectedInventoryTransfer.item, selectedInventoryTransfer.from, options.location);
-      selectedInventoryTransfer = null;
-      updateInventorySelectionStyles();
-      return;
-    }
-
-    if (selectedInventoryTransfer.item === itemKind) {
-      selectedInventoryTransfer = null;
-      updateInventorySelectionStyles();
-      return;
-    }
-  }
-
-  selectedInventoryTransfer = { item: itemKind, from: options.location };
-  updateInventorySelectionStyles();
-};
-
-const moveSelectedItemTo = (
-  location: InventoryLocation,
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
-) => {
-  if (!selectedInventoryTransfer || selectedInventoryTransfer.from === location) {
+const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: InventoryGridOptions) => {
+  if (!options.onMoveItem) {
     return;
   }
 
-  onMoveItem?.(selectedInventoryTransfer.item, selectedInventoryTransfer.from, location);
-  selectedInventoryTransfer = null;
-  updateInventorySelectionStyles();
-};
+  const beginDrag = (x: number, y: number) => {
+    endInventoryDrag(false);
+    const ghost = inventoryDragGhost(itemKind, slot);
+    document.body.append(ghost);
+    inventoryDragState = {
+      item: itemKind,
+      from: options.location,
+      startX: x,
+      startY: y,
+      ghost,
+      onMoveItem: options.onMoveItem,
+    };
+    slot.classList.add('is-drag-source');
+    moveInventoryGhost(x, y);
+  };
 
-const updateInventorySelectionStyles = () => {
-  document.querySelectorAll<HTMLElement>('.inventory-slot.is-selected').forEach((slot) => {
-    slot.classList.remove('is-selected');
-    slot.removeAttribute('aria-pressed');
+  slot.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    beginDrag(event.clientX, event.clientY);
+    slot.setPointerCapture(event.pointerId);
   });
 
-  if (!selectedInventoryTransfer) {
+  slot.addEventListener('mousedown', (event) => {
+    if (event.button !== 0 || inventoryDragState) {
+      return;
+    }
+
+    event.preventDefault();
+    beginDrag(event.clientX, event.clientY);
+  });
+};
+
+const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
+  const definition = ITEM_DEFINITIONS[itemKind];
+  const ghost = sourceSlot.cloneNode(true) as HTMLElement;
+  const sourceRect = sourceSlot.getBoundingClientRect();
+  ghost.className = 'inventory-slot inventory-drag-ghost';
+  ghost.style.width = `${sourceRect.width}px`;
+  ghost.style.setProperty('--item-color', definition.color);
+  return ghost;
+};
+
+const moveInventoryGhost = (x: number, y: number) => {
+  if (!inventoryDragState) {
     return;
   }
 
-  document
-    .querySelectorAll<HTMLElement>(
-      `.inventory-slot[data-item="${selectedInventoryTransfer.item}"][data-inventory-location="${selectedInventoryTransfer.from}"]`,
-    )
-    .forEach((slot) => {
-      slot.classList.add('is-selected');
-      slot.setAttribute('aria-pressed', 'true');
-    });
+  inventoryDragState.ghost.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
+  updateInventoryDropPreview(x, y);
 };
 
-const clearInvalidInventorySelection = (snapshot: GameSnapshot) => {
-  if (!selectedInventoryTransfer) {
+const updateInventoryDropPreview = (x: number, y: number) => {
+  clearInventoryDropPreview();
+  if (!inventoryDragState) {
     return;
   }
 
-  const inventory = inventoryForSnapshotLocation(snapshot, selectedInventoryTransfer.from);
-  if (!inventory || inventory[selectedInventoryTransfer.item] <= 0) {
-    selectedInventoryTransfer = null;
+  const grid = inventoryGridAtPoint(x, y);
+  const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
+  inventoryDragState.target = location && location !== inventoryDragState.from ? location : undefined;
+
+  if (!grid || !location) {
+    return;
   }
+
+  if (!inventoryDragState.target) {
+    grid.classList.add('is-drop-blocked');
+    return;
+  }
+
+  grid.classList.add('is-drop-target');
+  const previewSlot =
+    grid.querySelector<HTMLElement>(`.inventory-slot[data-item="${inventoryDragState.item}"]`) ??
+    grid.querySelector<HTMLElement>('.inventory-slot.is-empty');
+  previewSlot?.classList.add('is-drop-preview');
 };
 
-const inventoryForSnapshotLocation = (snapshot: GameSnapshot, location: InventoryLocation): Inventory | undefined => {
-  if (snapshot.mode === 'base') {
-    if (location === 'hand') {
-      return snapshot.baseLoadout;
-    }
-    if (location === 'stash') {
-      return snapshot.stash;
-    }
-    return undefined;
+const inventoryGridAtPoint = (x: number, y: number) => {
+  const element = document.elementFromPoint(x, y);
+  return element?.closest<HTMLElement>('.inventory-grid');
+};
+
+const clearInventoryDropPreview = () => {
+  document.querySelectorAll<HTMLElement>('.inventory-grid.is-drop-target, .inventory-grid.is-drop-blocked').forEach((grid) => {
+    grid.classList.remove('is-drop-target', 'is-drop-blocked');
+  });
+  document.querySelectorAll<HTMLElement>('.inventory-slot.is-drop-preview').forEach((slot) => {
+    slot.classList.remove('is-drop-preview');
+  });
+};
+
+const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
+  const state = inventoryDragState;
+  if (!state) {
+    return;
   }
 
-  if (location === 'hand') {
-    return snapshot.player.handInventory;
+  const distance = Math.hypot(x - state.startX, y - state.startY);
+  const target = commit && distance >= DRAG_MOVE_THRESHOLD ? state.target : undefined;
+  state.ghost.remove();
+  inventoryDragState = null;
+  document.querySelectorAll<HTMLElement>('.inventory-slot.is-drag-source').forEach((slot) => {
+    slot.classList.remove('is-drag-source');
+  });
+  clearInventoryDropPreview();
+
+  if (target) {
+    state.onMoveItem?.(state.item, state.from, target);
   }
-  if (location === 'raidBag') {
-    return snapshot.player.raidInventory;
-  }
-  return undefined;
 };
 
 const emptyInventorySlot = (index: number) => {
