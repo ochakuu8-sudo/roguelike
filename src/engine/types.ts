@@ -22,7 +22,7 @@ export type Command =
   | { type: 'restart' }
   | { type: 'help' };
 
-export type TileKind = 'wall' | 'floor' | 'stairs';
+export type TileKind = 'wall' | 'floor' | 'stairs' | 'ore';
 
 export type Tile = {
   kind: TileKind;
@@ -41,7 +41,7 @@ export type ActorStats = {
 export type EntityKind = 'player' | 'monster' | 'item' | 'station';
 export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium';
 export type EnemyKind = 'caveImp' | 'stoneGnoll' | 'venomBat' | 'rustSlime' | 'boneSentinel';
-export type ItemKind = 'potion' | 'impFang' | 'gnollHide' | 'batWing' | 'slimeGel' | 'boneShard';
+export type ItemKind = 'potion' | 'sword' | 'bow' | 'pickaxe' | 'impFang' | 'gnollHide' | 'batWing' | 'slimeGel' | 'boneShard' | 'ore';
 export type RecipeId = 'potion';
 export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';

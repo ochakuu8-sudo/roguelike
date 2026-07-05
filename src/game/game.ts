@@ -233,6 +233,10 @@ export class Game {
       this.handInventory.potion = 1;
       this.selectedHandItem = 'potion';
     }
+    this.equipFromStash('sword');
+    this.equipFromStash('bow');
+    this.equipFromStash('pickaxe');
+    this.syncSelectedHandItem(this.selectedHandItem ?? 'sword');
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
     this.combatEffects = [];
@@ -317,6 +321,7 @@ export class Game {
 
     this.tileAt(stairsX, stairsY).kind = 'stairs';
     this.populateRooms(rooms.slice(1, -1));
+    this.placeOreBlocks();
     this.messages = [entryMessage];
     this.updateFov();
   }
@@ -355,6 +360,27 @@ export class Game {
         }
       }
     });
+  }
+
+  private placeOreBlocks(): void {
+    let placed = 0;
+    const targetCount = 8 + this.depth * 2;
+    const candidates: Array<[number, number]> = [];
+
+    for (let y = 1; y < this.height - 1; y += 1) {
+      for (let x = 1; x < this.width - 1; x += 1) {
+        if (this.tileAt(x, y).kind === 'wall' && this.hasAdjacentFloor(x, y)) {
+          candidates.push([x, y]);
+        }
+      }
+    }
+
+    while (placed < targetCount && candidates.length > 0) {
+      const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
+      const [x, y] = candidates.splice(index, 1)[0];
+      this.tileAt(x, y).kind = 'ore';
+      placed += 1;
+    }
   }
 
   private tryMovePlayer(dx: number, dy: number): TurnResult {
@@ -513,7 +539,77 @@ export class Game {
       return false;
     }
 
+    if (item === 'pickaxe') {
+      return this.mineFacing();
+    }
+
+    if (item === 'sword') {
+      return this.attackFacing().usedTurn;
+    }
+
+    if (item === 'bow') {
+      return this.shootFacing();
+    }
+
     return this.useItem(item);
+  }
+
+  private mineFacing(): boolean {
+    const player = this.player();
+    const targetX = player.x + this.facing.x;
+    const targetY = player.y + this.facing.y;
+
+    if (!this.inBounds(targetX, targetY)) {
+      this.pushMessage('そこは掘れない。');
+      return false;
+    }
+
+    const tile = this.tileAt(targetX, targetY);
+    if (tile.kind !== 'wall' && tile.kind !== 'ore') {
+      this.pushMessage('ピッケルで掘れる壁が正面にない。');
+      return false;
+    }
+
+    const minedOre = tile.kind === 'ore';
+    tile.kind = 'floor';
+    tile.visible = true;
+    tile.explored = true;
+
+    if (minedOre) {
+      this.entities.push(createItemEntity(`ore-${this.depth}-${++this.dropId}`, 'ore', targetX, targetY));
+      this.pushMessage('鉱石ブロックを掘り、鉱石が落ちた。');
+    } else {
+      this.pushMessage('壁を掘って通路を開けた。');
+    }
+
+    return true;
+  }
+
+  private shootFacing(): boolean {
+    const player = this.player();
+    const range = 5;
+
+    for (let step = 1; step <= range; step += 1) {
+      const x = player.x + this.facing.x * step;
+      const y = player.y + this.facing.y * step;
+      if (!this.inBounds(x, y)) {
+        break;
+      }
+
+      const tile = this.tileAt(x, y);
+      if (tile.kind === 'wall' || tile.kind === 'ore') {
+        break;
+      }
+
+      const target = this.blockingEntityAt(x, y);
+      if (target?.kind === 'monster') {
+        this.attack(player, target);
+        return true;
+      }
+    }
+
+    this.pushMessage('弓で狙える敵がいない。');
+    return false;
   }
 
   private extract(): boolean {
@@ -698,7 +794,7 @@ export class Game {
     });
 
     const player = this.player();
-    const fov = new ROT.FOV.PreciseShadowcasting((x, y) => this.inBounds(x, y) && this.tileAt(x, y).kind !== 'wall');
+    const fov = new ROT.FOV.PreciseShadowcasting((x, y) => this.inBounds(x, y) && this.tileAt(x, y).kind !== 'wall' && this.tileAt(x, y).kind !== 'ore');
 
     fov.compute(player.x, player.y, FOV_RADIUS, (x, y) => {
       const tile = this.tileAt(x, y);
@@ -753,7 +849,19 @@ export class Game {
   }
 
   private isWalkable(x: number, y: number): boolean {
-    return this.inBounds(x, y) && this.tileAt(x, y).kind !== 'wall';
+    return this.inBounds(x, y) && (this.tileAt(x, y).kind === 'floor' || this.tileAt(x, y).kind === 'stairs');
+  }
+
+  private hasAdjacentFloor(x: number, y: number): boolean {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if ((dx !== 0 || dy !== 0) && this.inBounds(x + dx, y + dy) && this.tileAt(x + dx, y + dy).kind === 'floor') {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   private blockingEntityAt(x: number, y: number, exceptId?: string): Entity | undefined {
@@ -781,7 +889,7 @@ export class Game {
   }
 
   private addLootItem(item: ItemKind, amount = 1): void {
-    if (ITEM_DEFINITIONS[item].category === 'consumable') {
+    if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment') {
       this.handInventory[item] += amount;
       this.syncSelectedHandItem(item);
       return;
@@ -791,11 +899,20 @@ export class Game {
   }
 
   private canCarry(item: ItemKind): boolean {
-    if (ITEM_DEFINITIONS[item].category === 'consumable') {
+    if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment') {
       return true;
     }
 
     return inventoryItemCount(this.raidInventory) + 1 <= RAID_CAPACITY;
+  }
+
+  private equipFromStash(item: ItemKind): void {
+    if (this.stash[item] <= 0) {
+      return;
+    }
+
+    this.stash[item] -= 1;
+    this.handInventory[item] += 1;
   }
 
   private transferRaidInventoryToStash(): void {

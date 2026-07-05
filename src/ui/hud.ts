@@ -25,6 +25,7 @@ type ContextAction = {
 };
 
 const STASH_MIN_SLOTS = 24;
+const EQUIPMENT_SLOTS = 6;
 
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
@@ -35,6 +36,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   updateHandSwitcher(snapshot, roots);
 
   roots.inventoryRoot.replaceChildren(
+    ...equipmentNodes(snapshot),
     inventorySummary(snapshot, inventorySource),
     inventoryGrid(inventorySource, {
       layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
@@ -52,6 +54,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
   roots.itemListRoot.replaceChildren(
+    ...equipmentNodes(snapshot),
     inventorySummary(snapshot, itemDialogSource),
     inventoryGrid(itemDialogSource, {
       layout: snapshot.mode === 'base' ? 'stash' : 'raidBag',
@@ -141,6 +144,30 @@ const inventorySummary = (snapshot: GameSnapshot, inventory: Inventory) => {
 
   root.append(label, detail);
   return root;
+};
+
+const equipmentNodes = (snapshot: GameSnapshot) => {
+  if (snapshot.mode !== 'raid') {
+    return [];
+  }
+
+  const summary = document.createElement('div');
+  summary.className = 'inventory-summary equipment-summary';
+
+  const label = document.createElement('strong');
+  label.textContent = `装備 ${inventoryItemCount(snapshot.player.handInventory)}/${EQUIPMENT_SLOTS}枠`;
+
+  const detail = document.createElement('small');
+  detail.textContent = 'この枠のアイテムが右上の手持ち切り替えに表示される。';
+
+  summary.append(label, detail);
+  return [
+    summary,
+    inventoryGrid(snapshot.player.handInventory, {
+      layout: 'hand',
+      minSlots: EQUIPMENT_SLOTS,
+    }),
+  ];
 };
 
 const inventoryGrid = (
@@ -321,6 +348,35 @@ const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
     };
   }
 
+  if (selected === 'pickaxe') {
+    const targetTile = player ? tileInFront(snapshot, player) : undefined;
+    const canMine = targetTile?.kind === 'wall' || targetTile?.kind === 'ore';
+    return {
+      label: '掘る',
+      hint: canMine ? '正面の壁や鉱石ブロックを掘る。' : '正面に掘れる壁や鉱石ブロックがない。',
+      disabled: !canMine,
+    };
+  }
+
+  if (selected === 'sword') {
+    const target = player ? entityInFront(snapshot, player) : undefined;
+    const canSlash = target?.kind === 'monster';
+    return {
+      label: '斬る',
+      hint: canSlash ? `${target.name}を斬る。` : '正面に斬れる敵がいない。',
+      disabled: !canSlash,
+    };
+  }
+
+  if (selected === 'bow') {
+    const target = player ? monsterInLine(snapshot, player, 5) : undefined;
+    return {
+      label: '射る',
+      hint: target ? `${target.name}を弓で狙う。` : '向いている方向に狙える敵がいない。',
+      disabled: !target,
+    };
+  }
+
   return {
     label: '使う',
     hint: `${definition.name}は今は使えない。`,
@@ -340,6 +396,31 @@ const entityInFront = (snapshot: GameSnapshot, player: Entity) =>
       entity.x === player.x + snapshot.player.facing.x &&
       entity.y === player.y + snapshot.player.facing.y,
   );
+
+const tileInFront = (snapshot: GameSnapshot, player: Entity) =>
+  snapshot.tiles[(player.y + snapshot.player.facing.y) * snapshot.width + player.x + snapshot.player.facing.x];
+
+const monsterInLine = (snapshot: GameSnapshot, player: Entity, range: number) => {
+  for (let step = 1; step <= range; step += 1) {
+    const x = player.x + snapshot.player.facing.x * step;
+    const y = player.y + snapshot.player.facing.y * step;
+    if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
+      return undefined;
+    }
+
+    const tile = snapshot.tiles[y * snapshot.width + x];
+    if (tile?.kind === 'wall' || tile?.kind === 'ore') {
+      return undefined;
+    }
+
+    const target = snapshot.entities.find((entity) => entity.kind === 'monster' && entity.x === x && entity.y === y);
+    if (target) {
+      return target;
+    }
+  }
+
+  return undefined;
+};
 
 const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
   const inFront = snapshot.entities.find(
@@ -384,6 +465,7 @@ const stationHint = (station: Entity, stash: Inventory) => {
 
 const canCarry = (inventory: Inventory, item: ItemKind, capacity: number) =>
   ITEM_DEFINITIONS[item].category === 'consumable' ||
+  ITEM_DEFINITIONS[item].category === 'equipment' ||
   inventoryItemCount(inventory) + 1 <= capacity;
 
 const hasSellableMaterial = (stash: Inventory) =>

@@ -433,6 +433,11 @@ h2 {
 
 .inventory-grid-hand {
   --inventory-columns: 6;
+  margin-bottom: 10px;
+}
+
+.equipment-summary {
+  margin-bottom: 6px;
 }
 
 .inventory-summary {

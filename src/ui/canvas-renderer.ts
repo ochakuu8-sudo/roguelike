@@ -5,6 +5,7 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
   wall: '#26333a',
   floor: '#12181b',
   stairs: '#152f2d',
+  ore: '#243247',
 };
 
 const FIXED_CELL_SIZE = 15;
@@ -313,11 +314,18 @@ export class CanvasRenderer {
     const left = offsetX + x * cellSize;
     const top = offsetY + y * cellSize;
 
-    if (tile.kind === 'wall') {
+    if (tile.kind === 'wall' || tile.kind === 'ore') {
       this.context.fillStyle = '#34434b';
       this.context.fillRect(left, top, cellSize, Math.max(1, Math.floor(cellSize * 0.16)));
       this.context.fillStyle = '#1d282e';
       this.context.fillRect(left, top + cellSize - Math.max(1, Math.floor(cellSize * 0.12)), cellSize, Math.max(1, Math.floor(cellSize * 0.12)));
+      if (tile.kind === 'ore') {
+        const chip = Math.max(1, Math.floor(cellSize * 0.16));
+        this.context.fillStyle = '#60a5fa';
+        this.context.fillRect(left + Math.floor(cellSize * 0.26), top + Math.floor(cellSize * 0.32), chip, chip);
+        this.context.fillStyle = '#bfdbfe';
+        this.context.fillRect(left + Math.floor(cellSize * 0.62), top + Math.floor(cellSize * 0.55), chip, chip);
+      }
       return;
     }
 
