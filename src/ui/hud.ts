@@ -1,5 +1,5 @@
 import type { Entity, GameSnapshot, Inventory, ItemKind } from '../engine/types';
-import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
 import { CRAFTING_RECIPES, formatStack, hasIngredients } from '../game/recipes';
 
 type HudRoots = {
@@ -36,6 +36,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   updateHandSwitcher(snapshot, roots);
 
   roots.inventoryRoot.replaceChildren(
+    inventorySummary(snapshot, inventorySource),
     inventoryGrid(inventorySource, {
       minSlots: snapshot.mode === 'base' ? STASH_MIN_SLOTS : snapshot.player.raidCapacity,
     }),
@@ -118,6 +119,27 @@ const slotText = (labelText: string, detailText: string) => {
   detail.textContent = detailText;
   fragment.append(label, detail);
   return fragment;
+};
+
+const inventorySummary = (snapshot: GameSnapshot, inventory: Inventory) => {
+  const root = document.createElement('div');
+  root.className = 'inventory-summary';
+
+  const label = document.createElement('strong');
+  const detail = document.createElement('small');
+
+  if (snapshot.mode === 'raid') {
+    const used = inventoryItemCount(inventory);
+    label.textContent = `持ち帰りバッグ ${used}/${snapshot.player.raidCapacity}枠`;
+    detail.textContent = 'この枠に入った素材だけ拠点へ持ち帰れる。';
+  } else {
+    const stored = inventoryItemCount(inventory);
+    label.textContent = `倉庫 ${stored}個`;
+    detail.textContent = `拠点保管。探索で持ち帰れるバッグは${snapshot.player.raidCapacity}枠。`;
+  }
+
+  root.append(label, detail);
+  return root;
 };
 
 const inventoryGrid = (
@@ -360,7 +382,7 @@ const stationHint = (station: Entity, stash: Inventory) => {
 
 const canCarry = (inventory: Inventory, item: ItemKind, capacity: number) =>
   ITEM_DEFINITIONS[item].category === 'consumable' ||
-  ITEM_KINDS.reduce((total, itemKind) => total + inventory[itemKind] * ITEM_DEFINITIONS[itemKind].size, 0) + ITEM_DEFINITIONS[item].size <= capacity;
+  inventoryItemCount(inventory) + 1 <= capacity;
 
 const hasSellableMaterial = (stash: Inventory) =>
   ITEM_KINDS.some((item) => ITEM_DEFINITIONS[item].category === 'material' && stash[item] > 0);

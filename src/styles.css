@@ -421,6 +421,25 @@ h2 {
   overflow: auto;
 }
 
+.inventory-summary {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.inventory-summary strong {
+  color: #edf2f7;
+  font-size: 0.82rem;
+  line-height: 1.1;
+}
+
+.inventory-summary small {
+  color: #a8bbc6;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 .inventory-slot {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;

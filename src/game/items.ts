@@ -86,5 +86,5 @@ export const createStartingStash = (): Inventory => ({
   potion: 1,
 });
 
-export const inventoryUsedSize = (inventory: Inventory) =>
-  ITEM_KINDS.reduce((total, item) => total + inventory[item] * ITEM_DEFINITIONS[item].size, 0);
+export const inventoryItemCount = (inventory: Inventory) =>
+  ITEM_KINDS.reduce((total, item) => total + inventory[item], 0);

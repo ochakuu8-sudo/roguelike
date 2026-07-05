@@ -2,7 +2,7 @@ import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
 import type { CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, ItemKind, RecipeId, StationKind, Tile } from '../engine/types';
 import { chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
-import { createEmptyInventory, createStartingStash, inventoryUsedSize, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
+import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 56;
@@ -795,7 +795,7 @@ export class Game {
       return true;
     }
 
-    return inventoryUsedSize(this.raidInventory) + ITEM_DEFINITIONS[item].size <= RAID_CAPACITY;
+    return inventoryItemCount(this.raidInventory) + 1 <= RAID_CAPACITY;
   }
 
   private transferRaidInventoryToStash(): void {
