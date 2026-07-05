@@ -629,7 +629,45 @@ h2 {
 }
 
 .inventory-grid-stash {
-  --inventory-columns: 10;
+  --inventory-columns: 5;
+  max-height: none;
+  overflow: visible;
+}
+
+.inventory-pager {
+  display: grid;
+  gap: 7px;
+  width: max-content;
+  max-width: 100%;
+}
+
+.inventory-pager-controls {
+  display: grid;
+  grid-template-columns: 30px auto 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.inventory-pager-button {
+  min-height: 28px;
+  border-radius: 7px;
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.inventory-pager-button:disabled {
+  opacity: 0.42;
+}
+
+.inventory-pager-label {
+  min-width: 42px;
+  color: #edf2f7;
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
 }
 
 .inventory-grid-raidBag {
@@ -968,6 +1006,8 @@ button.inventory-slot:hover {
 
 .item-list .inventory-grid-stash {
   --inventory-slot-size: 36px;
+  max-height: none;
+  overflow: visible;
 }
 
 .compendium-tabs {

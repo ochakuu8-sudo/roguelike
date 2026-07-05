@@ -62,6 +62,7 @@ type InventoryDropTarget = {
 };
 
 const STASH_MIN_SLOTS = 60;
+const STASH_PAGE_SLOTS = 20;
 const EQUIPMENT_SLOTS = 6;
 const DRAG_MOVE_THRESHOLD = 12;
 const TOUCH_DRAG_GHOST_OFFSET = -18;
@@ -72,6 +73,9 @@ const inventorySlotLayouts: Record<InventoryLocation, Array<ItemKind | null>> = 
   hand: [],
   stash: [],
   raidBag: [],
+};
+const inventoryPageByLocation: Partial<Record<InventoryLocation, number>> = {
+  stash: 0,
 };
 
 const inventoryCountsByLocation: Partial<Record<InventoryLocation, Inventory>> = {};
@@ -428,18 +432,107 @@ const inventoryGrid = (
   const grid = document.createElement('div');
   grid.className = `inventory-grid inventory-grid-${options.layout}`;
   grid.dataset.inventoryLocation = options.location;
+  const root = options.location === 'stash' ? inventoryPager(grid, options.location) : grid;
   populateInventoryGrid(grid, inventory, options);
-  return grid;
+  return root;
 };
 
 const populateInventoryGrid = (grid: HTMLElement, inventory: Inventory, options: InventoryGridOptions) => {
   const layout = syncInventorySlotLayout(options.location, inventory, options.minSlots);
   grid.replaceChildren();
 
-  for (let index = 0; index < layout.length; index += 1) {
+  const pageSize = inventoryPageSize(options.location);
+  const pageCount = pageSize ? Math.max(1, Math.ceil(layout.length / pageSize)) : 1;
+  const currentPage = Math.min(inventoryPageByLocation[options.location] ?? 0, pageCount - 1);
+  inventoryPageByLocation[options.location] = currentPage;
+  const startIndex = pageSize ? currentPage * pageSize : 0;
+  const endIndex = pageSize ? Math.min(startIndex + pageSize, layout.length) : layout.length;
+
+  for (let index = startIndex; index < endIndex; index += 1) {
     const item = layout[index];
     const countValue = item ? inventory[item] : 0;
     grid.append(item && countValue > 0 ? inventorySlot(item, countValue, options, index) : emptyInventorySlot(index, options));
+  }
+
+  updateInventoryPager(grid, currentPage, pageCount);
+};
+
+const inventoryPageSize = (location: InventoryLocation) => (location === 'stash' ? STASH_PAGE_SLOTS : 0);
+
+const inventoryPager = (grid: HTMLElement, location: InventoryLocation) => {
+  const root = document.createElement('div');
+  root.className = 'inventory-pager';
+  root.dataset.inventoryLocation = location;
+
+  const controls = document.createElement('div');
+  controls.className = 'inventory-pager-controls';
+
+  const previous = document.createElement('button');
+  previous.type = 'button';
+  previous.className = 'inventory-pager-button';
+  previous.dataset.inventoryPageAction = 'previous';
+  previous.textContent = '◀';
+  previous.setAttribute('aria-label', '前の倉庫ページ');
+  previous.addEventListener('click', () => changeInventoryPage(location, -1));
+
+  const label = document.createElement('span');
+  label.className = 'inventory-pager-label';
+  label.dataset.inventoryPageLabel = location;
+  label.textContent = '1/1';
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'inventory-pager-button';
+  next.dataset.inventoryPageAction = 'next';
+  next.textContent = '▶';
+  next.setAttribute('aria-label', '次の倉庫ページ');
+  next.addEventListener('click', () => changeInventoryPage(location, 1));
+
+  controls.append(previous, label, next);
+  root.append(grid, controls);
+  return root;
+};
+
+const changeInventoryPage = (location: InventoryLocation, delta: number) => {
+  const inventory = inventoryCountsByLocation[location];
+  const options = inventoryOptionsByLocation[location];
+  if (!inventory || !options) {
+    return;
+  }
+
+  const pageSize = inventoryPageSize(location);
+  if (!pageSize) {
+    return;
+  }
+
+  const pageCount = Math.max(1, Math.ceil(syncInventorySlotLayout(location, inventory, options.minSlots).length / pageSize));
+  const nextPage = Math.min(Math.max((inventoryPageByLocation[location] ?? 0) + delta, 0), pageCount - 1);
+  if (nextPage === inventoryPageByLocation[location]) {
+    return;
+  }
+
+  inventoryPageByLocation[location] = nextPage;
+  rerenderInventoryLocation(location);
+};
+
+const updateInventoryPager = (grid: HTMLElement, currentPage: number, pageCount: number) => {
+  const pager = grid.closest<HTMLElement>('.inventory-pager');
+  if (!pager) {
+    return;
+  }
+
+  const label = pager.querySelector<HTMLElement>('[data-inventory-page-label]');
+  const previous = pager.querySelector<HTMLButtonElement>('[data-inventory-page-action="previous"]');
+  const next = pager.querySelector<HTMLButtonElement>('[data-inventory-page-action="next"]');
+
+  if (label) {
+    label.textContent = `${currentPage + 1}/${pageCount}`;
+  }
+  if (previous) {
+    previous.disabled = currentPage <= 0;
+  }
+  if (next) {
+    next.disabled = currentPage >= pageCount - 1;
   }
 };
 
