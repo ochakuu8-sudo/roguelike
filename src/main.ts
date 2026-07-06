@@ -77,7 +77,7 @@ const stationInFront = (snapshot: GameSnapshot, player: Entity) =>
       entity.y === player.y + snapshot.player.facing.y,
   );
 
-const shouldOpenBasePlanning = (command: Command) => {
+const shouldStartRaidFromGate = (command: Command) => {
   if (command.type !== 'interact') {
     return false;
   }
@@ -91,9 +91,10 @@ const shouldOpenBasePlanning = (command: Command) => {
   return stationInFront(snapshot, player)?.station === 'raidGate';
 };
 
-const openBasePlanning = () => {
+const startRaid = () => {
+  document.body.classList.remove('show-base-planning');
+  game.dispatch({ type: 'startRaid' });
   refresh();
-  document.body.classList.add('show-base-planning');
 };
 
 const refresh = () => {
@@ -127,10 +128,7 @@ const refresh = () => {
     stashRoot: baseStashRoot,
     recipeRoot: baseRecipeRoot,
     moneyRoot: baseMoneyRoot,
-    onStartRaid: () => {
-      game.dispatch({ type: 'startRaid' });
-      refresh();
-    },
+    onStartRaid: startRaid,
     onCraftRecipe: (recipe) => {
       game.dispatch({ type: 'craftItem', recipe });
       refresh();
@@ -146,7 +144,8 @@ const refresh = () => {
   baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
 };
 
-basePlanningButton.addEventListener('click', openBasePlanning);
+basePlanningButton.textContent = '出撃';
+basePlanningButton.addEventListener('click', startRaid);
 
 basePlanningCloseButton.addEventListener('click', () => {
   document.body.classList.remove('show-base-planning');
@@ -173,8 +172,8 @@ bindInput({
       return;
     }
 
-    if (shouldOpenBasePlanning(command)) {
-      openBasePlanning();
+    if (shouldStartRaidFromGate(command)) {
+      startRaid();
       return;
     }
 

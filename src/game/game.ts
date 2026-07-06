@@ -6,8 +6,8 @@ import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats }
 import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
-const MAP_WIDTH = 56;
-const MAP_HEIGHT = 34;
+const MAP_WIDTH = 96;
+const MAP_HEIGHT = 60;
 const BASE_WIDTH = 34;
 const BASE_HEIGHT = 24;
 const FOV_RADIUS = 9;
@@ -68,10 +68,10 @@ const BIOME_MAP_PROFILES: Record<BiomeId, MapGenerationProfile> = {
 };
 
 const MIXED_MAP_PROFILE: MapGenerationProfile = {
-  roomWidth: [4, 11],
-  roomHeight: [4, 9],
-  corridorLength: [2, 9],
-  dugPercentage: 0.25,
+  roomWidth: [7, 16],
+  roomHeight: [6, 13],
+  corridorLength: [5, 14],
+  dugPercentage: 0.2,
   nodeBonus: 0,
 };
 
@@ -400,11 +400,11 @@ export class Game {
       [biomeOrder[index], biomeOrder[swapIndex]] = [biomeOrder[swapIndex], biomeOrder[index]];
     }
 
-    const sortedRooms = [...rooms].sort((a, b) => roomCenter(a)[0] - roomCenter(b)[0]);
     const roomBiomes = new Map<RoomLike, BiomeId>();
-    sortedRooms.forEach((room, index) => {
-      const biomeIndex = Math.min(biomeOrder.length - 1, Math.floor((index / Math.max(1, sortedRooms.length)) * biomeOrder.length));
-      roomBiomes.set(room, biomeOrder[biomeIndex]);
+    rooms.forEach((room) => {
+      const [x, y] = roomCenter(room);
+      const quadrant = (x >= this.width / 2 ? 1 : 0) + (y >= this.height / 2 ? 2 : 0);
+      roomBiomes.set(room, biomeOrder[quadrant] ?? 'mine');
     });
 
     return roomBiomes;
@@ -655,7 +655,7 @@ export class Game {
   private useStation(station: Entity): void {
     switch (station.station) {
       case 'raidGate':
-        this.pushMessage('出撃ゲートを起動した。作戦画面で探索先のバイオームを選んで出撃しよう。');
+        this.startRaid();
         return;
       case 'stash':
         this.pushMessage(this.stashSummary());
