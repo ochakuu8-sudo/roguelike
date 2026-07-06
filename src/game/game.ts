@@ -1,7 +1,7 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
 import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, InventoryLocation, ItemKind, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
-import { BIOME_DEFINITIONS } from './biomes';
+import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
@@ -65,6 +65,14 @@ const BIOME_MAP_PROFILES: Record<BiomeId, MapGenerationProfile> = {
     dugPercentage: 0.26,
     nodeBonus: 3,
   },
+};
+
+const MIXED_MAP_PROFILE: MapGenerationProfile = {
+  roomWidth: [4, 11],
+  roomHeight: [4, 9],
+  corridorLength: [2, 9],
+  dugPercentage: 0.25,
+  nodeBonus: 0,
 };
 
 export class Game {
@@ -276,13 +284,13 @@ export class Game {
     this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
-  private startRaid(biome: BiomeId = 'mine'): void {
+  private startRaid(_biome?: BiomeId): void {
     if (this.mode === 'raid') {
       return;
     }
 
     this.mode = 'raid';
-    this.biome = biome;
+    this.biome = null;
     this.width = MAP_WIDTH;
     this.height = MAP_HEIGHT;
     this.depth = 1;
@@ -295,7 +303,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.generateLevel(`${BIOME_DEFINITIONS[biome].name}へ出撃した。物資を集めて脱出地点を目指そう。`);
+    this.generateLevel('複数のバイオームが交差する探索地へ出撃した。物資を集めて脱出地点を目指そう。');
   }
 
   private createBase(entryMessage: string): void {
@@ -338,8 +346,6 @@ export class Game {
 
   private generateLevel(entryMessage: string): void {
     ROT.RNG.setSeed(this.seed + this.depth * 1009);
-    const biome = this.currentBiome();
-    const profile = BIOME_MAP_PROFILES[biome.id];
     this.tiles = Array.from({ length: this.width * this.height }, () => ({
       kind: 'wall',
       visible: false,
@@ -347,14 +353,21 @@ export class Game {
     }));
     this.entities = [];
 
-    const digger = new ROT.Map.Digger(this.width, this.height, profile);
+    const digger = new ROT.Map.Digger(this.width, this.height, MIXED_MAP_PROFILE);
 
     digger.create((x, y, value) => {
       this.tileAt(x, y).kind = value === 0 ? 'floor' : 'wall';
     });
 
     const rooms = digger.getRooms() as RoomLike[];
-    this.applyBiomeTerrain(biome.id, rooms);
+    const roomBiomes = this.assignRoomBiomes(rooms);
+    BIOME_IDS.forEach((biome) => {
+      this.applyBiomeTerrain(
+        biome,
+        rooms.filter((room) => roomBiomes.get(room) === biome),
+      );
+    });
+    this.assignTileBiomes(rooms, roomBiomes);
     const firstRoom = rooms[0];
     const lastRoom = rooms.at(-1) ?? firstRoom;
     const [playerX, playerY] = roomCenter(firstRoom);
@@ -373,10 +386,41 @@ export class Game {
     });
 
     this.tileAt(stairsX, stairsY).kind = 'stairs';
-    this.populateRooms(rooms.slice(1, -1));
-    this.placeGatheringNodes();
+    this.tileAt(stairsX, stairsY).biome = roomBiomes.get(lastRoom) ?? 'mine';
+    this.populateRooms(rooms.slice(1, -1), roomBiomes);
+    this.placeGatheringNodes(rooms, roomBiomes);
     this.messages = [entryMessage];
     this.updateFov();
+  }
+
+  private assignRoomBiomes(rooms: RoomLike[]): Map<RoomLike, BiomeId> {
+    const biomeOrder = [...BIOME_IDS];
+    for (let index = biomeOrder.length - 1; index > 0; index -= 1) {
+      const swapIndex = ROT.RNG.getUniformInt(0, index);
+      [biomeOrder[index], biomeOrder[swapIndex]] = [biomeOrder[swapIndex], biomeOrder[index]];
+    }
+
+    const sortedRooms = [...rooms].sort((a, b) => roomCenter(a)[0] - roomCenter(b)[0]);
+    const roomBiomes = new Map<RoomLike, BiomeId>();
+    sortedRooms.forEach((room, index) => {
+      const biomeIndex = Math.min(biomeOrder.length - 1, Math.floor((index / Math.max(1, sortedRooms.length)) * biomeOrder.length));
+      roomBiomes.set(room, biomeOrder[biomeIndex]);
+    });
+
+    return roomBiomes;
+  }
+
+  private assignTileBiomes(rooms: RoomLike[], roomBiomes: Map<RoomLike, BiomeId>): void {
+    const roomCenters = rooms.map((room) => {
+      const [x, y] = roomCenter(room);
+      return { x, y, biome: roomBiomes.get(room) ?? 'mine' };
+    });
+
+    this.tiles.forEach((tile, index) => {
+      const x = index % this.width;
+      const y = Math.floor(index / this.width);
+      tile.biome = nearestBiome(x, y, roomCenters);
+    });
   }
 
   private applyBiomeTerrain(biome: BiomeId, rooms: RoomLike[]): void {
@@ -385,7 +429,7 @@ export class Game {
         this.addRoomPillars(rooms, 0.15);
         break;
       case 'forest':
-        this.widenForestClearings();
+        this.widenForestClearings(rooms);
         break;
       case 'fortress':
         this.addRoomPartitions(rooms, 0.55);
@@ -397,16 +441,18 @@ export class Game {
     }
   }
 
-  private widenForestClearings(): void {
+  private widenForestClearings(rooms: RoomLike[]): void {
     const candidates: Array<[number, number]> = [];
 
-    for (let y = 1; y < this.height - 1; y += 1) {
-      for (let x = 1; x < this.width - 1; x += 1) {
-        if (this.tileAt(x, y).kind === 'wall' && this.hasAdjacentFloor(x, y)) {
-          candidates.push([x, y]);
+    rooms.forEach((room) => {
+      for (let y = Math.max(1, room.getTop() - 2); y <= Math.min(this.height - 2, room.getBottom() + 2); y += 1) {
+        for (let x = Math.max(1, room.getLeft() - 2); x <= Math.min(this.width - 2, room.getRight() + 2); x += 1) {
+          if (this.tileAt(x, y).kind === 'wall' && this.hasAdjacentFloor(x, y)) {
+            candidates.push([x, y]);
+          }
         }
       }
-    }
+    });
 
     const targetCount = Math.floor(candidates.length * 0.28);
     for (let carved = 0; carved < targetCount && candidates.length > 0; carved += 1) {
@@ -459,12 +505,12 @@ export class Game {
     });
   }
 
-  private populateRooms(rooms: RoomLike[]): void {
-    const biome = this.currentBiome();
+  private populateRooms(rooms: RoomLike[], roomBiomes: Map<RoomLike, BiomeId>): void {
     let monsterIndex = 0;
     let itemIndex = 0;
 
     rooms.forEach((room, roomIndex) => {
+      const biome = BIOME_DEFINITIONS[roomBiomes.get(room) ?? 'mine'];
       const [cx, cy] = roomCenter(room);
       const roll = ROT.RNG.getUniform();
 
@@ -490,33 +536,48 @@ export class Game {
         const itemX = cx + (ROT.RNG.getUniform() < 0.5 ? -1 : 1);
         const itemY = cy;
         if (this.isWalkable(itemX, itemY)) {
-          this.entities.push(createItemEntity(`loose-${this.depth}-${itemIndex++}`, this.randomBiomeMaterial(), itemX, itemY));
+          this.entities.push(createItemEntity(`loose-${this.depth}-${itemIndex++}`, this.randomBiomeMaterial(biome.id), itemX, itemY));
         }
       }
     });
   }
 
-  private placeGatheringNodes(): void {
-    const biome = this.currentBiome();
-    const profile = BIOME_MAP_PROFILES[biome.id];
-    let placed = 0;
-    const targetCount = 8 + biome.danger * 2 + this.depth + profile.nodeBonus;
-    const candidates: Array<[number, number]> = [];
+  private placeGatheringNodes(rooms: RoomLike[], roomBiomes: Map<RoomLike, BiomeId>): void {
+    const roomCounts = new Map<BiomeId, number>();
+    rooms.forEach((room) => {
+      const biome = roomBiomes.get(room) ?? 'mine';
+      roomCounts.set(biome, (roomCounts.get(biome) ?? 0) + 1);
+    });
+
+    const candidatesByBiome = new Map<BiomeId, Array<[number, number]>>();
 
     for (let y = 1; y < this.height - 1; y += 1) {
       for (let x = 1; x < this.width - 1; x += 1) {
         if (this.tileAt(x, y).kind === 'wall' && this.hasAdjacentFloor(x, y)) {
+          const biome = this.biomeAt(x, y);
+          const candidates = candidatesByBiome.get(biome) ?? [];
           candidates.push([x, y]);
+          candidatesByBiome.set(biome, candidates);
         }
       }
     }
 
-    while (placed < targetCount && candidates.length > 0) {
-      const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
-      const [x, y] = candidates.splice(index, 1)[0];
-      this.tileAt(x, y).kind = biome.specialTile;
-      placed += 1;
-    }
+    BIOME_IDS.forEach((biomeId) => {
+      const biome = BIOME_DEFINITIONS[biomeId];
+      const profile = BIOME_MAP_PROFILES[biomeId];
+      const candidates = candidatesByBiome.get(biomeId) ?? [];
+      let placed = 0;
+      const targetCount = Math.max(3, Math.ceil((roomCounts.get(biomeId) ?? 0) * 1.4) + biome.danger + profile.nodeBonus);
+
+      while (placed < targetCount && candidates.length > 0) {
+        const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
+        const [x, y] = candidates.splice(index, 1)[0];
+        const tile = this.tileAt(x, y);
+        tile.kind = biome.specialTile;
+        tile.biome = biome.id;
+        placed += 1;
+      }
+    });
   }
 
   private tryMovePlayer(dx: number, dy: number): TurnResult {
@@ -710,6 +771,7 @@ export class Game {
     }
 
     const tile = this.tileAt(targetX, targetY);
+    const tileBiome = this.biomeAt(targetX, targetY);
     if (tile.kind !== 'wall' && !this.isGatheringTile(tile.kind)) {
       this.pushMessage('正面に採掘や採取ができる場所がない。');
       return false;
@@ -717,13 +779,15 @@ export class Game {
 
     const gathered = this.isGatheringTile(tile.kind);
     tile.kind = 'floor';
+    tile.biome = tileBiome;
     tile.visible = true;
     tile.explored = true;
 
     if (gathered) {
-      const item = this.randomBiomeMaterial();
+      const biome = BIOME_DEFINITIONS[tileBiome];
+      const item = this.randomBiomeMaterial(tileBiome);
       this.entities.push(createItemEntity(`node-${this.depth}-${++this.dropId}`, item, targetX, targetY));
-      this.pushMessage(`${this.currentBiome().specialTileLabel}を調べ、${ITEM_DEFINITIONS[item].name}が落ちた。`);
+      this.pushMessage(`${biome.specialTileLabel}を調べ、${ITEM_DEFINITIONS[item].name}が落ちた。`);
     } else {
       this.pushMessage('壁を掘って通路を開けた。');
     }
@@ -992,12 +1056,12 @@ export class Game {
     });
   }
 
-  private currentBiome() {
-    return BIOME_DEFINITIONS[this.biome ?? 'mine'];
+  private biomeAt(x: number, y: number): BiomeId {
+    return this.inBounds(x, y) ? this.tileAt(x, y).biome ?? 'mine' : 'mine';
   }
 
-  private randomBiomeMaterial(): ItemKind {
-    const biome = this.currentBiome();
+  private randomBiomeMaterial(biomeId: BiomeId): ItemKind {
+    const biome = BIOME_DEFINITIONS[biomeId];
     const pool = biome.commonMaterials;
     const index = ROT.RNG.getUniformInt(0, pool.length - 1);
     return pool[index] ?? biome.materials[0] ?? 'ironOre';
@@ -1201,7 +1265,7 @@ export class Game {
   }
 
   private dropMaterial(entity: Entity): void {
-    const item = entity.enemy ? chooseEnemyDrop(entity.enemy, ROT.RNG.getUniform()) : this.randomBiomeMaterial();
+    const item = entity.enemy ? chooseEnemyDrop(entity.enemy, ROT.RNG.getUniform()) : this.randomBiomeMaterial(this.biomeAt(entity.x, entity.y));
     const definition = ITEM_DEFINITIONS[item];
     this.entities.push(createItemEntity(`drop-${this.depth}-${++this.dropId}`, item, entity.x, entity.y));
     this.pushMessage(`${entity.name}が${definition.name}を落とした。`);
@@ -1323,4 +1387,19 @@ const compareActionOrder = (a: Entity, b: Entity) => {
   }
 
   return a.id.localeCompare(b.id);
+};
+
+const nearestBiome = (x: number, y: number, roomCenters: Array<{ x: number; y: number; biome: BiomeId }>): BiomeId => {
+  let nearest = roomCenters[0];
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  roomCenters.forEach((center) => {
+    const distance = Math.abs(center.x - x) + Math.abs(center.y - y);
+    if (distance < nearestDistance) {
+      nearest = center;
+      nearestDistance = distance;
+    }
+  });
+
+  return nearest?.biome ?? 'mine';
 };

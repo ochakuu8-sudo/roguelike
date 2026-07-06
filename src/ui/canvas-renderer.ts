@@ -549,7 +549,8 @@ const isGatheringTile = (kind: Tile['kind']) =>
   kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
 
 const tileColor = (tile: Tile, snapshot: GameSnapshot) => {
-  const biome = snapshot.biome ? BIOME_DEFINITIONS[snapshot.biome] : null;
+  const biomeId = tile.biome ?? snapshot.biome;
+  const biome = biomeId ? BIOME_DEFINITIONS[biomeId] : null;
   if (biome && tile.kind === 'floor') {
     return biome.floorColor;
   }

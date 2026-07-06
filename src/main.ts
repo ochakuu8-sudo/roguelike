@@ -127,8 +127,8 @@ const refresh = () => {
     stashRoot: baseStashRoot,
     recipeRoot: baseRecipeRoot,
     moneyRoot: baseMoneyRoot,
-    onStartRaid: (biome) => {
-      game.dispatch({ type: 'startRaid', biome });
+    onStartRaid: () => {
+      game.dispatch({ type: 'startRaid' });
       refresh();
     },
     onCraftRecipe: (recipe) => {

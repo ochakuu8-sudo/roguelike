@@ -29,6 +29,7 @@ export type Tile = {
   kind: TileKind;
   visible: boolean;
   explored: boolean;
+  biome?: BiomeId;
 };
 
 export type ActorStats = {

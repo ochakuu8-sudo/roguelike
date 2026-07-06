@@ -24,7 +24,7 @@ type BasePlanningRoots = {
   stashRoot: HTMLElement;
   recipeRoot: HTMLElement;
   moneyRoot: HTMLElement;
-  onStartRaid: (biome: BiomeId) => void;
+  onStartRaid: () => void;
   onCraftRecipe: (recipe: RecipeId) => void;
 };
 
@@ -158,7 +158,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 
 export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
   roots.moneyRoot.textContent = `${snapshot.money}G`;
-  roots.biomeRoot.replaceChildren(...BIOME_IDS.map((biome) => biomeCard(biome, roots.onStartRaid)));
+  roots.biomeRoot.replaceChildren(mixedRaidCard(roots.onStartRaid), ...BIOME_IDS.map((biome) => biomeCard(biome)));
   roots.stashRoot.replaceChildren(...stashCards(snapshot.stash));
   roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
 };
@@ -185,7 +185,29 @@ const hpBar = (hp: number, maxHp: number) => {
   return root;
 };
 
-const biomeCard = (biomeId: BiomeId, onStartRaid: (biome: BiomeId) => void) => {
+const mixedRaidCard = (onStartRaid: () => void) => {
+  const card = document.createElement('article');
+  card.className = 'biome-card biome-card-mixed';
+
+  const heading = document.createElement('h3');
+  heading.textContent = '混合探索地';
+
+  const meta = document.createElement('p');
+  meta.textContent = '複数のバイオームが同じマップ内に混ざる探索です。';
+
+  const terrain = document.createElement('small');
+  terrain.textContent = '出撃後に、部屋ごとに鉱山・森・砦・研究区画が組み合わさります。';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '出撃';
+  button.addEventListener('click', onStartRaid);
+
+  card.append(heading, meta, terrain, button);
+  return card;
+};
+
+const biomeCard = (biomeId: BiomeId) => {
   const biome = BIOME_DEFINITIONS[biomeId];
   const card = document.createElement('article');
   card.className = 'biome-card';
@@ -208,12 +230,7 @@ const biomeCard = (biomeId: BiomeId, onStartRaid: (biome: BiomeId) => void) => {
     materials.append(chip);
   });
 
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = '出撃';
-  button.addEventListener('click', () => onStartRaid(biomeId));
-
-  card.append(heading, meta, terrain, materials, button);
+  card.append(heading, meta, terrain, materials);
   return card;
 };
 
@@ -1102,7 +1119,7 @@ const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
 const stationHint = (station: Entity, stash: Inventory) => {
   switch (station.station) {
     case 'raidGate':
-      return '出撃ゲートを調べると作戦画面を開く。探索先のバイオームを選んで出撃する。';
+      return '出撃ゲートを調べると作戦画面を開く。複数バイオームが混ざる探索地へ出撃する。';
     case 'stash':
       return '倉庫を調べると中身と所持金をログに表示する。';
     case 'craft': {
