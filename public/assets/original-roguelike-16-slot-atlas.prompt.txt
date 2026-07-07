@@ -1,0 +1,16 @@
+Create an original production pixel-art sprite atlas from scratch. Do not use any existing game atlas, uploaded image, prior generated character, or visual reference. Use only this semantic slot list. Design everything newly.
+
+Asset type: roguelike sprite atlas with many different single-frame sprites.
+Sheet shape: exactly 4 rows by 4 columns, 16 equal invisible square cells. No visible grid lines or borders.
+
+Slot contents, left to right, top to bottom:
+Row 1: 1) new chibi dungeon explorer player, 2) stone escape stairs, 3) glowing raid gate portal, 4) wooden stash chest.
+Row 2: 5) compact crafting bench, 6) small travelling merchant stall, 7) magic compendium terminal/book stand, 8) small ember imp enemy.
+Row 3: 9) armored crystal beetle enemy, 10) cave raider gnoll enemy, 11) spore bat enemy, 12) blue slime enemy.
+Row 4: 13) shy forest herb-eating creature, 14) bone sentinel enemy, 15) ruined fortress raider enemy, 16) crest knight enemy.
+
+Design direction: dark dungeon survival crafting roguelike. Use a unified original art direction: modern pixel art, cute but practical chibi proportions, strong readable silhouettes, crisp dark outlines, compact sprites for a top-down / 3/4 RPG overworld. Palette should be cohesive but varied: charcoal shadows, deep teal, moss green, muted amber lights, bone white, rust red, cool blue slime, violet magic accents. Do not copy or resemble any existing atlas design; invent fresh shapes, costumes, faces, equipment, and monster forms.
+
+Each cell must contain exactly one centered sprite. Keep every sprite fully inside its cell with generous magenta margin on all four sides. Similar sprite scale across the sheet, but allow large creatures or stations to be slightly wider while still safely contained. No sprite may touch or cross a cell edge.
+
+Background and layout constraints: perfectly flat solid #FF00FF magenta background across the entire sheet for chroma-key removal. No shadows on the background. No visible grid lines, no borders, no labels, no text, no numbers, no UI, no watermark, no decorative background. Only the 16 sprites on magenta.
