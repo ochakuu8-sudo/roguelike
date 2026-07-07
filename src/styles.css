@@ -1043,6 +1043,34 @@ button.inventory-slot:hover {
   padding: 10px;
 }
 
+.compendium-card-with-sprite {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.compendium-card-content {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sprite-preview {
+  image-rendering: pixelated;
+  border-radius: 7px;
+  background: rgba(5, 10, 14, 0.84);
+  box-shadow:
+    inset 0 0 0 1px rgba(122, 146, 158, 0.28),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.compendium-card-with-sprite .compendium-details {
+  grid-column: 1 / -1;
+}
+
+.compendium-sprite-card {
+  gap: 9px;
+}
+
 .compendium-card h3 {
   margin: 0;
   font-size: 0.98rem;

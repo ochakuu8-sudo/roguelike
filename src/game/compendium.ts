@@ -1,3 +1,4 @@
+import type { ItemKind } from '../engine/types';
 import { ENEMY_DEFINITIONS, ENEMY_KINDS } from './enemies';
 import { ITEM_DEFINITIONS, ITEM_KINDS } from './items';
 import { CRAFTING_RECIPES, formatStack } from './recipes';
@@ -34,6 +35,7 @@ export type RecipeEntry = {
   name: string;
   description: string;
   ingredients: string[];
+  resultItem: ItemKind;
   result: string;
   facility: string;
   target: string;
@@ -76,6 +78,7 @@ export const RECIPE_ENTRIES: RecipeEntry[] = CRAFTING_RECIPES.map((recipe) => ({
   name: ITEM_DEFINITIONS[recipe.result.item].name,
   description: recipe.description,
   ingredients: recipe.ingredients.map(formatStack),
+  resultItem: recipe.result.item,
   result: formatStack(recipe.result),
   facility: recipe.facility,
   target: recipe.targetBiomes.map((biome) => BIOME_DEFINITIONS[biome].name).join(' / ') || '拠点',

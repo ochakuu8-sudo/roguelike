@@ -1,5 +1,5 @@
 import { indexAt } from '../engine/grid';
-import type { CombatEffect, Entity, GameSnapshot, Tile } from '../engine/types';
+import type { CombatEffect, EnemyKind, Entity, GameSnapshot, ItemKind, StationKind, Tile } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
 
 const TILE_COLORS: Record<Tile['kind'], string> = {
@@ -29,7 +29,7 @@ type ActiveCombatEffect = CombatEffect & {
   progress: number;
 };
 
-const SPRITES = {
+export const SPRITES = {
   player: [
     '..222...',
     '..222...',
@@ -50,6 +50,16 @@ const SPRITES = {
     '4....4..',
     '........',
   ],
+  beetle: [
+    '........',
+    '..B.B...',
+    '.BBBBB..',
+    'BBEBEBB.',
+    '.BBBBB..',
+    '..B.B...',
+    '.B...B..',
+    '........',
+  ],
   gnoll: [
     '..666...',
     '.67776..',
@@ -58,6 +68,96 @@ const SPRITES = {
     '..777...',
     '.7.7.7..',
     '6..6..6.',
+    '........',
+  ],
+  bat: [
+    '........',
+    'D..DD..D',
+    'DDDEEDDD',
+    '.DDEEDD.',
+    '..DDDD..',
+    '...DD...',
+    '..D..D..',
+    '........',
+  ],
+  slime: [
+    '........',
+    '........',
+    '..JJJ...',
+    '.JKKKJ..',
+    'JKKLKKJ.',
+    '.JKKKJ..',
+    '..JJJ...',
+    '........',
+  ],
+  herbEater: [
+    '........',
+    '..MM....',
+    '.MNNM...',
+    'MNNNNM..',
+    '.NOON...',
+    '..NN.M..',
+    '.M..M...',
+    '........',
+  ],
+  sentinel: [
+    '..PP....',
+    '.PQQP...',
+    '.QRRQ...',
+    '..QQ....',
+    '.PQQP...',
+    'Q.QQ.Q..',
+    '..Q.Q...',
+    '........',
+  ],
+  raider: [
+    '..SSS...',
+    '.STTTS..',
+    '..TT....',
+    '.UUUU...',
+    'U.UUU.U.',
+    '..UU....',
+    '.U..U...',
+    '........',
+  ],
+  knight: [
+    '..YYY...',
+    '.YZZZY..',
+    '..ZZ....',
+    '.ZZZZ...',
+    'Y.ZZ.Y..',
+    '..ZZ....',
+    '.Z..Z...',
+    '........',
+  ],
+  failed: [
+    '........',
+    '..444...',
+    '.4VVV4..',
+    '..V4V...',
+    '.VVVVV..',
+    '4.VV.4..',
+    '..V.V...',
+    '........',
+  ],
+  drone: [
+    '........',
+    '..WWW...',
+    '.WXXXW..',
+    'WXXWXXW.',
+    '.WXXXW..',
+    '..WWW...',
+    '..W.W...',
+    '........',
+  ],
+  guardian: [
+    '..AAA...',
+    '.AOOOA..',
+    'AOPPOOA.',
+    '.AOOOA..',
+    '..AAA...',
+    '.AA.AA..',
+    'A.....A.',
     '........',
   ],
   potion: [
@@ -70,6 +170,66 @@ const SPRITES = {
     '..999...',
     '........',
   ],
+  scroll: [
+    '........',
+    '..FF....',
+    '.FHHF...',
+    '.FHHF...',
+    '.FHHF...',
+    '..FF....',
+    '.F..F...',
+    '........',
+  ],
+  bomb: [
+    '........',
+    '...F....',
+    '..F4....',
+    '..444...',
+    '.44444..',
+    '.44444..',
+    '..444...',
+    '........',
+  ],
+  blade: [
+    '.....F..',
+    '....F...',
+    '...F....',
+    '..F.....',
+    '.F......',
+    'U.......',
+    '........',
+    '........',
+  ],
+  sword: [
+    '....F...',
+    '....F...',
+    '....F...',
+    '....F...',
+    '..YYY...',
+    '...U....',
+    '..U.U...',
+    '........',
+  ],
+  bow: [
+    '..Y.....',
+    '.Y.F....',
+    'Y..F....',
+    'Y..F....',
+    'Y..F....',
+    '.Y.F....',
+    '..Y.....',
+    '........',
+  ],
+  pickaxe: [
+    '........',
+    '.FFFFFF.',
+    '...U....',
+    '...U....',
+    '...U....',
+    '..U.....',
+    '.U......',
+    '........',
+  ],
   material: [
     '........',
     '..CC....',
@@ -77,6 +237,86 @@ const SPRITES = {
     '.CDDC...',
     '..CC....',
     '........',
+    '........',
+    '........',
+  ],
+  ore: [
+    '........',
+    '..X.....',
+    '.XXX....',
+    '.XXP....',
+    '..PPP...',
+    '...P....',
+    '........',
+    '........',
+  ],
+  herb: [
+    '........',
+    '...M....',
+    '..MMM...',
+    '.M.M.M..',
+    '..MMM...',
+    '...M....',
+    '..M.M...',
+    '........',
+  ],
+  bone: [
+    '........',
+    '..FF....',
+    '.F..F...',
+    '..FF....',
+    '..FF....',
+    '.F..F...',
+    '..FF....',
+    '........',
+  ],
+  gear: [
+    '........',
+    '..EEE...',
+    '.E.F.E..',
+    'E.FFF.E.',
+    '.E.F.E..',
+    '..EEE...',
+    '........',
+    '........',
+  ],
+  bottle: [
+    '..W.....',
+    '..W.....',
+    '.WWW....',
+    '.WXW....',
+    '.WXW....',
+    '.WWW....',
+    '........',
+    '........',
+  ],
+  core: [
+    '........',
+    '..OO....',
+    '.OAAO...',
+    'OAPPAO..',
+    '.OAAO...',
+    '..OO....',
+    '........',
+    '........',
+  ],
+  coin: [
+    '........',
+    '..YYY...',
+    '.YZZY...',
+    '.YZZY...',
+    '..YYY...',
+    '........',
+    '........',
+    '........',
+  ],
+  upgrade: [
+    '........',
+    '...Y....',
+    '..YYY...',
+    '.YYZYY..',
+    '...Y....',
+    '...Y....',
     '........',
     '........',
   ],
@@ -100,9 +340,59 @@ const SPRITES = {
     '.EEEEEE.',
     '........',
   ],
+  stationGate: [
+    '..BBBB..',
+    '.B....B.',
+    'B..FF..B',
+    'B.FBBF.B',
+    'B..FF..B',
+    '.B....B.',
+    '..BBBB..',
+    '........',
+  ],
+  stationStash: [
+    '........',
+    '.YYYYY..',
+    'YUUUUUY.',
+    'YUYUYUY.',
+    'YUUUUUY.',
+    '.YYYYY..',
+    '........',
+    '........',
+  ],
+  stationCraft: [
+    '........',
+    '..FFFF..',
+    '.FUUUF..',
+    '..UUU...',
+    '.FUUUF..',
+    '..U.U...',
+    '.U...U..',
+    '........',
+  ],
+  stationMarket: [
+    '........',
+    '..YYY...',
+    '.YZZZY..',
+    '..ZY....',
+    '..YZ....',
+    '.YZZZY..',
+    '..YYY...',
+    '........',
+  ],
+  stationCompendium: [
+    '........',
+    '.WWWWW..',
+    'WXXXXXW.',
+    'WXFFFXW.',
+    'WXXXXXW.',
+    '.WWWWW..',
+    '...W....',
+    '........',
+  ],
 } as const;
 
-const PALETTE: Record<string, string> = {
+export const PALETTE: Record<string, string> = {
   '1': '#d8ecf4',
   '2': '#88cfe8',
   '3': '#f0b46b',
@@ -118,7 +408,109 @@ const PALETTE: Record<string, string> = {
   D: '#a16207',
   E: '#475569',
   F: '#cbd5e1',
+  H: '#fef3c7',
+  J: '#67e8f9',
+  K: '#155e75',
+  L: '#ecfeff',
+  M: '#86efac',
+  N: '#3f8f57',
+  O: '#f0abfc',
+  P: '#93c5fd',
+  Q: '#e5e7eb',
+  R: '#1f2937',
+  S: '#d6a76c',
+  T: '#7c4a27',
+  U: '#94a3b8',
+  V: '#fb7185',
+  W: '#a5b4fc',
+  X: '#38bdf8',
+  Y: '#fbbf24',
+  Z: '#b45309',
 };
+
+export type SpriteKey = keyof typeof SPRITES;
+
+const ENEMY_SPRITES: Record<EnemyKind, SpriteKey> = {
+  caveImp: 'imp',
+  oreBeetle: 'beetle',
+  tunnelGnoll: 'gnoll',
+  sporeBat: 'bat',
+  slime: 'slime',
+  herbEater: 'herbEater',
+  boneSentinel: 'sentinel',
+  fortRaider: 'raider',
+  crestKnight: 'knight',
+  failedSubject: 'failed',
+  observerDrone: 'drone',
+  arcaneGuardian: 'guardian',
+};
+
+const STATION_SPRITES: Record<StationKind, SpriteKey> = {
+  raidGate: 'stationGate',
+  stash: 'stationStash',
+  craft: 'stationCraft',
+  market: 'stationMarket',
+  compendium: 'stationCompendium',
+};
+
+const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
+  potion: 'potion',
+  hiPotion: 'potion',
+  antidote: 'bottle',
+  bandage: 'scroll',
+  poisonVial: 'bottle',
+  smokeBomb: 'bomb',
+  explosive: 'bomb',
+  throwingKnife: 'blade',
+  sword: 'sword',
+  bow: 'bow',
+  pickaxe: 'pickaxe',
+  ironOre: 'ore',
+  copperOre: 'ore',
+  sulfur: 'ore',
+  oldGear: 'gear',
+  hardShell: 'beetle',
+  herb: 'herb',
+  blueMushroom: 'herb',
+  poisonSpore: 'herb',
+  cleanWater: 'bottle',
+  slimeGel: 'slime',
+  boneShard: 'bone',
+  sturdyLeather: 'scroll',
+  tornCloth: 'scroll',
+  brokenBlade: 'blade',
+  crestFragment: 'coin',
+  glassShard: 'ore',
+  chemicalBottle: 'bottle',
+  arcaneCore: 'core',
+  dataRecord: 'stationCompendium',
+  mutantMeat: 'failed',
+  wood: 'material',
+  oldCoin: 'coin',
+  keyBundle: 'gear',
+  mapFragment: 'scroll',
+  swordUpgrade1: 'upgrade',
+  swordUpgrade2: 'upgrade',
+  bowUpgrade1: 'upgrade',
+  bowUpgrade2: 'upgrade',
+  pickaxeUpgrade1: 'upgrade',
+  pickaxeUpgrade2: 'upgrade',
+  armorUpgrade1: 'upgrade',
+  armorUpgrade2: 'upgrade',
+  bagUpgrade1: 'upgrade',
+  bagUpgrade2: 'upgrade',
+  stashUpgrade1: 'upgrade',
+  craftBenchUpgrade1: 'upgrade',
+  mapTable: 'upgrade',
+  returnBeacon: 'upgrade',
+  lockpickTool: 'upgrade',
+};
+
+export const spriteKeyForEnemy = (enemy: EnemyKind): SpriteKey => ENEMY_SPRITES[enemy];
+
+export const spriteKeyForItem = (item: ItemKind): SpriteKey => ITEM_SPRITES[item] ?? 'material';
+
+export const spriteKeyForStation = (station: StationKind): SpriteKey => STATION_SPRITES[station];
 
 export class CanvasRenderer {
   private context: CanvasRenderingContext2D;
@@ -603,7 +995,7 @@ const glyphFor = (kind: Entity['kind'], name: string) => {
   if (kind === 'station') {
     return '?';
   }
-  return name.includes('ノール') ? 'G' : 'i';
+  return name.includes('ノール') ? 'G' : name.slice(0, 1);
 };
 
 const colorFor = (kind: Entity['kind'], name: string) => {
@@ -616,6 +1008,15 @@ const colorFor = (kind: Entity['kind'], name: string) => {
   if (kind === 'station') {
     return '#cbd5e1';
   }
+  if (name.includes('騎士') || name.includes('番人')) {
+    return '#facc15';
+  }
+  if (name.includes('スライム')) {
+    return '#67e8f9';
+  }
+  if (name.includes('観測')) {
+    return '#a5b4fc';
+  }
   return name.includes('ノール') ? '#f0a95b' : '#d97878';
 };
 
@@ -624,15 +1025,12 @@ const spriteFor = (entity: Entity) => {
     return SPRITES.player;
   }
   if (entity.kind === 'item') {
-    return entity.item === 'potion' ? SPRITES.potion : SPRITES.material;
+    return SPRITES[entity.item ? spriteKeyForItem(entity.item) : 'material'];
   }
   if (entity.kind === 'station') {
-    return SPRITES.station;
+    return SPRITES[entity.station ? spriteKeyForStation(entity.station) : 'station'];
   }
-  if (entity.name.includes('ノール')) {
-    return SPRITES.gnoll;
-  }
-  return SPRITES.imp;
+  return SPRITES[entity.enemy ? spriteKeyForEnemy(entity.enemy) : 'imp'];
 };
 
 const directionTriangle = (tipX: number, tipY: number, dx: number, dy: number, size: number) => {
