@@ -1,0 +1,64 @@
+{
+  "target": "npc",
+  "mode": "single",
+  "prompt": "shorter younger cheeky merchant girl, lower chibi proportions, smug bratty expression, preserved brown bob hair and dark cap",
+  "role": "merchant",
+  "input": "public\\assets\\character-cheeky-merchant-girl-draft.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "rows": 1,
+  "cols": 1,
+  "cell_size": 128,
+  "fit_scale": 0.85,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "feet",
+  "shared_scale": false,
+  "component_mode": "largest",
+  "component_padding": 8,
+  "min_component_area": 1,
+  "edge_touch_margin": 0,
+  "frame_labels": [
+    "single-1"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 246747,
+      "selected_component_bbox": [
+        353,
+        250,
+        855,
+        971
+      ],
+      "crop_bbox": [
+        345,
+        242,
+        863,
+        979
+      ],
+      "edge_touch": false,
+      "output_size": [
+        76,
+        108
+      ],
+      "paste_position": [
+        26,
+        11
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}
