@@ -1,6 +1,6 @@
 import { ENEMY_ENTRIES, ITEM_ENTRIES, RECIPE_ENTRIES } from '../game/compendium';
 import type { EnemyKind, ItemKind, StationKind } from '../engine/types';
-import { SPRITES, renderSpriteIcon, type SpriteKey, spriteKeyForEnemy, spriteKeyForItem, spriteKeyForStation } from './canvas-renderer';
+import { SPRITE_PIXELS, renderSpriteIcon, type SpriteKey, spriteKeyForEnemy, spriteKeyForItem, spriteKeyForStation } from './canvas-renderer';
 
 type CompendiumRoots = {
   tabsRoot: HTMLElement;
@@ -201,7 +201,7 @@ const spriteAtlasEntries = (): SpriteAtlasEntry[] => {
     })),
   ];
   const usedSprites = new Set(entries.map((entry) => entry.sprite));
-  const fallbackEntries = (Object.keys(SPRITES) as SpriteKey[])
+  const fallbackEntries = (Object.keys(SPRITE_PIXELS) as SpriteKey[])
     .filter((sprite) => !usedSprites.has(sprite))
     .map((sprite) => ({
       id: sprite,
