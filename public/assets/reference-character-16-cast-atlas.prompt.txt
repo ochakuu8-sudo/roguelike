@@ -1,0 +1,36 @@
+Use the attached chibi demon pixel sprite image as the main visual reference. Preserve this exact character as one member of the cast in cell 1, while creating 15 new original characters that can stand beside them in the same game without looking out of place. Use the layout guide image only as a layout reference for a 4x4 sheet: equal invisible cells, centering, spacing, and safe padding. Do not reproduce the guide: no visible boxes, no labels, no borders, no guide background.
+
+Create a 4x4 character cast sprite sheet for a dark cute roguelike RPG. Exactly 16 equal invisible cells, one full-body chibi pixel-art character centered in each cell, single idle pose, slightly top-down / 3/4 RPG overworld view. The first cell must be the reference demon girl: purple hair, ram horns, small bat wings, tail, red-black striped shirt, sleepy face, chunky boots, same general silhouette and palette. The other 15 characters are new original designs, but they must match the same pixel density, outline weight, proportions, muted shading, and gloomy-cute texture.
+
+Shared art style:
+High-density chibi pixel art, matching the reference sprite. Compact oversized head, tiny body, chunky boots or feet, thick dark nearly-black outline, muted grayish shadows, soft blocky highlights, visible pixel clusters, readable face, slightly gloomy cute mood. This is not tiny 32x32 art; use a 64x64 to 96x96 character-sprite feel, enlarged with crisp pixels. Avoid smooth painting, vector art, glossy gradients, realistic rendering, and overly clean toy colors.
+
+Style consistency rules:
+All 16 characters should look like they belong to the same game as the reference demon girl. Use similar visual weight, head/body ratio, outline thickness, low-saturation colors, blocky pixel shading, small compact hands and feet, and simple idle stance. Do not make the new characters more realistic, more detailed, more painterly, or more modern-anime than the reference. The reference character should not feel pasted into a different art set.
+
+Palette direction:
+Muted dungeon colors: dark plum, dusty lavender, charcoal, warm gray, dull brown, moss green, faded teal, rusty red, old brass, muted cream, bone ivory, desaturated blue. Controlled accents only. No neon, no glossy clean gradients.
+
+Cell lineup, left to right, top to bottom:
+1) Reference demon girl, preserving identity: purple hair, ram horns, small bat wings, tail, red-black striped shirt, sleepy face, chunky boots.
+2) Cheerful dungeon errand girl with chestnut hair, cap, scarf, satchel, folded map.
+3) Soot-mask shrine sweeper with round cloth mask, dull glass lenses, broom, charm bundle.
+4) Small skeleton page with rounded skull, patched cloak, tiny lantern.
+5) Mossy mushroom child with squat cap, sleepy face, little pouch.
+6) Ashy blacksmith apprentice with short hair, apron, small hammer, soot smudges.
+7) Pale bat-eared bookkeeper with short cape, ledger, dark tired eyes.
+8) Tiny slime-tamer child carrying a jar with a sleepy green slime inside.
+9) Dusty relic hunter with hood, old brass monocle, compact backpack.
+10) Quiet potion girl with bottle belt, faded teal coat, tiny spoon staff.
+11) Stone-horned cave imp with gray horns, moss scarf, no wings, shy posture.
+12) Little graveyard medic with bone-white hood, pouch, small bandage roll.
+13) Rusty armor repairer child with oversized gloves, rivet tool, dull metal shoulder pad.
+14) Night forager with dark hood, mushroom lantern, tired but gentle face.
+15) Small cursed doll mage with stitched dress, tiny wand, old ribbon.
+16) Dungeon market peddler with large pack, coin pouch, patched cloak, sleepy smile.
+
+Important character design rules:
+Only cell 1 should copy the reference demon girl's exact elements. For all other cells, do not reuse the same full design: no purple hair plus ram horns plus bat wings plus tail plus red-black shirt combination. A few related dark-fantasy traits are allowed, but every new character must have a distinct silhouette, role, clothing shape, and accessory. Keep tools and props close to the body so characters do not shrink.
+
+Containment and output:
+Each character fully inside its invisible cell with generous magenta margin. Similar character scale across all 16 cells. No body part, horn, wing, staff, tool, hair, bag, tail, or shoe may touch or cross a cell edge. Perfectly flat solid #FF00FF magenta background across the whole sheet. No shadows on the background, no visible grid lines, no borders, no text, no labels, no numbers, no UI, no watermark.
