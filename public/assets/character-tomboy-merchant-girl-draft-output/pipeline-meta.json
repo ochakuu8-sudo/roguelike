@@ -1,0 +1,64 @@
+{
+  "target": "npc",
+  "mode": "single",
+  "prompt": "tomboy merchant girl redesign preserving brown bob hair, dark cap, cheerful face, dark cute roguelike chibi pixel art",
+  "role": "merchant",
+  "input": "public\\assets\\character-tomboy-merchant-girl-draft.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "rows": 1,
+  "cols": 1,
+  "cell_size": 128,
+  "fit_scale": 0.85,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "feet",
+  "shared_scale": false,
+  "component_mode": "largest",
+  "component_padding": 8,
+  "min_component_area": 1,
+  "edge_touch_margin": 0,
+  "frame_labels": [
+    "single-1"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 354775,
+      "selected_component_bbox": [
+        315,
+        152,
+        925,
+        1064
+      ],
+      "crop_bbox": [
+        307,
+        144,
+        933,
+        1072
+      ],
+      "edge_touch": false,
+      "output_size": [
+        73,
+        108
+      ],
+      "paste_position": [
+        27,
+        11
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}
