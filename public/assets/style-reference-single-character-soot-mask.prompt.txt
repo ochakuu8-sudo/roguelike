@@ -1,0 +1,11 @@
+Use the attached image as a visual reference for PIXEL ART TECHNIQUE and SURFACE TEXTURE only. Do not copy its character design, face, expression, costume, colors, or fantasy body parts.
+
+Create one completely new original chibi RPG character sprite for a dark roguelike game: a tiny soot-mask shrine sweeper. The character wears a round ash-gray cloth mask with two small dull glass lenses, a short square work cloak, rope belt, little work gloves, and heavy boots, holding a small broom and a hanging charm bundle close to the body. The silhouette must be clearly different from the reference.
+
+Strict avoid list: no horns, no wings, no tail, no purple hair, no exposed anime eyes, no half-lidded sleepy face, no red-and-black striped shirt, no demon features, no same outfit, no same pose. The face should not resemble the reference; use a simple masked face with small round lenses instead.
+
+Match the drawing method of the reference: low-resolution pixel-art look, chunky visible square pixel clusters, thick dark almost-black outline, compact large-head chibi proportions, tiny body and boots, slightly top-down / 3/4 RPG overworld angle, muted grayish shadow ramps, soft blocky highlights, restrained contrast, hand-placed pixel clusters rather than smooth painting, polished game-sprite finish. Keep the mood quiet, worn, and gloomy-cute through texture and palette rather than expression.
+
+Use a limited muted palette: charcoal, ash gray, warm gray, dusty olive, old brown, muted cream, tiny old-gold charm accent. No neon colors in the character.
+
+Output format: a single full-body character sprite centered on a perfectly flat solid #FF00FF magenta chroma-key background. Leave generous magenta padding on all sides. No shadow on the background. No text, no labels, no border, no watermark, no UI, no grid, no extra props outside the character. The sprite must be fully contained and readable at small game size.
