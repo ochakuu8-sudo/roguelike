@@ -1,0 +1,50 @@
+Use the attached character image as the visual style reference for art direction and texture. Use the layout guide image only as a layout reference for a 4x4 sheet: equal invisible cells, centering, spacing, and safe padding. Do not reproduce the guide: no visible boxes, no labels, no borders, no guide background.
+
+Create a 4x4 sprite atlas for a dark roguelike RPG. Exactly 16 equal invisible cells, one different sprite centered in each cell. This must be true small pixel art, not pixel-inspired illustration.
+
+Most important: each asset must be designed as a native 32x32 game sprite.
+Think of each cell's sprite as only 32 pixels wide by 32 pixels high at source resolution. The output may be shown large, but every visible source pixel should read as a deliberate square pixel. The design must have the simplicity of a real 32x32 RPG sprite: chunky silhouette, very few internal details, no high-resolution rendering, no detailed anime eyes, no tiny texture patterns, no complex material painting.
+
+Do NOT create a detailed high-resolution chibi illustration. Do NOT create a painted icon and then pixelate it. Do NOT use a mosaic filter look. Instead, draw intentionally with large square pixel blocks, clear stair-step edges, simple 1-pixel-outline logic, and sparse clusters.
+
+32x32 source-pixel constraints for every sprite:
+- subject occupies about 22 to 28 source pixels tall, never more detailed than a 32x32 sprite
+- dark outline is equivalent to a 1-pixel outline at source scale
+- facial features are symbolic: one or two pixel clusters for eyes, one tiny mouth if needed
+- each sprite uses about 4 to 6 colors total plus outline
+- shadows are 2-to-5-pixel block clusters, not gradients
+- highlights are one or two blocky clusters only
+- no antialiasing, no smooth shading, no painterly texture, no semi-realistic lighting
+- prioritize silhouette readability over detail
+
+Shared style from the reference:
+Muted gloomy-cute chibi dungeon mood, thick dark outline, grayish muted shadows, soft blocky highlights, compact cute proportions, slightly worn handmade texture. Use the reference for taste and material feel only, not for its specific character elements.
+
+Palette:
+Charcoal, warm gray, dull brown, moss green, faded teal, dusty rose, old brass, muted cream, dark plum, desaturated blue, bone ivory, dull slime green. Keep colors dirty and muted. No neon, no glossy gradients, no saturated toy colors.
+
+Cell contents, left to right, top to bottom:
+1) cheerful dungeon errand girl with cap, scarf, satchel, folded map, upbeat pose
+2) soot-mask shrine sweeper with cloth mask, round dull lenses, broom, charm bundle
+3) small green slime, sleepy-cute blob, only a few internal highlights
+4) tiny skeleton guard, rounded skull, short rusty spear, compact chibi bones
+5) small cave bat, folded wings, bead eyes, simple silhouette
+6) mushroom critter, squat legs, mossy cap, tiny satchel
+7) worn pickaxe, compact tool icon, wood handle and dark metal head
+8) short chipped sword, old iron blade, wrapped grip, compact diagonal pose
+9) squat potion bottle, cork, cloudy faded red liquid
+10) curled scroll, brass clasp, dusty cream paper
+11) cracked brass lantern, dull teal flame inside silhouette
+12) coin pouch with a few old brass coins
+13) cracked dungeon floor block, square stone tile chunk
+14) mossy wall block, blocky stone face with cracks
+15) ore vein rock block with dull blue-gray ore streaks
+16) small stairs hatch / dungeon descent tile, dark opening and worn stone rim
+
+Avoid copying reference character elements: no ram horns, no bat wings, no demon tail, no purple hair, no red-black striped shirt, no same face or same outfit. Style only.
+
+Containment and background:
+Every sprite fully inside its invisible cell with generous #FF00FF margin. No sprite may touch or cross a cell edge. Perfectly flat solid #FF00FF magenta background across the whole sheet. No cast shadows on the background, no text, no labels, no numbers, no UI, no watermark, no grid lines, no borders.
+
+Postprocess:
+No pixel-size downscaling, no forced 32x32 reduction, and no nearest-neighbor reconstruction were applied to the saved atlas. The saved image is the raw generated sheet copied into the project.
