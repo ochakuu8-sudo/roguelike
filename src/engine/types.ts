@@ -6,7 +6,6 @@ export type Point = {
 export type Command =
   | { type: 'face'; dx: number; dy: number }
   | { type: 'forward' }
-  | { type: 'attack' }
   | { type: 'wait' }
   | { type: 'pickup' }
   | { type: 'interact' }

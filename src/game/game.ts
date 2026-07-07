@@ -189,9 +189,6 @@ export class Game {
       case 'forward':
         turnResult = this.tryMovePlayer(this.facing.x, this.facing.y);
         break;
-      case 'attack':
-        turnResult = this.attackFacing();
-        break;
       case 'wait':
         this.pushMessage('ダンジョンの気配に耳を澄ませた。');
         turnResult = { usedTurn: true };
@@ -203,7 +200,7 @@ export class Game {
         turnResult = { usedTurn: this.useItem(command.item) };
         break;
       case 'useHeldItem':
-        turnResult = { usedTurn: this.useHeldItem() };
+        turnResult = this.useHeldItem();
         break;
       case 'item':
         break;
@@ -230,9 +227,6 @@ export class Game {
         return;
       case 'forward':
         this.tryMovePlayer(this.facing.x, this.facing.y);
-        return;
-      case 'attack':
-        this.pushMessage('拠点で攻撃する相手はいない。');
         return;
       case 'interact':
       case 'pickup':
@@ -591,7 +585,13 @@ export class Game {
     const target = this.blockingEntityAt(targetX, targetY);
 
     if (target?.kind === 'monster') {
-      this.pushMessage(`${target.name}が正面にいる。攻撃するには攻撃を押してください。`);
+      if (this.selectedHandItem === 'sword' && this.handInventory.sword > 0) {
+        return this.attackFacing();
+      }
+      if (this.selectedHandItem === 'bow' && this.handInventory.bow > 0) {
+        return { usedTurn: this.shootFacing() };
+      }
+      this.pushMessage(`${target.name}が正面にいる。剣か弓を選んで使ってください。`);
       return { usedTurn: false };
     }
 
@@ -738,26 +738,26 @@ export class Game {
     return true;
   }
 
-  private useHeldItem(): boolean {
+  private useHeldItem(): TurnResult {
     const item = this.selectedHandItem;
     if (!item || this.handInventory[item] <= 0) {
       this.pushMessage('手に持っているアイテムがない。');
-      return false;
+      return { usedTurn: false };
     }
 
     if (item === 'pickaxe') {
-      return this.mineFacing();
+      return { usedTurn: this.mineFacing() };
     }
 
     if (item === 'sword') {
-      return this.attackFacing().usedTurn;
+      return this.attackFacing();
     }
 
     if (item === 'bow') {
-      return this.shootFacing();
+      return { usedTurn: this.shootFacing() };
     }
 
-    return this.useItem(item);
+    return { usedTurn: this.useItem(item) };
   }
 
   private mineFacing(): boolean {

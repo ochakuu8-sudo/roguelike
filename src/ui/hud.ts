@@ -14,7 +14,6 @@ type HudRoots = {
   nextHandButton: HTMLButtonElement;
   pickupButton: HTMLButtonElement;
   interactButton: HTMLButtonElement;
-  attackButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
@@ -902,9 +901,8 @@ const inventoryEntries = (inventory: Inventory) =>
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   const pickup = pickupAction(snapshot);
   const interact = interactAction(snapshot);
-  const attack = attackAction(snapshot);
   const held = heldItemAction(snapshot);
-  const hints = [pickup?.hint, interact?.hint, attack?.hint, held?.hint].filter(Boolean);
+  const hints = [pickup?.hint, interact?.hint, held?.hint].filter(Boolean);
 
   roots.pickupButton.hidden = !pickup;
   roots.pickupButton.disabled = !pickup;
@@ -915,11 +913,6 @@ const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.interactButton.disabled = !interact;
   roots.interactButton.textContent = interact?.label ?? '調べる';
   roots.interactButton.setAttribute('aria-label', interact?.hint ?? '調べる');
-
-  roots.attackButton.hidden = !attack;
-  roots.attackButton.disabled = !attack || attack.disabled === true;
-  roots.attackButton.textContent = attack?.label ?? '攻撃';
-  roots.attackButton.setAttribute('aria-label', attack?.hint ?? '攻撃');
 
   roots.heldActionButton.hidden = !held;
   roots.heldActionButton.disabled = !held || held.disabled === true;
@@ -979,23 +972,6 @@ const interactAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   }
 
   return undefined;
-};
-
-const attackAction = (snapshot: GameSnapshot): ContextAction | undefined => {
-  if (snapshot.mode !== 'raid') {
-    return undefined;
-  }
-
-  const player = playerEntity(snapshot);
-  const target = player ? entityInFront(snapshot, player) : undefined;
-  if (target?.kind !== 'monster') {
-    return undefined;
-  }
-
-  return {
-    label: '攻撃',
-    hint: `${target.name}を攻撃する。`,
-  };
 };
 
 const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {

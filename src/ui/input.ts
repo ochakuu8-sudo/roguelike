@@ -27,8 +27,6 @@ const KEY_COMMANDS = new Map<string, Command>([
   ['Numpad5', { type: 'wait' }],
   ['Enter', { type: 'forward' }],
   [' ', { type: 'forward' }],
-  ['a', { type: 'attack' }],
-  ['A', { type: 'attack' }],
   ['z', { type: 'useHeldItem' }],
   ['Z', { type: 'useHeldItem' }],
   ['e', { type: 'interact' }],
@@ -71,7 +69,6 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
         command === 'pickup' ||
         command === 'interact' ||
         command === 'forward' ||
-        command === 'attack' ||
         command === 'item' ||
         command === 'useHeldItem' ||
         command === 'previousHandItem' ||

@@ -17,7 +17,6 @@ const previousHandButton = document.querySelector<HTMLButtonElement>('[data-comm
 const nextHandButton = document.querySelector<HTMLButtonElement>('[data-command="nextHandItem"]');
 const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="pickup"]');
 const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
-const attackButton = document.querySelector<HTMLButtonElement>('[data-command="attack"]');
 const heldActionButton = document.querySelector<HTMLButtonElement>('[data-command="useHeldItem"]');
 const basePlanningButton = document.querySelector<HTMLButtonElement>('#base-planning-button');
 const basePlanningCloseButton = document.querySelector<HTMLButtonElement>('#base-planning-close');
@@ -45,7 +44,6 @@ if (
   !nextHandButton ||
   !pickupButton ||
   !interactButton ||
-  !attackButton ||
   !heldActionButton ||
   !basePlanningButton ||
   !basePlanningCloseButton ||
@@ -116,7 +114,6 @@ const refresh = () => {
     nextHandButton,
     pickupButton,
     interactButton,
-    attackButton,
     heldActionButton,
     onMoveItem: (item, from, to) => {
       game.dispatch({ type: 'moveItem', item, from, to });
