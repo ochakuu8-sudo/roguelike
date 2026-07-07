@@ -1,0 +1,15 @@
+Use the attached chibi demon image as a STYLE reference only. Match its art style when translated into pixel art: chibi anime proportions, large head and small body, soft rounded forms, sleepy understated expressions, muted gothic-cute mood, polished character-design feel, clean dark linework, soft cel-shaded volumes, careful highlights, painterly-but-readable shading simplified into pixel clusters. Do NOT copy its character design elements: do not repeat the purple-haired horned demon, do not use the same striped shirt, wings, ram horns, demon tail, skull belt, or outfit as recurring motifs. The goal is to imitate the illustration style and design sensibility, not the character parts.
+
+Create 16 original monster sprites for a dark roguelike. Sheet shape: exactly 4 rows by 4 columns, 16 equal invisible square cells. Each cell has one different monster, centered, single-frame idle pose, top-down / 3/4 RPG overworld sprite.
+
+Design the monsters as a varied cast in that same cute-somber chibi style:
+1) sleepy candle-headed slime, 2) tiny porcelain mask spirit, 3) mossy backpack beetle, 4) shy keyhole ghost,
+5) teacup mimic with tired eyes, 6) wilted flower familiar, 7) little ash fox, 8) moon-shell crab,
+9) ragged paper charm imp, 10) small cracked bell spirit, 11) soot-covered mine mole, 12) glass-bottle jelly,
+13) miniature scarecrow familiar, 14) pale mushroom child, 15) broken doll knight, 16) lantern-eyed dust bunny.
+
+Keep the design language cohesive: subdued colors, offbeat cute silhouettes, slightly melancholic expressions, high-quality anime character-design polish compressed into pixel art. Give each monster a unique silhouette and personality. Avoid generic high-fantasy tropes, avoid overdesigned armor, avoid neon glow overload, avoid making them all purple/black/red. Use varied palettes while keeping them soft and muted: smoky gray, faded cream, moss, dusty rose, muted teal, warm brown, dull gold, pale blue, charcoal accents.
+
+Pixel art requirements: crisp readable pixel clusters, strong but not harsh outline, no painterly blur, no 3D render, no soft airbrushed illustration. Each monster fits fully inside its cell with generous magenta margin. No ears, smoke, antennae, leaves, candle flame, tail, weapon, charm, or glow may touch or cross a cell edge. Similar visual scale across the sheet, with natural variation by body type.
+
+Background and layout constraints: perfectly flat solid #FF00FF magenta background across the entire sheet for chroma-key removal. No shadows on the background. No visible grid lines, no borders, no labels, no text, no numbers, no UI, no watermark, no decorative background. Only the 16 monster sprites on magenta.
