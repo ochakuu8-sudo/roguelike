@@ -1,0 +1,45 @@
+Use the layout guide image as a layout-only reference. Use it only to understand the 4 rows, 4 columns, equal invisible frame slots, centering, spacing, and safe padding. Do not reproduce the guide: no visible boxes, no safe-area rectangles, no center marks, no labels, no borders, no guide background.
+
+Create a 4x4 pixel-art style consistency test atlas for a dark roguelike RPG. Exactly 16 equal invisible cells, one different asset centered in each cell. This is not an animation sheet; it is a mixed test atlas for checking whether the same 32x32-style art direction works across characters, monsters, items, and terrain props.
+
+Critical pixel-density requirement:
+Every sprite must look like it was originally drawn as a true 32x32 pixel game sprite and then enlarged with nearest-neighbor scaling. Use very large visible square pixels, hard stair-step edges, no subpixel anti-aliasing, no soft brush edges, no high-resolution detail, no tiny facial rendering, no thin painterly lines. Each asset should use a simple silhouette that could fit inside about 24 to 30 pixels of a 32x32 source canvas. Use 1-to-2-pixel style dark outlines, chunky 2-to-4-pixel color blocks, and only a few shadow/highlight clusters per asset.
+
+Shared art direction for every cell:
+Low-resolution chibi pixel-art sprite style for a dark roguelike RPG. Compact proportions for living characters and creatures, tiny bodies where applicable, small chunky boots where applicable, and a slightly top-down 3/4 RPG overworld angle. Every asset should read clearly at small game size.
+
+Shared drawing method for every cell:
+Very coarse visible square pixel clusters, thick dark almost-black outlines, simple readable silhouettes, muted grayish shadow ramps, hard-edged block highlights, restrained contrast, and deliberately limited pixel detail. Avoid smooth painting, vector art, glossy rendering, high-detail anime illustration, photo texture, soft gradients, semi-realistic material rendering, and noisy over-dithering. Keep the same pixel density, outline weight, shadow block size, and material feel across all 16 cells.
+
+Shared tone:
+Gloomy-cute but not depressing. Slightly worn, handmade, dungeon-craft feeling. Subjects may be cheerful, scary, simple, useful, or environmental, but they must share the same 32x32 sprite texture, muted material feel, and small-game readability.
+
+Shared palette:
+Muted, slightly dirty colors: charcoal, warm gray, dull brown, moss green, faded teal, dusty rose, old brass, muted cream, dark plum, desaturated blue, bone ivory, slime green. Use a very limited palette per sprite, around 4 to 7 colors including outline. Accent colors are allowed, but avoid neon colors, pure saturated primaries, glossy gradients, and clean toy-like palettes.
+
+Cell contents, left to right, top to bottom:
+1) cheerful dungeon errand girl with cap, scarf, satchel, and folded map, upbeat pose
+2) soot-mask shrine sweeper with cloth mask, round dull lenses, broom, and charm bundle
+3) small green slime with sleepy-cute shape, thick outline, internal murky highlights
+4) tiny skeleton guard with rounded skull, short rusty spear, compact chibi bones
+5) small cave bat with folded wings, bead eyes, chunky silhouette
+6) mushroom critter with squat legs, mossy cap, little satchel
+7) worn pickaxe, compact tool icon, wood handle and dark metal head
+8) short chipped sword, old iron blade, wrapped grip, compact diagonal pose
+9) squat potion bottle, cork, cloudy faded red liquid, old glass texture
+10) curled scroll with brass clasp and dusty cream paper
+11) cracked brass lantern with dull teal flame glow kept inside the silhouette
+12) coin pouch with a few old brass coins, compact readable item icon
+13) cracked dungeon floor block, square-ish stone tile chunk with worn edges
+14) mossy wall block, blocky stone face with green moss and cracks
+15) ore vein rock block with dull blue-gray ore streaks, compact terrain prop
+16) small stairs hatch / dungeon descent tile, dark opening and worn stone rim
+
+Important consistency rules:
+Keep each asset fully inside its own invisible cell with generous magenta margin. No subject may touch or cross a cell edge. Similar visual weight across the sheet, but allow terrain blocks to be square and items to be compact. No copied demon-girl motifs: no horns, no wings, no tail, no purple hair, no red-black striped outfit as recurring design motifs.
+
+Background and output constraints:
+Perfectly flat solid #FF00FF magenta chroma-key background across the entire sheet. No shadows on the background. No visible grid lines, no borders, no labels, no text, no numbers, no UI, no watermark, no decorative background. Only the 16 centered sprite assets on magenta.
+
+Postprocess:
+The generated 4x4 sheet was split by cell, each cell was downscaled to 32x32 pixels, near-magenta background pixels were snapped back to exact #FF00FF, then the native atlas was saved at 128x128. A 512x512 preview was created by nearest-neighbor scaling the 128x128 native atlas by 4x.
