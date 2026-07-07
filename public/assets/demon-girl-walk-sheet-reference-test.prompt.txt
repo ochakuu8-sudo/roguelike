@@ -1,0 +1,11 @@
+Use the attached chibi demon girl image as the only visual reference.
+
+Create a production pixel-art sprite sheet for the same chibi demon girl character. Preserve the character identity: purple messy hair with bangs, sleepy half-lidded eyes, curled gray ram horns, small black bat wings, thin demon tail with purple spade tip, red-and-black striped shirt, dark shorts/skirt, brown boots, compact chibi proportions, dark crisp pixel outline, muted cute demon mood.
+
+Asset type: top-down / 3/4 RPG overworld player sprite sheet.
+Sheet shape: exactly 4 rows by 4 columns, 16 equal invisible cells.
+Animation: canonical four-direction walk cycle. Row 1: facing down/front, columns neutral, left-foot step, neutral, right-foot step. Row 2: facing left, same 4-frame walk cycle. Row 3: facing right, same 4-frame walk cycle. Row 4: facing up/back, same 4-frame walk cycle.
+
+Style: high-quality modern pixel art, chibi game sprite, crisp readable clusters, no painterly blur, no anti-aliased soft illustration look, no 3D render. Keep the sprite readable at small game scale. Same silhouette scale in every frame, same head size and body proportions in all frames, stable feet/bottom anchor line. Full body must fit inside each cell with generous padding. No horn, hair, wing, tail, foot, or clothing edge may cross a cell boundary.
+
+Background and layout constraints: perfectly flat solid #FF00FF magenta background across the entire sheet for chroma-key removal. No shadows on the background. No visible grid lines, no borders, no labels, no text, no UI, no watermark, no decorative background. Only the 16 sprites on magenta.
