@@ -1,0 +1,17 @@
+Use the attached chibi demon image as a design-language reference only. Do not recreate the same character, do not make 16 copies of the character, and do not use the exact outfit as the main design. Create 16 original monster sprites inspired by its visual motifs: sleepy half-lidded expressions, purple hair/fur accents, rough gray ram-horn shapes, bat wings, pointed ears, demon tails, black-and-red stripe motifs, ragged black clothing shapes, small skull/charm accessories, leather straps, tired gothic-cute attitude.
+
+Asset type: original monster sprite atlas for a dark roguelike.
+Sheet shape: exactly 4 rows by 4 columns, 16 equal invisible square cells. Each cell contains one different monster, centered.
+View: top-down / 3/4 RPG overworld monster sprites, single-frame idle poses.
+
+Make every monster a distinct species and silhouette, not a generic mascot set. Slot concepts, left to right, top to bottom:
+1) horned moth imp with sleepy eyes and torn wings, 2) tiny ram-horned slime with a purple forelock, 3) black-red striped mimic doll with a tail, 4) stone-horn beetle larva with bat ears,
+5) floating skull familiar wearing a striped scarf, 6) one-eyed purple cave sprout with curled horns, 7) winged shadow cat with a spade tail, 8) leather-belted goblin bat with oversized boots,
+9) cracked horn golem child with sleepy eye markings, 10) ragged vampire mushroom with striped cap, 11) chained gargoyle pup with tiny wings, 12) purple-haired banshee blob with pointed ears,
+13) horned lantern wisp wrapped in black-red cloth, 14) armored ram-snail with a skull charm, 15) sleepy demon scarecrow with bat-wing sleeves, 16) tiny crestless dark knight beast with ram horns and a tail.
+
+Style: high-quality modern pixel art, cute but eerie, crisp dark outlines, readable silhouettes, compact chibi monster proportions, low-noise pixel clusters, strong shape identity. Palette should feel cohesive: purples, black, dark charcoal, muted red stripes, gray stone horns, brown leather, tiny pale bone highlights, occasional dim amber or violet glow. Avoid the clean generic fantasy look; make shapes odd, asymmetrical, slightly moody, hand-designed, with small memorable details. No 3D render, no painterly blur, no soft illustration look.
+
+Containment: each monster must fit fully inside its cell with generous magenta margin. No horn, wing, tail, ear, smoke, chain, scarf, or glow may touch or cross a cell edge. Similar visual scale across the sheet, with natural variation by monster body type.
+
+Background and layout constraints: perfectly flat solid #FF00FF magenta background across the entire sheet for chroma-key removal. No shadows on the background. No visible grid lines, no borders, no labels, no text, no numbers, no UI, no watermark, no decorative background. Only the 16 monster sprites on magenta.
