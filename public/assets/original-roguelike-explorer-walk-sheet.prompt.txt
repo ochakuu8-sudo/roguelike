@@ -1,0 +1,11 @@
+Create an original production pixel-art sprite sheet from scratch. Do not use any existing game atlas, uploaded image, prior character, or reference image. Make a new chibi roguelike explorer character design suitable for a dark dungeon survival crafting game.
+
+Subject identity: a small chibi dungeon courier / scavenger hero, androgynous young adventurer, short dark teal hair, warm amber eyes, compact hooded charcoal cloak, patched leather satchel, small brass lantern hanging at the belt, fingerless gloves, dark boots, tiny utility knife kept close to the body. Palette: charcoal, deep teal, muted moss green, small amber lantern accent, warm leather brown. Mood: practical, cautious, cute but not flashy.
+
+Asset type: top-down / 3/4 RPG overworld player sprite sheet.
+Sheet shape: exactly 4 rows by 4 columns, 16 equal invisible cells.
+Animation: canonical four-direction walk cycle. Row 1: facing down/front, columns neutral, left-foot step, neutral, right-foot step. Row 2: facing left, same 4-frame walk cycle. Row 3: facing right, same 4-frame walk cycle. Row 4: facing up/back, same 4-frame walk cycle.
+
+Style: high-quality modern pixel art, crisp readable pixel clusters, strong dark outline, compact chibi proportions, no painterly blur, no soft anti-aliased illustration look, no 3D render. Keep the sprite readable at small game scale. Same character identity in every cell. Same silhouette scale in every frame, same head size and body proportions in all frames, stable feet/bottom anchor line. Full body must fit inside each cell with generous padding. No hair, cloak, satchel, lantern, knife, foot, or clothing edge may cross a cell boundary.
+
+Background and layout constraints: perfectly flat solid #FF00FF magenta background across the entire sheet for chroma-key removal. No shadows on the background. No visible grid lines, no borders, no labels, no text, no UI, no watermark, no decorative background. Only the 16 sprites on magenta.
