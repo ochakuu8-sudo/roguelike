@@ -1,6 +1,6 @@
 import { ENEMY_ENTRIES, ITEM_ENTRIES, RECIPE_ENTRIES } from '../game/compendium';
 import type { EnemyKind, ItemKind, StationKind } from '../engine/types';
-import { PALETTE, SPRITES, type SpriteKey, spriteKeyForEnemy, spriteKeyForItem, spriteKeyForStation } from './canvas-renderer';
+import { SPRITES, renderSpriteIcon, type SpriteKey, spriteKeyForEnemy, spriteKeyForItem, spriteKeyForStation } from './canvas-renderer';
 
 type CompendiumRoots = {
   tabsRoot: HTMLElement;
@@ -172,16 +172,7 @@ const spritePreview = (sprite: SpriteKey, label: string) => {
   context.fillRect(0, size - 1, size, 1);
   context.fillRect(0, 0, 1, size);
   context.fillRect(size - 1, 0, 1, size);
-
-  SPRITES[sprite].forEach((row, y) => {
-    [...row].forEach((code, x) => {
-      if (code === '.') {
-        return;
-      }
-      context.fillStyle = PALETTE[code] ?? '#ffffff';
-      context.fillRect(padding + x * pixelSize, padding + y * pixelSize, pixelSize, pixelSize);
-    });
-  });
+  renderSpriteIcon(context, sprite, padding, padding, spriteSize);
 
   return canvas;
 };

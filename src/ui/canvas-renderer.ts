@@ -13,9 +13,10 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
   locked: '#30251b',
 };
 
-const FIXED_CELL_SIZE = 15;
+const FIXED_CELL_SIZE = 24;
 const COMBAT_EFFECT_DURATION = 520;
 const COMBAT_EFFECT_STAGGER = COMBAT_EFFECT_DURATION;
+const SPRITE_RESOLUTION = 32;
 
 type Camera = {
   cellSize: number;
@@ -512,6 +513,265 @@ export const spriteKeyForItem = (item: ItemKind): SpriteKey => ITEM_SPRITES[item
 
 export const spriteKeyForStation = (station: StationKind): SpriteKey => STATION_SPRITES[station];
 
+type SpritePaint = CanvasRenderingContext2D;
+
+export const renderSpriteIcon = (context: SpritePaint, sprite: SpriteKey, left: number, top: number, size: number, alpha = 1) => {
+  context.save();
+  context.globalAlpha *= alpha;
+  context.imageSmoothingEnabled = false;
+  context.translate(left, top);
+  context.scale(size / SPRITE_RESOLUTION, size / SPRITE_RESOLUTION);
+  drawSpriteByKey(context, sprite);
+  context.restore();
+};
+
+const block = (context: SpritePaint, color: string, x: number, y: number, width: number, height: number) => {
+  context.fillStyle = color;
+  context.fillRect(x, y, width, height);
+};
+
+const blockSet = (context: SpritePaint, color: string, blocks: Array<[number, number, number, number]>) => {
+  blocks.forEach(([x, y, width, height]) => block(context, color, x, y, width, height));
+};
+
+const drawHumanoid = (context: SpritePaint, primary: string, secondary: string, accent: string, skin = '#d8ecf4') => {
+  blockSet(context, '#05080a', [
+    [10, 5, 12, 5],
+    [8, 10, 16, 14],
+    [6, 16, 4, 8],
+    [22, 16, 4, 8],
+    [10, 24, 5, 6],
+    [17, 24, 5, 6],
+  ]);
+  block(context, secondary, 11, 4, 10, 5);
+  block(context, skin, 11, 8, 10, 7);
+  block(context, primary, 9, 15, 14, 11);
+  block(context, accent, 12, 16, 8, 2);
+  block(context, primary, 7, 17, 4, 7);
+  block(context, primary, 21, 17, 4, 7);
+  block(context, primary, 11, 25, 4, 5);
+  block(context, primary, 17, 25, 4, 5);
+  block(context, '#0b1116', 13, 11, 2, 2);
+  block(context, '#0b1116', 18, 11, 2, 2);
+};
+
+const drawBottle = (context: SpritePaint, glass: string, liquid: string) => {
+  blockSet(context, '#05080a', [
+    [13, 3, 6, 4],
+    [11, 7, 10, 4],
+    [8, 11, 16, 17],
+    [10, 28, 12, 2],
+  ]);
+  block(context, glass, 14, 4, 4, 5);
+  block(context, glass, 10, 10, 12, 17);
+  block(context, liquid, 11, 17, 10, 9);
+  block(context, '#ecfeff', 13, 12, 3, 9);
+};
+
+const drawSpriteByKey = (context: SpritePaint, sprite: SpriteKey) => {
+  switch (sprite) {
+    case 'player':
+      drawHumanoid(context, '#d8ecf4', '#88cfe8', '#f0b46b');
+      block(context, '#7dd3fc', 14, 2, 5, 3);
+      return;
+    case 'imp':
+      blockSet(context, '#05080a', [[7, 4, 4, 7], [21, 4, 4, 7], [9, 9, 14, 17], [11, 25, 4, 5], [18, 25, 4, 5]]);
+      blockSet(context, '#ce5f66', [[8, 5, 3, 5], [21, 5, 3, 5], [10, 10, 12, 15], [12, 25, 3, 4], [18, 25, 3, 4]]);
+      block(context, '#ffe0df', 12, 13, 3, 3);
+      block(context, '#ffe0df', 18, 13, 3, 3);
+      block(context, '#7f1d1d', 14, 20, 5, 2);
+      return;
+    case 'beetle':
+      blockSet(context, '#05080a', [[7, 11, 18, 13], [4, 14, 4, 3], [24, 14, 4, 3], [4, 21, 4, 3], [24, 21, 4, 3], [9, 6, 4, 5], [19, 6, 4, 5]]);
+      block(context, '#6ee7b7', 8, 12, 16, 11);
+      block(context, '#a3e635', 11, 10, 10, 5);
+      block(context, '#26333a', 15, 12, 2, 11);
+      block(context, '#d9f99d', 11, 15, 3, 2);
+      block(context, '#d9f99d', 18, 15, 3, 2);
+      return;
+    case 'gnoll':
+      drawHumanoid(context, '#e2a45e', '#a86f3f', '#f0a95b', '#e2a45e');
+      block(context, '#5b341d', 9, 6, 4, 5);
+      block(context, '#5b341d', 20, 6, 4, 5);
+      return;
+    case 'bat':
+      blockSet(context, '#05080a', [[2, 11, 10, 8], [20, 11, 10, 8], [11, 9, 10, 14], [13, 22, 6, 4]]);
+      blockSet(context, '#c084fc', [[3, 12, 9, 6], [20, 12, 9, 6], [12, 10, 8, 12]]);
+      block(context, '#f0abfc', 12, 12, 2, 2);
+      block(context, '#f0abfc', 18, 12, 2, 2);
+      block(context, '#475569', 14, 20, 4, 3);
+      return;
+    case 'slime':
+      blockSet(context, '#05080a', [[8, 14, 16, 10], [10, 10, 12, 5], [12, 24, 8, 3]]);
+      block(context, '#67e8f9', 9, 14, 14, 9);
+      block(context, '#155e75', 11, 19, 10, 4);
+      block(context, '#ecfeff', 13, 12, 3, 2);
+      block(context, '#ecfeff', 18, 13, 2, 2);
+      return;
+    case 'herbEater':
+      drawHumanoid(context, '#3f8f57', '#86efac', '#f0abfc', '#86efac');
+      blockSet(context, '#86efac', [[8, 4, 5, 5], [20, 5, 5, 5], [14, 2, 4, 5]]);
+      return;
+    case 'sentinel':
+      drawHumanoid(context, '#e5e7eb', '#93c5fd', '#1f2937', '#e5e7eb');
+      block(context, '#1f2937', 12, 9, 9, 3);
+      return;
+    case 'raider':
+      drawHumanoid(context, '#94a3b8', '#d6a76c', '#7c4a27', '#d6a76c');
+      block(context, '#cbd5e1', 23, 12, 5, 15);
+      return;
+    case 'knight':
+      drawHumanoid(context, '#fbbf24', '#b45309', '#facc15', '#e5e7eb');
+      block(context, '#facc15', 11, 3, 10, 3);
+      block(context, '#cbd5e1', 5, 15, 4, 10);
+      return;
+    case 'failed':
+      drawHumanoid(context, '#fb7185', '#ce5f66', '#f0abfc', '#fb7185');
+      blockSet(context, '#7f1d1d', [[8, 8, 4, 6], [21, 17, 5, 7], [13, 26, 9, 3]]);
+      return;
+    case 'drone':
+      blockSet(context, '#05080a', [[8, 9, 16, 13], [4, 12, 5, 5], [23, 12, 5, 5], [14, 22, 4, 5]]);
+      block(context, '#a5b4fc', 9, 10, 14, 11);
+      block(context, '#38bdf8', 12, 13, 8, 5);
+      block(context, '#ecfeff', 15, 14, 3, 3);
+      return;
+    case 'guardian':
+      drawHumanoid(context, '#f0abfc', '#2b7fb3', '#93c5fd', '#f0abfc');
+      blockSet(context, '#facc15', [[10, 2, 12, 3], [6, 15, 3, 9], [24, 15, 3, 9]]);
+      return;
+    case 'potion':
+      drawBottle(context, '#c7ecff', '#5fc6e8');
+      return;
+    case 'scroll':
+      blockSet(context, '#05080a', [[8, 7, 16, 20], [10, 5, 4, 4], [18, 24, 5, 5]]);
+      block(context, '#fef3c7', 9, 8, 14, 18);
+      blockSet(context, '#b45309', [[12, 12, 8, 1], [12, 16, 7, 1], [12, 20, 9, 1]]);
+      return;
+    case 'bomb':
+      blockSet(context, '#05080a', [[13, 5, 5, 7], [9, 12, 15, 15], [11, 27, 11, 2]]);
+      block(context, '#ce5f66', 10, 13, 13, 13);
+      block(context, '#fb7185', 14, 9, 4, 4);
+      block(context, '#cbd5e1', 16, 5, 7, 2);
+      return;
+    case 'blade':
+      blockSet(context, '#05080a', [[19, 4, 5, 5], [16, 8, 5, 5], [13, 12, 5, 5], [10, 16, 5, 5], [7, 20, 5, 5], [5, 25, 8, 4]]);
+      blockSet(context, '#cbd5e1', [[20, 5, 3, 4], [17, 9, 3, 4], [14, 13, 3, 4], [11, 17, 3, 4], [8, 21, 3, 4]]);
+      block(context, '#94a3b8', 5, 25, 8, 3);
+      return;
+    case 'sword':
+      blockSet(context, '#05080a', [[15, 3, 4, 20], [10, 22, 14, 4], [13, 26, 8, 4]]);
+      block(context, '#cbd5e1', 16, 4, 2, 18);
+      block(context, '#fbbf24', 11, 22, 12, 3);
+      block(context, '#94a3b8', 15, 25, 4, 5);
+      return;
+    case 'bow':
+      blockSet(context, '#05080a', [[9, 5, 4, 5], [7, 10, 4, 11], [9, 21, 4, 6], [20, 6, 2, 21]]);
+      blockSet(context, '#fbbf24', [[10, 6, 3, 4], [8, 11, 3, 10], [10, 21, 3, 5]]);
+      block(context, '#cbd5e1', 21, 7, 1, 19);
+      return;
+    case 'pickaxe':
+      blockSet(context, '#05080a', [[6, 8, 20, 5], [15, 11, 4, 17]]);
+      block(context, '#cbd5e1', 7, 9, 18, 3);
+      block(context, '#94a3b8', 15, 12, 4, 15);
+      return;
+    case 'material':
+      blockSet(context, '#05080a', [[9, 12, 12, 12], [13, 8, 9, 9]]);
+      block(context, '#d9f99d', 10, 13, 10, 10);
+      block(context, '#a16207', 14, 9, 7, 8);
+      return;
+    case 'ore':
+      blockSet(context, '#05080a', [[8, 14, 9, 10], [14, 8, 10, 12], [19, 17, 6, 8]]);
+      block(context, '#38bdf8', 9, 15, 8, 8);
+      block(context, '#93c5fd', 15, 9, 8, 10);
+      block(context, '#cbd5e1', 18, 13, 3, 3);
+      return;
+    case 'herb':
+      blockSet(context, '#05080a', [[15, 9, 3, 18], [9, 12, 8, 6], [17, 12, 8, 6], [11, 5, 7, 7], [17, 5, 6, 8]]);
+      blockSet(context, '#86efac', [[15, 10, 2, 16], [10, 13, 7, 4], [17, 13, 7, 4], [12, 6, 6, 6], [18, 6, 4, 7]]);
+      return;
+    case 'bone':
+      blockSet(context, '#05080a', [[8, 8, 6, 6], [18, 8, 6, 6], [12, 13, 9, 7], [8, 20, 6, 6], [18, 20, 6, 6]]);
+      blockSet(context, '#e5e7eb', [[9, 9, 5, 5], [18, 9, 5, 5], [12, 14, 8, 5], [9, 20, 5, 5], [18, 20, 5, 5]]);
+      return;
+    case 'gear':
+      blockSet(context, '#05080a', [[13, 5, 6, 22], [5, 13, 22, 6], [9, 9, 14, 14]]);
+      blockSet(context, '#94a3b8', [[14, 6, 4, 20], [6, 14, 20, 4], [10, 10, 12, 12]]);
+      block(context, '#05080a', 14, 14, 4, 4);
+      return;
+    case 'bottle':
+      drawBottle(context, '#a5b4fc', '#38bdf8');
+      return;
+    case 'core':
+      blockSet(context, '#05080a', [[12, 6, 9, 5], [8, 11, 17, 12], [12, 23, 9, 4]]);
+      block(context, '#f0abfc', 9, 12, 15, 10);
+      block(context, '#2b7fb3', 13, 13, 7, 7);
+      block(context, '#ecfeff', 15, 15, 3, 3);
+      return;
+    case 'coin':
+      blockSet(context, '#05080a', [[10, 9, 13, 14]]);
+      block(context, '#fbbf24', 11, 10, 11, 12);
+      block(context, '#b45309', 14, 12, 5, 8);
+      block(context, '#facc15', 13, 11, 7, 2);
+      return;
+    case 'upgrade':
+      blockSet(context, '#05080a', [[14, 5, 5, 20], [9, 10, 15, 6], [11, 23, 11, 4]]);
+      blockSet(context, '#fbbf24', [[15, 6, 3, 18], [10, 11, 13, 4]]);
+      block(context, '#facc15', 12, 9, 9, 9);
+      return;
+    case 'stairs':
+      blockSet(context, '#05080a', [[6, 23, 20, 4], [10, 18, 16, 4], [14, 13, 12, 4], [18, 8, 8, 4]]);
+      blockSet(context, '#6ee7b7', [[7, 24, 18, 2], [11, 19, 14, 2], [15, 14, 10, 2], [19, 9, 6, 2]]);
+      return;
+    case 'station':
+      blockSet(context, '#05080a', [[6, 7, 20, 20]]);
+      block(context, '#475569', 7, 8, 18, 18);
+      block(context, '#cbd5e1', 10, 11, 12, 12);
+      return;
+    case 'stationGate':
+      blockSet(context, '#05080a', [[8, 5, 16, 22], [5, 12, 22, 9]]);
+      blockSet(context, '#6ee7b7', [[9, 6, 14, 4], [9, 23, 14, 4], [6, 13, 4, 7], [22, 13, 4, 7]]);
+      block(context, '#ecfeff', 13, 13, 7, 7);
+      return;
+    case 'stationStash':
+      blockSet(context, '#05080a', [[6, 10, 20, 15], [9, 7, 14, 5]]);
+      block(context, '#fbbf24', 7, 11, 18, 13);
+      block(context, '#94a3b8', 10, 14, 12, 4);
+      block(context, '#b45309', 14, 19, 4, 3);
+      return;
+    case 'stationCraft':
+      blockSet(context, '#05080a', [[7, 10, 18, 8], [11, 17, 4, 10], [19, 17, 4, 10], [13, 5, 7, 8]]);
+      block(context, '#cbd5e1', 8, 11, 16, 6);
+      block(context, '#94a3b8', 14, 6, 5, 8);
+      block(context, '#475569', 12, 18, 3, 8);
+      block(context, '#475569', 20, 18, 3, 8);
+      return;
+    case 'stationMarket':
+      blockSet(context, '#05080a', [[10, 6, 12, 20], [7, 10, 18, 6], [7, 21, 18, 5]]);
+      block(context, '#fbbf24', 11, 7, 10, 18);
+      block(context, '#b45309', 8, 11, 16, 4);
+      block(context, '#facc15', 13, 12, 6, 9);
+      return;
+    case 'stationCompendium':
+      blockSet(context, '#05080a', [[7, 8, 18, 15], [13, 23, 6, 5]]);
+      block(context, '#a5b4fc', 8, 9, 16, 13);
+      block(context, '#38bdf8', 11, 12, 10, 5);
+      block(context, '#ecfeff', 13, 19, 6, 2);
+      return;
+  }
+  drawMatrixSprite(context, SPRITES[sprite]);
+};
+
+const drawMatrixSprite = (context: SpritePaint, sprite: readonly string[]) => {
+  const pixel = SPRITE_RESOLUTION / 8;
+  sprite.forEach((row, y) => {
+    [...row].forEach((code, x) => {
+      if (code !== '.') {
+        block(context, PALETTE[code] ?? '#ffffff', x * pixel, y * pixel, pixel, pixel);
+      }
+    });
+  });
+};
+
 export class CanvasRenderer {
   private context: CanvasRenderingContext2D;
   private snapshot?: GameSnapshot;
@@ -661,7 +921,7 @@ export class CanvasRenderer {
       this.drawTileTexture(tile, x, y, cellSize, offsetX, offsetY);
 
       if (tile.kind === 'stairs' && tile.visible) {
-        this.drawSprite(SPRITES.stairs, left, top, cellSize, tile.visible ? 1 : 0.45);
+        this.drawSprite('stairs', left, top, cellSize, tile.visible ? 1 : 0.45);
       }
     });
   }
@@ -845,25 +1105,8 @@ export class CanvasRenderer {
     });
   }
 
-  private drawSprite(sprite: readonly string[], left: number, top: number, cellSize: number, alpha: number): void {
-    const pixel = Math.max(1, Math.floor(cellSize / 8));
-    const spriteSize = pixel * 8;
-    const spriteLeft = Math.floor(left + (cellSize - spriteSize) / 2);
-    const spriteTop = Math.floor(top + (cellSize - spriteSize) / 2);
-
-    this.context.save();
-    this.context.globalAlpha = alpha;
-    sprite.forEach((row, y) => {
-      [...row].forEach((code, x) => {
-        if (code === '.') {
-          return;
-        }
-
-        this.context.fillStyle = PALETTE[code] ?? '#ffffff';
-        this.context.fillRect(spriteLeft + x * pixel, spriteTop + y * pixel, pixel, pixel);
-      });
-    });
-    this.context.restore();
+  private drawSprite(sprite: SpriteKey, left: number, top: number, cellSize: number, alpha: number): void {
+    renderSpriteIcon(this.context, sprite, left, top, cellSize, alpha);
   }
 
   private drawStationGlyph(entity: Entity, left: number, top: number, cellSize: number): void {
@@ -1020,17 +1263,17 @@ const colorFor = (kind: Entity['kind'], name: string) => {
   return name.includes('ノール') ? '#f0a95b' : '#d97878';
 };
 
-const spriteFor = (entity: Entity) => {
+const spriteFor = (entity: Entity): SpriteKey => {
   if (entity.kind === 'player') {
-    return SPRITES.player;
+    return 'player';
   }
   if (entity.kind === 'item') {
-    return SPRITES[entity.item ? spriteKeyForItem(entity.item) : 'material'];
+    return entity.item ? spriteKeyForItem(entity.item) : 'material';
   }
   if (entity.kind === 'station') {
-    return SPRITES[entity.station ? spriteKeyForStation(entity.station) : 'station'];
+    return entity.station ? spriteKeyForStation(entity.station) : 'station';
   }
-  return SPRITES[entity.enemy ? spriteKeyForEnemy(entity.enemy) : 'imp'];
+  return entity.enemy ? spriteKeyForEnemy(entity.enemy) : 'imp';
 };
 
 const directionTriangle = (tipX: number, tipY: number, dx: number, dy: number, size: number) => {
