@@ -144,6 +144,13 @@ const refresh = () => {
   baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
 };
 
+window.addEventListener('roguelike-sprite-atlas-ready', () => {
+  refresh();
+  if (compendiumDialog.open) {
+    updateCompendium({ tabsRoot: compendiumTabsRoot, listRoot: compendiumListRoot });
+  }
+});
+
 basePlanningButton.textContent = '出撃';
 basePlanningButton.addEventListener('click', startRaid);
 

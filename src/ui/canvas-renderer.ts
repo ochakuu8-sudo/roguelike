@@ -516,6 +516,59 @@ export const spriteKeyForStation = (station: StationKind): SpriteKey => STATION_
 
 type SpritePaint = CanvasRenderingContext2D;
 
+const SPRITE_ATLAS_CELL_SIZE = 32;
+const SPRITE_ATLAS_SOURCE = '/assets/roguelike-sprite-atlas.png';
+
+const SPRITE_ATLAS_COORDS: Record<SpriteKey, readonly [number, number]> = {
+  player: [0, 0],
+  stairs: [1, 0],
+  stationGate: [2, 0],
+  stationStash: [3, 0],
+  stationCraft: [4, 0],
+  stationMarket: [5, 0],
+  stationCompendium: [0, 1],
+  imp: [1, 1],
+  beetle: [2, 1],
+  gnoll: [3, 1],
+  bat: [4, 1],
+  slime: [5, 1],
+  herbEater: [0, 2],
+  sentinel: [1, 2],
+  raider: [2, 2],
+  knight: [3, 2],
+  failed: [4, 2],
+  drone: [5, 2],
+  guardian: [0, 3],
+  potion: [1, 3],
+  scroll: [2, 3],
+  bomb: [3, 3],
+  blade: [4, 3],
+  sword: [5, 3],
+  bow: [0, 4],
+  pickaxe: [1, 4],
+  material: [2, 4],
+  ore: [3, 4],
+  herb: [4, 4],
+  bone: [5, 4],
+  gear: [0, 5],
+  bottle: [1, 5],
+  core: [2, 5],
+  coin: [3, 5],
+  upgrade: [4, 5],
+  station: [5, 5],
+};
+
+const spriteAtlasImage = typeof Image === 'undefined' ? undefined : new Image();
+let spriteAtlasReady = false;
+
+if (spriteAtlasImage) {
+  spriteAtlasImage.onload = () => {
+    spriteAtlasReady = true;
+    window.dispatchEvent(new Event('roguelike-sprite-atlas-ready'));
+  };
+  spriteAtlasImage.src = SPRITE_ATLAS_SOURCE;
+}
+
 export const SPRITE_PIXELS: Record<SpriteKey, readonly string[]> = {
   player: [
     '................................',
@@ -1747,9 +1800,24 @@ export const renderSpriteIcon = (context: SpritePaint, sprite: SpriteKey, left: 
   context.save();
   context.globalAlpha *= alpha;
   context.imageSmoothingEnabled = false;
-  context.translate(left, top);
-  context.scale(size / SPRITE_RESOLUTION, size / SPRITE_RESOLUTION);
-  drawPixelSprite(context, SPRITE_PIXELS[sprite]);
+  if (spriteAtlasReady && spriteAtlasImage) {
+    const [atlasX, atlasY] = SPRITE_ATLAS_COORDS[sprite];
+    context.drawImage(
+      spriteAtlasImage,
+      atlasX * SPRITE_ATLAS_CELL_SIZE,
+      atlasY * SPRITE_ATLAS_CELL_SIZE,
+      SPRITE_ATLAS_CELL_SIZE,
+      SPRITE_ATLAS_CELL_SIZE,
+      left,
+      top,
+      size,
+      size,
+    );
+  } else {
+    context.translate(left, top);
+    context.scale(size / SPRITE_RESOLUTION, size / SPRITE_RESOLUTION);
+    drawPixelSprite(context, SPRITE_PIXELS[sprite]);
+  }
   context.restore();
 };
 
