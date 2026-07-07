@@ -1,0 +1,15 @@
+Use the attached pixel chibi image as a STYLE and TEXTURE reference only. Recreate its pixel-art feel, not its character elements. Match these qualities: chunky low-resolution pixel clusters, thick dark outline, muted gray-ish shadow values, soft but blocky highlights, sleepy half-lidded faces, chibi proportions with a large head and compact body, understated expression, slightly gloomy cute mood, simple readable shapes, limited palette per character, polished game-sprite finish. Do NOT copy the reference character's design elements: do not use ram horns, bat wings, demon tail, purple hair, red-black striped shirt, or the same outfit as recurring motifs.
+
+Create 16 completely new original character sprites, not monsters, for a dark roguelike / dungeon crafting game. Sheet shape: exactly 4 rows by 4 columns, 16 equal invisible square cells. Each cell has one different full-body chibi character, centered, single-frame idle pose, top-down / 3/4 RPG overworld sprite.
+
+Character lineup, left to right, top to bottom:
+1) tired lantern scout, 2) quiet apothecary child, 3) sleepy mine cartographer, 4) masked lockpicker,
+5) ash-covered blacksmith apprentice, 6) gloomy mushroom herbalist, 7) small relic collector, 8) nervous trap disarmer,
+9) pale shrine keeper, 10) mud-stained courier, 11) bookish ruin student, 12) tiny armor repairer,
+13) hooded night forager, 14) glassy-eyed alchemist, 15) worn-out market peddler, 16) small dungeon medic.
+
+Design rules: every character must be visually distinct with different hair shapes, clothing silhouettes, tools, bags, masks, hats, or small props. Use the same style and texture as the reference: compact body, heavy outline, pixelated soft shading, muted colors, tired cute facial expressions. Avoid generic shiny fantasy heroes. Keep colors subdued and earthy: charcoal, gray, dull teal, faded lavender, dusty brown, moss green, muted cream, old gold, dark plum, desaturated blue. Small accent colors are allowed, but no neon look.
+
+Pixel-art constraints: crisp readable pixel clusters, no painterly blur, no 3D render, no smooth vector look, no excessive tiny detail. Each full body must fit fully inside its cell with generous magenta margin. No hat, hair, staff, bag, coat, lantern, tool, scarf, or shoe may touch or cross a cell edge. Similar visual scale across the sheet.
+
+Background and layout constraints: perfectly flat solid #FF00FF magenta background across the entire sheet for chroma-key removal. No shadows on the background. No visible grid lines, no borders, no labels, no text, no numbers, no UI, no watermark, no decorative background. Only the 16 character sprites on magenta.
