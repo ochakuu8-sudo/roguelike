@@ -1,0 +1,11 @@
+Use the attached image as the visual reference for ART STYLE, PIXEL TECHNIQUE, and OVERALL TASTE only. Extract the way it is drawn, not its character elements. Keep the sprite close to the reference in chibi body proportion, pixel density, thick dark outline weight, muted shadow texture, and compact RPG overworld readability, but create a new cheerful girl character.
+
+Create one completely new original cheerful girl sprite for a dark roguelike game. She is a lively dungeon errand girl / apprentice runner: energetic, friendly, bright mood, full-body chibi sprite, slightly top-down 3/4 RPG overworld angle, centered idle pose with a small forward bounce feeling. She has short warm chestnut hair with a small side ponytail, a round beret-like cap, a cropped teal jacket, muted cream scarf, dark shorts or short skirt over leggings, chunky little boots, and a small messenger satchel. One hand is raised in a small upbeat wave, the other holds a tiny folded map close to the body.
+
+Important: do not copy the reference character's elements. No horns, no wings, no tail, no purple hair, no demon parts, no red-and-black striped shirt, no sleepy half-lidded expression, no same outfit, no same silhouette. The girl should feel cheerful and active, with brighter open eyes and a small smile, but the expression must be original.
+
+Match the drawing method and texture of the reference: low-resolution pixel-art look, chunky square pixel clusters, thick nearly-black outline, large head and compact tiny body, small boots, simple readable silhouette, muted grayish shadow ramps, soft blocky highlights, restrained contrast, hand-placed pixel clusters, polished game-sprite finish, not smooth painting and not vector art. Use the same kind of gray-muted material feel, with small color accents kept under control.
+
+Palette: warm chestnut, muted teal, faded cream, charcoal, dull brown, dusty rose accent, old brass satchel buckle. Keep it lively but not neon or glossy.
+
+Output format: a single full-body character sprite centered on a perfectly flat solid #FF00FF magenta chroma-key background. Leave generous magenta padding on all sides. No shadow on the background. No text, no labels, no border, no watermark, no UI, no grid, no extra props outside the character. The sprite must be fully contained and readable at small game size.
