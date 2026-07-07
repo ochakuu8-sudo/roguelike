@@ -517,7 +517,7 @@ export const spriteKeyForStation = (station: StationKind): SpriteKey => STATION_
 type SpritePaint = CanvasRenderingContext2D;
 
 const SPRITE_ATLAS_CELL_SIZE = 32;
-const SPRITE_ATLAS_SOURCE = '/assets/roguelike-sprite-atlas.png';
+const SPRITE_ATLAS_SOURCE = `${import.meta.env.BASE_URL}assets/roguelike-sprite-atlas.png`;
 
 const SPRITE_ATLAS_COORDS: Record<SpriteKey, readonly [number, number]> = {
   player: [0, 0],
