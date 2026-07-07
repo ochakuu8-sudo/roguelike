@@ -1,0 +1,36 @@
+Use the 16-character cast sheet as the visual style reference for this game's shared art direction. Use the layout guide image only as a layout reference for a 4x4 sheet: equal invisible cells, centering, spacing, and safe padding. Do not reproduce the guide: no visible boxes, no labels, no borders, no guide background.
+
+Create a 4x4 item and terrain style test atlas for the same dark cute roguelike RPG. Exactly 16 equal invisible cells, one different game asset centered in each cell. This sheet is specifically to verify that the character art style also works for items, equipment, props, and terrain blocks.
+
+Shared art style:
+High-density chibi pixel art matching the reference cast sheet. Thick dark nearly-black outlines, muted dungeon palette, grayish dirty shadows, soft blocky highlights, visible pixel clusters, compact readable silhouettes, slightly gloomy-cute handmade feel. Assets should feel like they belong in the same game as the demon girl and the other chibi characters. Avoid smooth painting, vector art, glossy gradients, realistic rendering, photoreal material texture, and overly clean toy colors.
+
+Style translation rules for non-character assets:
+For items and props, use the same outline weight, muted colors, blocky shading, and pixel density as the characters, but simplify shapes into readable compact icons. For terrain blocks, use the same dirty muted palette, chunky pixel clusters, and dark outline language, but keep the blocks square and tile-like enough for dungeon use. Do not make terrain more realistic or more HD than the characters. Do not make items tiny, thin, or overly detailed.
+
+Palette direction:
+Dark plum, dusty lavender, charcoal, warm gray, dull brown, moss green, faded teal, rusty red, old brass, muted cream, bone ivory, desaturated blue. Controlled small highlights only. No neon colors, no glossy clean gradients, no saturated toy colors.
+
+Cell lineup, left to right, top to bottom:
+1) chipped short sword, old iron blade, wrapped dark grip, compact diagonal icon
+2) worn pickaxe, dark metal head, dull brown wooden handle, readable chunky silhouette
+3) cracked brass lantern with faded teal flame, same outline weight as characters
+4) squat red potion bottle, cork, cloudy liquid, old glass with blocky highlights
+5) curled dusty scroll with brass clasp, thick outline, muted cream paper
+6) coin pouch with a few old brass coins, patched leather, compact icon
+7) small bone charm necklace, ivory bones and dark cord, dungeon relic feel
+8) rusty bomb orb with short fuse, dark metal bands, compact readable shape
+9) cracked stone floor tile block, square dungeon tile, worn edges
+10) mossy wall block, square stone face, green moss, dirty cracks
+11) ore vein rock block, blue-gray ore chunks in dark stone
+12) stair hatch / dungeon descent tile, square rim with dark opening
+13) wooden crate with iron bands, worn corners, blocky pixel shading
+14) small crafting anvil, dark metal, old brass scratches, compact prop
+15) herb bundle, dull green leaves tied with twine, chunky readable item
+16) magic core crystal, dark plum and desaturated blue glow kept inside silhouette
+
+Consistency requirements:
+All 16 assets should look like they were drawn by the same artist as the reference character sheet. Match pixel density, outline thickness, contrast level, shadow softness, and color dirtiness. Items should not become clean mobile-game icons. Terrain should not become realistic tiles. Keep each asset centered, with similar visual weight and generous magenta margin.
+
+Containment and output:
+Every asset fully inside its invisible cell. No sword tip, pickaxe handle, lantern ring, crate corner, tile edge, glow, or prop detail may touch or cross a cell edge. Perfectly flat solid #FF00FF magenta background across the whole sheet. No cast shadows on the background, no visible grid lines, no borders, no text, no labels, no numbers, no UI, no watermark.
