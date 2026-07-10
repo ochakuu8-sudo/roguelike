@@ -1,6 +1,7 @@
-import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, RecipeId } from '../engine/types';
-import { BIOME_DEFINITIONS, BIOME_IDS } from '../game/biomes';
+import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, RecipeId } from '../engine/types';
+import { BIOME_DEFINITIONS } from '../game/biomes';
 import { inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 
 type HudRoots = {
@@ -23,7 +24,7 @@ type BasePlanningRoots = {
   stashRoot: HTMLElement;
   recipeRoot: HTMLElement;
   moneyRoot: HTMLElement;
-  onStartRaid: () => void;
+  onStartRaid: (mapId: MapId) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
 };
 
@@ -157,7 +158,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 
 export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
   roots.moneyRoot.textContent = `${snapshot.money}G`;
-  roots.biomeRoot.replaceChildren(mixedRaidCard(roots.onStartRaid), ...BIOME_IDS.map((biome) => biomeCard(biome)));
+  roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, roots.onStartRaid)));
   roots.stashRoot.replaceChildren(...stashCards(snapshot.stash));
   roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
 };
@@ -184,52 +185,40 @@ const hpBar = (hp: number, maxHp: number) => {
   return root;
 };
 
-const mixedRaidCard = (onStartRaid: () => void) => {
+const mapCard = (mapId: MapId, onStartRaid: (mapId: MapId) => void) => {
+  const map = MAP_DEFINITIONS[mapId];
+  const biomes = map.biomes.map((biomeId) => BIOME_DEFINITIONS[biomeId]);
+  const maxDanger = Math.max(...biomes.map((biome) => biome.danger));
+
   const card = document.createElement('article');
-  card.className = 'biome-card biome-card-mixed';
+  card.className = 'biome-card';
+  card.style.setProperty('--biome-color', biomes[0]?.color ?? '#93c5fd');
 
   const heading = document.createElement('h3');
-  heading.textContent = '混合探索地';
+  heading.textContent = map.name;
 
   const meta = document.createElement('p');
-  meta.textContent = '複数のバイオームが同じマップ内に混ざる探索です。';
+  meta.textContent = `危険度 ${maxDanger} / ${biomes.map((biome) => biome.name).join(' + ')}`;
 
   const terrain = document.createElement('small');
-  terrain.textContent = '出撃後に、部屋ごとに鉱山・森・砦・研究区画が組み合わさります。';
+  terrain.textContent = map.tagline;
+
+  const materials = document.createElement('div');
+  materials.className = 'biome-materials';
+  biomes.forEach((biome) => {
+    biome.materials.forEach((item) => {
+      const chip = document.createElement('span');
+      chip.textContent = ITEM_DEFINITIONS[item].name;
+      materials.append(chip);
+    });
+  });
 
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = '出撃';
-  button.addEventListener('click', onStartRaid);
+  button.addEventListener('click', () => onStartRaid(mapId));
 
-  card.append(heading, meta, terrain, button);
-  return card;
-};
-
-const biomeCard = (biomeId: BiomeId) => {
-  const biome = BIOME_DEFINITIONS[biomeId];
-  const card = document.createElement('article');
-  card.className = 'biome-card';
-  card.style.setProperty('--biome-color', biome.color);
-
-  const heading = document.createElement('h3');
-  heading.textContent = biome.name;
-
-  const meta = document.createElement('p');
-  meta.textContent = `危険度 ${biome.danger} / ${biome.purpose}`;
-
-  const terrain = document.createElement('small');
-  terrain.textContent = `${biome.terrain} / ${biome.landmark}`;
-
-  const materials = document.createElement('div');
-  materials.className = 'biome-materials';
-  biome.materials.forEach((item) => {
-    const chip = document.createElement('span');
-    chip.textContent = ITEM_DEFINITIONS[item].name;
-    materials.append(chip);
-  });
-
-  card.append(heading, meta, terrain, materials);
+  card.append(heading, meta, terrain, materials, button);
   return card;
 };
 

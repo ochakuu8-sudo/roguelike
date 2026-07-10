@@ -1,7 +1,8 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, InventoryLocation, ItemKind, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
+import { MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
@@ -88,6 +89,8 @@ export class Game {
   private xp = 0;
   private mode: GameMode = 'base';
   private biome: BiomeId | null = null;
+  private activeMapId: MapId | null = null;
+  private activeBiomes: BiomeId[] = BIOME_IDS;
   private stash: Inventory = createStartingStash();
   private baseLoadout: Inventory = createEmptyInventory();
   private raidInventory: Inventory = createEmptyInventory();
@@ -131,6 +134,7 @@ export class Game {
       gameOver: this.gameOver,
       seed: this.seed,
       biome: this.biome,
+      mapId: this.activeMapId,
     };
   }
 
@@ -141,7 +145,7 @@ export class Game {
     }
 
     if (command.type === 'startRaid') {
-      this.startRaid(command.biome);
+      this.startRaid(command.mapId);
       return;
     }
 
@@ -263,6 +267,8 @@ export class Game {
     this.xp = 0;
     this.mode = 'base';
     this.biome = null;
+    this.activeMapId = null;
+    this.activeBiomes = BIOME_IDS;
     this.stash = createStartingStash();
     this.baseLoadout = createEmptyInventory();
     this.prepareBaseLoadout();
@@ -278,13 +284,18 @@ export class Game {
     this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
-  private startRaid(_biome?: BiomeId): void {
+  private startRaid(mapId?: MapId): void {
     if (this.mode === 'raid') {
       return;
     }
 
+    const resolvedMapId = mapId ?? MAP_IDS[0];
+    const mapDefinition = MAP_DEFINITIONS[resolvedMapId];
+
     this.mode = 'raid';
     this.biome = null;
+    this.activeMapId = resolvedMapId;
+    this.activeBiomes = mapDefinition.biomes;
     this.width = MAP_WIDTH;
     this.height = MAP_HEIGHT;
     this.depth = 1;
@@ -297,7 +308,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
-    this.generateLevel('複数のバイオームが交差する探索地へ出撃した。物資を集めて脱出地点を目指そう。');
+    this.generateLevel(`${mapDefinition.name}へ出撃した。物資を集めて脱出地点を目指そう。`);
   }
 
   private createBase(entryMessage: string): void {
@@ -355,7 +366,7 @@ export class Game {
 
     const rooms = digger.getRooms() as RoomLike[];
     const roomBiomes = this.assignRoomBiomes(rooms);
-    BIOME_IDS.forEach((biome) => {
+    this.activeBiomes.forEach((biome) => {
       this.applyBiomeTerrain(
         biome,
         rooms.filter((room) => roomBiomes.get(room) === biome),
@@ -388,7 +399,7 @@ export class Game {
   }
 
   private assignRoomBiomes(rooms: RoomLike[]): Map<RoomLike, BiomeId> {
-    const biomeOrder = [...BIOME_IDS];
+    const biomeOrder = [...this.activeBiomes];
     for (let index = biomeOrder.length - 1; index > 0; index -= 1) {
       const swapIndex = ROT.RNG.getUniformInt(0, index);
       [biomeOrder[index], biomeOrder[swapIndex]] = [biomeOrder[swapIndex], biomeOrder[index]];
@@ -398,7 +409,7 @@ export class Game {
     rooms.forEach((room) => {
       const [x, y] = roomCenter(room);
       const quadrant = (x >= this.width / 2 ? 1 : 0) + (y >= this.height / 2 ? 2 : 0);
-      roomBiomes.set(room, biomeOrder[quadrant] ?? 'mine');
+      roomBiomes.set(room, biomeOrder[quadrant % biomeOrder.length] ?? this.activeBiomes[0] ?? 'mine');
     });
 
     return roomBiomes;
@@ -556,7 +567,7 @@ export class Game {
       }
     }
 
-    BIOME_IDS.forEach((biomeId) => {
+    this.activeBiomes.forEach((biomeId) => {
       const biome = BIOME_DEFINITIONS[biomeId];
       const profile = BIOME_MAP_PROFILES[biomeId];
       const candidates = candidatesByBiome.get(biomeId) ?? [];

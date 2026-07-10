@@ -1,7 +1,7 @@
 import './styles.css';
 import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
-import type { Command, Entity, GameSnapshot } from './engine/types';
+import type { Command, Entity, GameSnapshot, MapId } from './engine/types';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
 import { updateBasePlanning, updateHud } from './ui/hud';
@@ -75,7 +75,7 @@ const stationInFront = (snapshot: GameSnapshot, player: Entity) =>
       entity.y === player.y + snapshot.player.facing.y,
   );
 
-const shouldStartRaidFromGate = (command: Command) => {
+const shouldOpenBasePlanningFromGate = (command: Command) => {
   if (command.type !== 'interact') {
     return false;
   }
@@ -89,9 +89,14 @@ const shouldStartRaidFromGate = (command: Command) => {
   return stationInFront(snapshot, player)?.station === 'raidGate';
 };
 
-const startRaid = () => {
+const openBasePlanning = () => {
+  document.body.classList.add('show-base-planning');
+  refresh();
+};
+
+const startRaid = (mapId: MapId) => {
   document.body.classList.remove('show-base-planning');
-  game.dispatch({ type: 'startRaid' });
+  game.dispatch({ type: 'startRaid', mapId });
   refresh();
 };
 
@@ -149,7 +154,7 @@ window.addEventListener('roguelike-sprite-atlas-ready', () => {
 });
 
 basePlanningButton.textContent = '出撃';
-basePlanningButton.addEventListener('click', startRaid);
+basePlanningButton.addEventListener('click', openBasePlanning);
 
 basePlanningCloseButton.addEventListener('click', () => {
   document.body.classList.remove('show-base-planning');
@@ -176,8 +181,8 @@ bindInput({
       return;
     }
 
-    if (shouldStartRaidFromGate(command)) {
-      startRaid();
+    if (shouldOpenBasePlanningFromGate(command)) {
+      openBasePlanning();
       return;
     }
 

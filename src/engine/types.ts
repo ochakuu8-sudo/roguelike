@@ -16,7 +16,7 @@ export type Command =
   | { type: 'useItem'; item: ItemKind }
   | { type: 'moveItem'; item: ItemKind; from: InventoryLocation; to: InventoryLocation }
   | { type: 'descend' }
-  | { type: 'startRaid'; biome?: BiomeId }
+  | { type: 'startRaid'; mapId: MapId }
   | { type: 'sellItem'; item: ItemKind }
   | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
@@ -42,6 +42,7 @@ export type ActorStats = {
 export type EntityKind = 'player' | 'monster' | 'item' | 'station';
 export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium';
 export type BiomeId = 'mine' | 'forest' | 'fortress' | 'lab';
+export type MapId = 'borderTunnels' | 'frontline' | 'blightWoods' | 'sealedVault';
 export type EnemyKind =
   | 'caveImp'
   | 'oreBeetle'
@@ -189,4 +190,5 @@ export type GameSnapshot = {
   gameOver: boolean;
   seed: number;
   biome: BiomeId | null;
+  mapId: MapId | null;
 };
