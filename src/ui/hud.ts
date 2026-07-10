@@ -4,6 +4,9 @@ import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS } from '../game/grid-invento
 import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
+import { SPRITE_SHAPES, spriteKeyForItem } from './canvas-renderer';
+
+const emojiForItem = (item: ItemKind) => SPRITE_SHAPES[spriteKeyForItem(item)];
 
 type HudRoots = {
   statusRoot: HTMLElement;
@@ -268,8 +271,7 @@ const stashCards = (inventory: Inventory) => {
 
     const glyph = document.createElement('span');
     glyph.className = 'stash-card-glyph';
-    glyph.textContent = definition.glyph;
-    glyph.style.color = definition.color;
+    glyph.textContent = emojiForItem(item);
 
     const body = document.createElement('div');
     const name = document.createElement('strong');
@@ -477,8 +479,7 @@ const inventorySlot = (
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
-  glyph.textContent = isUnidentified ? '?' : definition.glyph;
-  glyph.style.color = isUnidentified ? '#d6c39a' : definition.color;
+  glyph.textContent = emojiForItem(entry.item);
   slot.append(glyph);
 
   if (count > 1) {
@@ -576,8 +577,6 @@ const bindInventoryDrag = (
 };
 
 const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
-  const definition = ITEM_DEFINITIONS[itemKind];
-  const isUnidentified = definition.category === 'collection';
   const ghost = document.createElement('div');
   const sourceRect = sourceSlot.getBoundingClientRect();
   const sourceCount = sourceSlot.querySelector<HTMLElement>('.inventory-slot-count')?.textContent;
@@ -585,12 +584,10 @@ const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
   ghost.style.setProperty('--drag-item-size', `${sourceRect.width}px`);
   ghost.style.left = '0px';
   ghost.style.top = '0px';
-  ghost.style.setProperty('--item-color', isUnidentified ? '#d6c39a' : definition.color);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-drag-ghost-glyph';
-  glyph.textContent = isUnidentified ? '?' : definition.glyph;
-  glyph.style.color = isUnidentified ? '#d6c39a' : definition.color;
+  glyph.textContent = emojiForItem(itemKind);
 
   const count = document.createElement('b');
   count.className = 'inventory-drag-ghost-count';

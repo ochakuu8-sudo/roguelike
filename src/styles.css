@@ -314,8 +314,8 @@ h2 {
   aspect-ratio: 1;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-weight: 900;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .stash-card strong,
@@ -770,9 +770,7 @@ button.inventory-slot:hover {
 }
 
 .inventory-drag-ghost-glyph {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 1.32rem;
-  font-weight: 900;
+  font-size: 1.6rem;
   line-height: 1;
 }
 
@@ -796,9 +794,7 @@ button.inventory-slot:hover {
 }
 
 .inventory-slot-glyph {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 0.94rem;
-  font-weight: 900;
+  font-size: 1.3rem;
   line-height: 1;
 }
 

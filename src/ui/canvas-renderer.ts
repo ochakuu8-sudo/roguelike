@@ -16,7 +16,6 @@ const TILE_COLORS: Record<Tile['kind'], string> = {
 const FIXED_CELL_SIZE = 24;
 const COMBAT_EFFECT_DURATION = 520;
 const COMBAT_EFFECT_STAGGER = COMBAT_EFFECT_DURATION;
-const SPRITE_RESOLUTION = 32;
 
 type Camera = {
   cellSize: number;
@@ -30,243 +29,50 @@ type ActiveCombatEffect = CombatEffect & {
   progress: number;
 };
 
-type Shape =
-  | { t: 'r'; x: number; y: number; w: number; h: number; c: string }
-  | { t: 'c'; x: number; y: number; r: number; c: string };
-
-const R = (x: number, y: number, w: number, h: number, c: string): Shape => ({ t: 'r', x, y, w, h, c });
-const C = (x: number, y: number, r: number, c: string): Shape => ({ t: 'c', x, y, r, c });
-
-// Every sprite is a short list of flat rectangles/circles drawn in a 32x32
-// unit space. Kept deliberately simple (a handful of big, high-contrast
-// shapes) so each icon reads clearly at small on-screen sizes.
+// Prototype-quality icons: one emoji per sprite key. Emoji render as
+// recognizable full-color glyphs at any size, which reads far better than
+// hand-drawn pixel/shape art at the small sizes these actually show up at.
 export const SPRITE_SHAPES = {
-  player: [
-    C(16, 9, 5, '#f2c9a0'),
-    R(9, 14, 14, 10, '#2563eb'),
-    R(9, 21, 14, 3, '#facc15'),
-    R(10, 24, 5, 6, '#1e293b'),
-    R(17, 24, 5, 6, '#1e293b'),
-  ],
-  imp: [
-    C(16, 17, 8, '#dc2626'),
-    R(11, 7, 3, 6, '#7f1d1d'),
-    R(18, 7, 3, 6, '#7f1d1d'),
-    R(12, 15, 3, 3, '#fde047'),
-    R(17, 15, 3, 3, '#fde047'),
-  ],
-  beetle: [
-    C(16, 17, 9, '#65a30d'),
-    R(7, 15, 18, 3, '#365314'),
-    R(5, 13, 4, 2, '#365314'),
-    R(23, 13, 4, 2, '#365314'),
-    R(5, 20, 4, 2, '#365314'),
-    R(23, 20, 4, 2, '#365314'),
-  ],
-  gnoll: [
-    R(8, 10, 16, 16, '#c2703d'),
-    C(16, 8, 6, '#c2703d'),
-    R(12, 9, 2, 4, '#f8fafc'),
-    R(18, 9, 2, 4, '#f8fafc'),
-    R(8, 20, 16, 3, '#4b3621'),
-  ],
-  bat: [
-    R(3, 12, 11, 8, '#a855f7'),
-    R(18, 12, 11, 8, '#a855f7'),
-    C(16, 17, 6, '#7e22ce'),
-    R(14, 15, 2, 2, '#fde047'),
-    R(17, 15, 2, 2, '#fde047'),
-  ],
-  slime: [
-    C(16, 19, 10, '#22d3ee'),
-    C(12, 15, 3, '#a5f3fc'),
-    R(7, 24, 18, 3, '#0e7490'),
-  ],
-  herbEater: [
-    C(16, 17, 9, '#4ade80'),
-    R(11, 19, 10, 4, '#166534'),
-    R(12, 13, 3, 3, '#052e16'),
-    R(17, 13, 3, 3, '#052e16'),
-  ],
-  sentinel: [
-    R(9, 11, 14, 15, '#e5e7eb'),
-    C(16, 8, 5, '#e5e7eb'),
-    R(12, 15, 8, 3, '#1f2937'),
-    R(9, 20, 14, 2, '#9ca3af'),
-  ],
-  raider: [
-    R(9, 11, 14, 15, '#b45309'),
-    C(16, 8, 5, '#d6a76c'),
-    R(9, 14, 14, 2, '#78350f'),
-    R(23, 10, 2, 14, '#94a3b8'),
-  ],
-  knight: [
-    R(8, 11, 16, 16, '#eab308'),
-    C(16, 8, 6, '#facc15'),
-    R(13, 3, 6, 5, '#dc2626'),
-    R(12, 15, 8, 3, '#78350f'),
-  ],
-  failed: [
-    C(16, 17, 9, '#fb7185'),
-    R(10, 12, 4, 4, '#be123c'),
-    R(20, 20, 4, 4, '#be123c'),
-    R(14, 15, 4, 4, '#450a0a'),
-  ],
-  drone: [
-    C(16, 16, 8, '#6366f1'),
-    C(16, 16, 4, '#e0e7ff'),
-    C(16, 16, 2, '#1e1b4b'),
-    R(15, 4, 2, 6, '#a5b4fc'),
-  ],
-  guardian: [
-    R(7, 9, 18, 18, '#c026d3'),
-    R(4, 10, 5, 7, '#86198f'),
-    R(23, 10, 5, 7, '#86198f'),
-    C(16, 18, 5, '#f0abfc'),
-  ],
-  potion: [
-    R(14, 4, 4, 3, '#78350f'),
-    R(15, 7, 2, 3, '#94a3b8'),
-    R(11, 10, 10, 14, '#e2e8f0'),
-    R(12, 15, 8, 8, '#38bdf8'),
-  ],
-  scroll: [
-    R(9, 11, 14, 10, '#f5e9c8'),
-    R(8, 10, 3, 12, '#c8a24a'),
-    R(21, 10, 3, 12, '#c8a24a'),
-    R(12, 14, 8, 1, '#8a6d3b'),
-    R(12, 17, 8, 1, '#8a6d3b'),
-  ],
-  bomb: [
-    C(16, 19, 9, '#1f2937'),
-    C(13, 16, 2, '#475569'),
-    R(17, 6, 2, 7, '#78350f'),
-    C(19, 5, 2, '#facc15'),
-  ],
-  blade: [
-    R(15, 5, 3, 16, '#e5e7eb'),
-    R(11, 20, 10, 2, '#9ca3af'),
-    R(14, 22, 4, 6, '#78350f'),
-  ],
-  sword: [
-    R(14, 4, 4, 16, '#f1f5f9'),
-    R(9, 20, 14, 3, '#94a3b8'),
-    R(14, 23, 4, 6, '#78350f'),
-    C(16, 30, 2, '#facc15'),
-  ],
-  bow: [
-    R(21, 4, 3, 5, '#b45309'),
-    R(19, 9, 3, 5, '#b45309'),
-    R(19, 18, 3, 5, '#b45309'),
-    R(21, 23, 3, 5, '#b45309'),
-    R(22, 6, 1, 20, '#f1f5f9'),
-  ],
-  pickaxe: [
-    R(15, 10, 3, 20, '#78350f'),
-    R(6, 6, 20, 4, '#94a3b8'),
-  ],
-  material: [
-    R(8, 10, 16, 14, '#c08457'),
-    C(16, 17, 5, '#8a5a2b'),
-  ],
-  ore: [
-    R(8, 14, 8, 10, '#64748b'),
-    R(15, 10, 10, 14, '#475569'),
-    C(19, 14, 2, '#93c5fd'),
-  ],
-  herb: [
-    R(15, 14, 2, 12, '#166534'),
-    C(11, 14, 4, '#4ade80'),
-    C(21, 14, 4, '#4ade80'),
-    C(16, 9, 4, '#86efac'),
-  ],
-  bone: [
-    R(12, 14, 8, 4, '#f8fafc'),
-    C(10, 16, 4, '#f8fafc'),
-    C(22, 16, 4, '#f8fafc'),
-  ],
-  gear: [
-    C(16, 16, 8, '#94a3b8'),
-    R(15, 4, 2, 4, '#94a3b8'),
-    R(15, 24, 2, 4, '#94a3b8'),
-    R(4, 15, 4, 2, '#94a3b8'),
-    R(24, 15, 4, 2, '#94a3b8'),
-    C(16, 16, 3, '#1f2937'),
-  ],
-  bottle: [
-    R(15, 6, 2, 4, '#94a3b8'),
-    R(12, 10, 8, 12, '#cbd5e1'),
-    R(13, 14, 6, 7, '#7dd3fc'),
-  ],
-  core: [
-    C(16, 16, 8, '#c4b5fd'),
-    C(16, 16, 4, '#f0abfc'),
-    C(16, 16, 2, '#faf5ff'),
-  ],
-  coin: [
-    C(16, 16, 8, '#facc15'),
-    C(16, 16, 5, '#fde68a'),
-    R(15, 13, 2, 6, '#a16207'),
-  ],
-  upgrade: [
-    R(14, 8, 4, 16, '#facc15'),
-    R(8, 14, 16, 4, '#facc15'),
-  ],
-  stairs: [
-    R(4, 24, 7, 6, '#4ade80'),
-    R(11, 18, 7, 6, '#4ade80'),
-    R(18, 12, 7, 6, '#4ade80'),
-    R(25, 6, 5, 6, '#4ade80'),
-  ],
-  station: [
-    R(6, 10, 20, 4, '#64748b'),
-    R(8, 14, 16, 12, '#475569'),
-    R(14, 18, 4, 8, '#1f2937'),
-  ],
-  stationGate: [
-    R(6, 6, 20, 4, '#34d399'),
-    R(6, 8, 4, 18, '#34d399'),
-    R(22, 8, 4, 18, '#34d399'),
-    R(14, 12, 4, 10, '#a7f3d0'),
-  ],
-  stationStash: [
-    R(6, 10, 20, 6, '#d97706'),
-    R(7, 14, 18, 10, '#b45309'),
-    R(14, 16, 4, 4, '#fef08a'),
-  ],
-  stationCraft: [
-    R(6, 12, 20, 5, '#94a3b8'),
-    R(12, 17, 8, 6, '#64748b'),
-    R(22, 6, 3, 10, '#78350f'),
-  ],
-  stationMarket: [
-    C(16, 18, 9, '#f59e0b'),
-    R(13, 8, 6, 4, '#78350f'),
-    R(14, 15, 4, 7, '#78350f'),
-  ],
-  stationCompendium: [
-    R(7, 9, 9, 16, '#a5b4fc'),
-    R(16, 9, 9, 16, '#818cf8'),
-    R(15, 9, 2, 16, '#312e81'),
-  ],
-  stationAppraiser: [
-    C(14, 14, 7, '#facc15'),
-    C(14, 14, 4, '#111827'),
-    R(19, 19, 3, 10, '#78350f'),
-  ],
-  stationBarter: [
-    R(6, 12, 14, 4, '#7dd3fc'),
-    R(18, 10, 4, 8, '#7dd3fc'),
-    R(10, 18, 14, 4, '#fbbf24'),
-    R(8, 16, 4, 8, '#fbbf24'),
-  ],
-  collectionItem: [
-    R(7, 11, 18, 5, '#a9895a'),
-    R(8, 14, 16, 12, '#8b6f3f'),
-    R(14, 11, 4, 15, '#dc2626'),
-    C(16, 10, 3, '#dc2626'),
-  ],
-} satisfies Record<string, Shape[]>;
+  player: '🧙',
+  imp: '😈',
+  beetle: '🪲',
+  gnoll: '🐺',
+  bat: '🦇',
+  slime: '🟢',
+  herbEater: '🐰',
+  sentinel: '💀',
+  raider: '🧌',
+  knight: '💂',
+  failed: '🧟',
+  drone: '👁️',
+  guardian: '🐉',
+  potion: '🧪',
+  scroll: '📜',
+  bomb: '💣',
+  blade: '🔪',
+  sword: '🗡️',
+  bow: '🏹',
+  pickaxe: '⛏️',
+  material: '🪵',
+  ore: '🪨',
+  herb: '🌿',
+  bone: '🦴',
+  gear: '⚙️',
+  bottle: '🧴',
+  core: '🔮',
+  coin: '🪙',
+  upgrade: '⬆️',
+  stairs: '🪜',
+  station: '🏛️',
+  stationGate: '⛩️',
+  stationStash: '📦',
+  stationCraft: '🔨',
+  stationMarket: '💰',
+  stationCompendium: '📖',
+  stationAppraiser: '🔍',
+  stationBarter: '🤝',
+  collectionItem: '❓',
+} satisfies Record<string, string>;
 
 export type SpriteKey = keyof typeof SPRITE_SHAPES;
 
@@ -359,27 +165,16 @@ export const spriteKeyForStation = (station: StationKind): SpriteKey => STATION_
 
 type SpritePaint = CanvasRenderingContext2D;
 
+const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+
 export const renderSpriteIcon = (context: SpritePaint, sprite: SpriteKey, left: number, top: number, size: number, alpha = 1) => {
   context.save();
   context.globalAlpha *= alpha;
-  context.imageSmoothingEnabled = false;
-  context.translate(left, top);
-  context.scale(size / SPRITE_RESOLUTION, size / SPRITE_RESOLUTION);
-  drawShapeSprite(context, SPRITE_SHAPES[sprite]);
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.font = `${Math.max(8, Math.floor(size * 0.82))}px ${EMOJI_FONT}`;
+  context.fillText(SPRITE_SHAPES[sprite], left + size / 2, top + size * 0.54);
   context.restore();
-};
-
-const drawShapeSprite = (context: SpritePaint, shapes: readonly Shape[]) => {
-  shapes.forEach((shape) => {
-    context.fillStyle = shape.c;
-    if (shape.t === 'c') {
-      context.beginPath();
-      context.arc(shape.x, shape.y, shape.r, 0, Math.PI * 2);
-      context.fill();
-      return;
-    }
-    context.fillRect(shape.x, shape.y, shape.w, shape.h);
-  });
 };
 
 export class CanvasRenderer {
@@ -721,9 +516,6 @@ export class CanvasRenderer {
     if (entity.kind === 'monster') {
       this.drawEnemyHealthBar(entity, left, top, cellSize);
     }
-    if (entity.kind === 'station') {
-      this.drawStationGlyph(entity, left, top, cellSize);
-    }
 
     if (hitEffect) {
       this.context.save();
@@ -816,19 +608,6 @@ export class CanvasRenderer {
 
   private drawSprite(sprite: SpriteKey, left: number, top: number, cellSize: number, alpha: number): void {
     renderSpriteIcon(this.context, sprite, left, top, cellSize, alpha);
-  }
-
-  private drawStationGlyph(entity: Entity, left: number, top: number, cellSize: number): void {
-    this.context.save();
-    this.context.font = `800 ${Math.max(8, Math.floor(cellSize * 0.62))}px ui-monospace, SFMono-Regular, Menlo, monospace`;
-    this.context.textAlign = 'center';
-    this.context.textBaseline = 'middle';
-    this.context.lineWidth = 2;
-    this.context.strokeStyle = 'rgba(2, 8, 12, 0.9)';
-    this.context.fillStyle = entity.color;
-    this.context.strokeText(entity.glyph, left + cellSize / 2, top + cellSize / 2);
-    this.context.fillText(entity.glyph, left + cellSize / 2, top + cellSize / 2);
-    this.context.restore();
   }
 
   private drawEnemyHealthBar(entity: Entity, left: number, top: number, cellSize: number): void {
