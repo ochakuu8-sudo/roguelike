@@ -1,5 +1,5 @@
 import { indexAt } from '../engine/grid';
-import type { CombatEffect, EnemyKind, Entity, GameSnapshot, ItemKind, StationKind, Tile } from '../engine/types';
+import type { BiomeId, CombatEffect, EnemyKind, Entity, GameSnapshot, ItemKind, StationKind, Tile } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
 
 const TILE_COLORS: Record<Tile['kind'], string> = {
@@ -555,59 +555,6 @@ export const spriteKeyForItem = (item: ItemKind): SpriteKey => ITEM_SPRITES[item
 export const spriteKeyForStation = (station: StationKind): SpriteKey => STATION_SPRITES[station];
 
 type SpritePaint = CanvasRenderingContext2D;
-
-const SPRITE_ATLAS_CELL_SIZE = 32;
-const SPRITE_ATLAS_SOURCE = `${import.meta.env.BASE_URL}assets/roguelike-sprite-atlas.png`;
-
-const SPRITE_ATLAS_COORDS: Partial<Record<SpriteKey, readonly [number, number]>> = {
-  player: [0, 0],
-  stairs: [1, 0],
-  stationGate: [2, 0],
-  stationStash: [3, 0],
-  stationCraft: [4, 0],
-  stationMarket: [5, 0],
-  stationCompendium: [0, 1],
-  imp: [1, 1],
-  beetle: [2, 1],
-  gnoll: [3, 1],
-  bat: [4, 1],
-  slime: [5, 1],
-  herbEater: [0, 2],
-  sentinel: [1, 2],
-  raider: [2, 2],
-  knight: [3, 2],
-  failed: [4, 2],
-  drone: [5, 2],
-  guardian: [0, 3],
-  potion: [1, 3],
-  scroll: [2, 3],
-  bomb: [3, 3],
-  blade: [4, 3],
-  sword: [5, 3],
-  bow: [0, 4],
-  pickaxe: [1, 4],
-  material: [2, 4],
-  ore: [3, 4],
-  herb: [4, 4],
-  bone: [5, 4],
-  gear: [0, 5],
-  bottle: [1, 5],
-  core: [2, 5],
-  coin: [3, 5],
-  upgrade: [4, 5],
-  station: [5, 5],
-};
-
-const spriteAtlasImage = typeof Image === 'undefined' ? undefined : new Image();
-let spriteAtlasReady = false;
-
-if (spriteAtlasImage) {
-  spriteAtlasImage.onload = () => {
-    spriteAtlasReady = true;
-    window.dispatchEvent(new Event('roguelike-sprite-atlas-ready'));
-  };
-  spriteAtlasImage.src = SPRITE_ATLAS_SOURCE;
-}
 
 export const SPRITE_PIXELS: Record<SpriteKey, readonly string[]> = {
   player: [
@@ -1843,25 +1790,9 @@ export const renderSpriteIcon = (context: SpritePaint, sprite: SpriteKey, left: 
   context.save();
   context.globalAlpha *= alpha;
   context.imageSmoothingEnabled = false;
-  const atlasCoords = SPRITE_ATLAS_COORDS[sprite];
-  if (spriteAtlasReady && spriteAtlasImage && atlasCoords) {
-    const [atlasX, atlasY] = atlasCoords;
-    context.drawImage(
-      spriteAtlasImage,
-      atlasX * SPRITE_ATLAS_CELL_SIZE,
-      atlasY * SPRITE_ATLAS_CELL_SIZE,
-      SPRITE_ATLAS_CELL_SIZE,
-      SPRITE_ATLAS_CELL_SIZE,
-      left,
-      top,
-      size,
-      size,
-    );
-  } else {
-    context.translate(left, top);
-    context.scale(size / SPRITE_RESOLUTION, size / SPRITE_RESOLUTION);
-    drawPixelSprite(context, SPRITE_PIXELS[sprite]);
-  }
+  context.translate(left, top);
+  context.scale(size / SPRITE_RESOLUTION, size / SPRITE_RESOLUTION);
+  drawPixelSprite(context, SPRITE_PIXELS[sprite]);
   context.restore();
 };
 
@@ -2025,7 +1956,7 @@ export class CanvasRenderer {
 
       this.context.fillStyle = tile.visible ? tileColor(tile, snapshot) : '#0f1316';
       this.context.fillRect(left, top, cellSize, cellSize);
-      this.drawTileTexture(tile, x, y, cellSize, offsetX, offsetY);
+      this.drawTileTexture(tile, x, y, cellSize, offsetX, offsetY, tile.biome ?? snapshot.biome);
 
       if (tile.kind === 'stairs' && tile.visible) {
         this.drawSprite('stairs', left, top, cellSize, tile.visible ? 1 : 0.45);
@@ -2070,19 +2001,25 @@ export class CanvasRenderer {
       });
   }
 
-  private drawTileTexture(tile: Tile, x: number, y: number, cellSize: number, offsetX: number, offsetY: number): void {
+  private drawTileTexture(
+    tile: Tile,
+    x: number,
+    y: number,
+    cellSize: number,
+    offsetX: number,
+    offsetY: number,
+    biomeId: BiomeId | null,
+  ): void {
     if (!tile.visible) {
       return;
     }
 
     const left = offsetX + x * cellSize;
     const top = offsetY + y * cellSize;
+    const hash = (x * 928371 + y * 12960181 + 61) % 97;
 
     if (tile.kind === 'wall' || isGatheringTile(tile.kind)) {
-      this.context.fillStyle = '#34434b';
-      this.context.fillRect(left, top, cellSize, Math.max(1, Math.floor(cellSize * 0.16)));
-      this.context.fillStyle = '#1d282e';
-      this.context.fillRect(left, top + cellSize - Math.max(1, Math.floor(cellSize * 0.12)), cellSize, Math.max(1, Math.floor(cellSize * 0.12)));
+      this.drawWallTexture(left, top, cellSize, hash, biomeId);
       if (isGatheringTile(tile.kind)) {
         const chip = Math.max(1, Math.floor(cellSize * 0.16));
         this.context.fillStyle = gatheringAccent(tile.kind);
@@ -2093,10 +2030,103 @@ export class CanvasRenderer {
       return;
     }
 
+    this.drawFloorTexture(left, top, cellSize, x, y, hash, biomeId);
+  }
+
+  private drawWallTexture(left: number, top: number, cellSize: number, hash: number, biomeId: BiomeId | null): void {
+    const ctx = this.context;
+    const highlight = Math.max(1, Math.floor(cellSize * 0.16));
+    const shadow = Math.max(1, Math.floor(cellSize * 0.12));
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.fillRect(left, top, cellSize, highlight);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.fillRect(left, top + cellSize - shadow, cellSize, shadow);
+
+    if (biomeId === 'fortress') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+      ctx.fillRect(left, top + Math.floor(cellSize * 0.5), cellSize, Math.max(1, Math.floor(cellSize * 0.06)));
+      const jointX = hash % 2 === 0 ? cellSize * 0.32 : cellSize * 0.68;
+      ctx.fillRect(left + Math.floor(jointX), top, Math.max(1, Math.floor(cellSize * 0.05)), Math.floor(cellSize * 0.5));
+      ctx.fillRect(left + Math.floor(cellSize * 0.5), top + Math.floor(cellSize * 0.5), Math.max(1, Math.floor(cellSize * 0.05)), Math.floor(cellSize * 0.5));
+      return;
+    }
+
+    if (biomeId === 'lab') {
+      ctx.strokeStyle = 'rgba(165, 180, 252, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left + 2, top + 2, cellSize - 4, cellSize - 4);
+      if (hash % 5 === 0) {
+        const dot = Math.max(1, Math.floor(cellSize * 0.1));
+        ctx.fillStyle = 'rgba(196, 181, 253, 0.85)';
+        ctx.fillRect(left + cellSize * 0.5 - dot / 2, top + cellSize * 0.5 - dot / 2, dot, dot);
+      }
+      return;
+    }
+
+    if (biomeId === 'forest') {
+      if (hash % 3 !== 0) {
+        const blotch = Math.max(1, Math.floor(cellSize * 0.22));
+        ctx.fillStyle = 'rgba(74, 140, 90, 0.3)';
+        ctx.fillRect(left + (hash % 5) * (cellSize * 0.14), top + (hash % 4) * (cellSize * 0.16), blotch, blotch);
+      }
+      return;
+    }
+
+    const speck = Math.max(1, Math.floor(cellSize * 0.13));
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
+    ctx.fillRect(left + (hash % 6) * (cellSize * 0.13), top + (hash % 5) * (cellSize * 0.15), speck, speck);
+    if (hash % 11 === 0) {
+      const glint = Math.max(1, Math.floor(cellSize * 0.1));
+      ctx.fillStyle = 'rgba(147, 197, 253, 0.75)';
+      ctx.fillRect(left + cellSize * 0.6, top + cellSize * 0.3, glint, glint);
+    }
+  }
+
+  private drawFloorTexture(
+    left: number,
+    top: number,
+    cellSize: number,
+    x: number,
+    y: number,
+    hash: number,
+    biomeId: BiomeId | null,
+  ): void {
+    const ctx = this.context;
+
+    if (biomeId === 'fortress') {
+      if ((x + y) % 4 === 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(left, top, cellSize, 1);
+        ctx.fillRect(left, top, 1, cellSize);
+      }
+      return;
+    }
+
+    if (biomeId === 'lab') {
+      if ((x * 13 + y * 7) % 9 === 0) {
+        ctx.strokeStyle = 'rgba(129, 140, 248, 0.18)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, top + cellSize * 0.5);
+        ctx.lineTo(left + cellSize, top + cellSize * 0.5);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    if (biomeId === 'forest') {
+      if (hash % 4 === 0) {
+        const leaf = Math.max(1, Math.floor(cellSize * 0.1));
+        ctx.fillStyle = hash % 2 === 0 ? 'rgba(134, 239, 172, 0.24)' : 'rgba(63, 143, 87, 0.32)';
+        ctx.fillRect(left + (hash % 5) * (cellSize * 0.16), top + (hash % 3) * (cellSize * 0.22), leaf, leaf);
+      }
+      return;
+    }
+
     if ((x * 17 + y * 31) % 7 === 0) {
       const speck = Math.max(1, Math.floor(cellSize * 0.12));
-      this.context.fillStyle = '#202a2f';
-      this.context.fillRect(left + Math.floor(cellSize * 0.62), top + Math.floor(cellSize * 0.58), speck, speck);
+      ctx.fillStyle = '#202a2f';
+      ctx.fillRect(left + Math.floor(cellSize * 0.62), top + Math.floor(cellSize * 0.58), speck, speck);
     }
   }
 
