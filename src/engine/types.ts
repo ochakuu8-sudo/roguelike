@@ -15,6 +15,7 @@ export type Command =
   | { type: 'nextHandItem' }
   | { type: 'useItem'; item: ItemKind }
   | { type: 'moveItem'; item: ItemKind; from: InventoryLocation; to: InventoryLocation }
+  | { type: 'appraiseCollection' }
   | { type: 'descend' }
   | { type: 'startRaid'; mapId: MapId }
   | { type: 'sellItem'; item: ItemKind }
@@ -40,7 +41,7 @@ export type ActorStats = {
 };
 
 export type EntityKind = 'player' | 'monster' | 'item' | 'station';
-export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium';
+export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium' | 'appraiser' | 'barterMerchant';
 export type BiomeId = 'mine' | 'forest' | 'fortress' | 'lab';
 export type MapId = 'borderTunnels' | 'frontline' | 'blightWoods' | 'sealedVault';
 export type EnemyKind =
@@ -106,8 +107,14 @@ export type ItemKind =
   | 'craftBenchUpgrade1'
   | 'mapTable'
   | 'returnBeacon'
-  | 'lockpickTool';
+  | 'lockpickTool'
+  | 'ancientRelic'
+  | 'gildedIdol'
+  | 'strangeGem';
 export type RecipeId =
+  | 'sword'
+  | 'bow'
+  | 'pickaxe'
   | 'potion'
   | 'hiPotion'
   | 'antidote'
@@ -172,6 +179,24 @@ export type PlayerState = {
   selectedHandItem: ItemKind | null;
   raidCapacity: number;
   facing: Point;
+  stamina: number;
+  maxStamina: number;
+};
+
+export type PlacedItem = {
+  item: ItemKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  durability?: number;
+  maxDurability?: number;
+};
+
+export type GridInventories = {
+  hand: PlacedItem[];
+  raidBag: PlacedItem[];
+  stash: PlacedItem[];
 };
 
 export type GameSnapshot = {
@@ -191,4 +216,6 @@ export type GameSnapshot = {
   seed: number;
   biome: BiomeId | null;
   mapId: MapId | null;
+  grids: GridInventories;
+  collectionCount: number;
 };

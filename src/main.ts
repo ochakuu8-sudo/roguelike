@@ -131,6 +131,10 @@ const refresh = () => {
     recipeRoot: baseRecipeRoot,
     moneyRoot: baseMoneyRoot,
     onStartRaid: startRaid,
+    onAppraiseCollection: () => {
+      game.dispatch({ type: 'appraiseCollection' });
+      refresh();
+    },
     onCraftRecipe: (recipe) => {
       game.dispatch({ type: 'craftItem', recipe });
       refresh();

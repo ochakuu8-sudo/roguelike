@@ -18,6 +18,18 @@ export type RecipeDefinition = {
 };
 
 export const CRAFTING_RECIPES: RecipeDefinition[] = [
+  recipe('sword', 'sword', 1, '鍛冶台', '壊れた/持っていない剣を作り直す基本装備。', 'upgrade', [
+    ['ironOre', 3],
+    ['wood', 1],
+  ]),
+  recipe('bow', 'bow', 1, '鍛冶台', '壊れた/持っていない弓を作り直す基本装備。', 'upgrade', [
+    ['copperOre', 2],
+    ['wood', 2],
+  ]),
+  recipe('pickaxe', 'pickaxe', 1, '道具台', '壊れた/持っていないピッケルを作り直す基本装備。', 'upgrade', [
+    ['ironOre', 2],
+    ['wood', 1],
+  ]),
   recipe('potion', 'potion', 1, '消耗品作業台', '探索中に使う基本的な回復薬。', 'consumable', [
     ['herb', 2],
     ['cleanWater', 1],

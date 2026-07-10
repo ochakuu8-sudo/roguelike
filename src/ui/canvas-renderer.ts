@@ -391,7 +391,42 @@ export const SPRITES = {
     '...W....',
     '........',
   ],
+  stationAppraiser: [
+    '........',
+    '..FFF...',
+    '.F...F..',
+    '.F.O.F..',
+    '.F...F..',
+    '..FFF...',
+    '.....F..',
+    '......F.',
+  ],
+  stationBarter: [
+    '........',
+    '..S..B..',
+    '.SS.BB..',
+    'SSSBBBB.',
+    '.BBBSSS.',
+    '..BB.SS.',
+    '..B..S..',
+    '........',
+  ],
+  collectionItem: [
+    '........',
+    '.HHHHH..',
+    '.H.R.H..',
+    '.HHRHH..',
+    '.H.R.H..',
+    '.HHHHH..',
+    '........',
+    '........',
+  ],
 } as const;
+
+const upscaleSprite = (sprite: readonly string[], factor: number): string[] =>
+  sprite
+    .map((row) => [...row].map((code) => code.repeat(factor)).join(''))
+    .flatMap((row) => Array.from({ length: factor }, () => row));
 
 export const PALETTE: Record<string, string> = {
   '1': '#d8ecf4',
@@ -453,6 +488,8 @@ const STATION_SPRITES: Record<StationKind, SpriteKey> = {
   craft: 'stationCraft',
   market: 'stationMarket',
   compendium: 'stationCompendium',
+  appraiser: 'stationAppraiser',
+  barterMerchant: 'stationBarter',
 };
 
 const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
@@ -506,6 +543,9 @@ const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
   mapTable: 'upgrade',
   returnBeacon: 'upgrade',
   lockpickTool: 'upgrade',
+  ancientRelic: 'collectionItem',
+  gildedIdol: 'collectionItem',
+  strangeGem: 'collectionItem',
 };
 
 export const spriteKeyForEnemy = (enemy: EnemyKind): SpriteKey => ENEMY_SPRITES[enemy];
@@ -519,7 +559,7 @@ type SpritePaint = CanvasRenderingContext2D;
 const SPRITE_ATLAS_CELL_SIZE = 32;
 const SPRITE_ATLAS_SOURCE = `${import.meta.env.BASE_URL}assets/roguelike-sprite-atlas.png`;
 
-const SPRITE_ATLAS_COORDS: Record<SpriteKey, readonly [number, number]> = {
+const SPRITE_ATLAS_COORDS: Partial<Record<SpriteKey, readonly [number, number]>> = {
   player: [0, 0],
   stairs: [1, 0],
   stationGate: [2, 0],
@@ -1794,14 +1834,18 @@ export const SPRITE_PIXELS: Record<SpriteKey, readonly string[]> = {
     '................................',
     '................................',
   ],
+  stationAppraiser: upscaleSprite(SPRITES.stationAppraiser, 4),
+  stationBarter: upscaleSprite(SPRITES.stationBarter, 4),
+  collectionItem: upscaleSprite(SPRITES.collectionItem, 4),
 };
 
 export const renderSpriteIcon = (context: SpritePaint, sprite: SpriteKey, left: number, top: number, size: number, alpha = 1) => {
   context.save();
   context.globalAlpha *= alpha;
   context.imageSmoothingEnabled = false;
-  if (spriteAtlasReady && spriteAtlasImage) {
-    const [atlasX, atlasY] = SPRITE_ATLAS_COORDS[sprite];
+  const atlasCoords = SPRITE_ATLAS_COORDS[sprite];
+  if (spriteAtlasReady && spriteAtlasImage && atlasCoords) {
+    const [atlasX, atlasY] = atlasCoords;
     context.drawImage(
       spriteAtlasImage,
       atlasX * SPRITE_ATLAS_CELL_SIZE,

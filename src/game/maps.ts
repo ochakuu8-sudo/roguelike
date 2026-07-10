@@ -1,4 +1,4 @@
-import type { BiomeId, MapId } from '../engine/types';
+import type { BiomeId, ItemKind, MapId } from '../engine/types';
 
 export type MapDefinition = {
   id: MapId;
@@ -35,3 +35,16 @@ export const MAP_DEFINITIONS: Record<MapId, MapDefinition> = {
 };
 
 export const MAP_IDS = Object.keys(MAP_DEFINITIONS) as MapId[];
+
+export type BarterTrade = {
+  give: ItemKind;
+  giveAmount: number;
+  get: ItemKind;
+};
+
+export const BARTER_TRADES: Record<BiomeId, BarterTrade> = {
+  mine: { give: 'ironOre', giveAmount: 3, get: 'oldGear' },
+  forest: { give: 'herb', giveAmount: 3, get: 'blueMushroom' },
+  fortress: { give: 'tornCloth', giveAmount: 3, get: 'crestFragment' },
+  lab: { give: 'glassShard', giveAmount: 3, get: 'arcaneCore' },
+};

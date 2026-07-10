@@ -1,7 +1,8 @@
 import type { BiomeId, Inventory, ItemKind, RecipeId } from '../engine/types';
 
-export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade';
+export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade' | 'collection';
 export type ItemRarity = 'common' | 'uncommon' | 'rare';
+export type GridSize = { width: number; height: number };
 
 export type ItemDefinition = {
   name: string;
@@ -15,7 +16,12 @@ export type ItemDefinition = {
   obtain: string;
   rarity: ItemRarity;
   usedIn: RecipeId[];
+  gridSize: GridSize;
+  maxDurability?: number;
+  staminaRestore?: number;
 };
+
+const DEFAULT_GRID_SIZE: GridSize = { width: 1, height: 1 };
 
 const consumable = (
   name: string,
@@ -32,6 +38,7 @@ const consumable = (
   color,
   value,
   size: 1,
+  gridSize: DEFAULT_GRID_SIZE,
   usedIn,
 });
 
@@ -44,6 +51,7 @@ const material = (
   color: string,
   rarity: ItemRarity,
   usedIn: RecipeId[],
+  staminaRestore?: number,
 ): ItemDefinition => ({
   name,
   description,
@@ -52,13 +60,23 @@ const material = (
   color,
   value,
   size: 1,
+  gridSize: DEFAULT_GRID_SIZE,
   sources,
   obtain,
   rarity,
   usedIn,
+  staminaRestore,
 });
 
-const equipment = (name: string, description: string, glyph: string, color: string, value: number): ItemDefinition => ({
+const equipment = (
+  name: string,
+  description: string,
+  glyph: string,
+  color: string,
+  value: number,
+  maxDurability: number,
+  gridSize: GridSize = { width: 1, height: 2 },
+): ItemDefinition => ({
   name,
   description,
   category: 'equipment',
@@ -66,10 +84,12 @@ const equipment = (name: string, description: string, glyph: string, color: stri
   color,
   value,
   size: 1,
+  gridSize,
   sources: [],
   obtain: '初期装備 / クラフト',
   rarity: 'common',
   usedIn: [],
+  maxDurability,
 });
 
 const upgrade = (name: string, description: string, value: number): ItemDefinition => ({
@@ -80,8 +100,24 @@ const upgrade = (name: string, description: string, value: number): ItemDefiniti
   color: '#facc15',
   value,
   size: 0,
+  gridSize: DEFAULT_GRID_SIZE,
   sources: [],
   obtain: '拠点クラフト',
+  rarity: 'rare',
+  usedIn: [],
+});
+
+const collection = (name: string, description: string, value: number, color: string): ItemDefinition => ({
+  name,
+  description,
+  category: 'collection',
+  glyph: '?',
+  color,
+  value,
+  size: 1,
+  gridSize: { width: 2, height: 2 },
+  sources: [],
+  obtain: '宝箱 / 鍵付き倉庫',
   rarity: 'rare',
   usedIn: [],
 });
@@ -135,9 +171,9 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     obtain: '折れた刃、木材でクラフト',
     rarity: 'common',
   },
-  sword: equipment('剣', '近くの敵を斬る基本武器。', '/', '#e5e7eb', 80),
-  bow: equipment('弓', '向いている方向へ矢を放つ遠距離武器。', ')', '#fbbf24', 90),
-  pickaxe: equipment('ピッケル', '壁や鉱石ブロックを掘れる道具。', 'T', '#93c5fd', 70),
+  sword: equipment('剣', '近くの敵を斬る基本武器。使うたびに耐久値が減り、尽きると壊れる。', '/', '#e5e7eb', 80, 30, { width: 1, height: 2 }),
+  bow: equipment('弓', '向いている方向へ矢を放つ遠距離武器。使うたびに耐久値が減り、尽きると壊れる。', ')', '#fbbf24', 90, 24, { width: 2, height: 2 }),
+  pickaxe: equipment('ピッケル', '壁や鉱石ブロックを掘れる道具。使うたびに耐久値が減り、尽きると壊れる。', 'T', '#93c5fd', 70, 40, { width: 1, height: 2 }),
   ironOre: material('鉄鉱石', '剣、ピッケル、防具に使う基本金属。', ['mine'], '鉱脈を採掘', 28, '#93c5fd', 'common', [
     'swordUpgrade1',
     'swordUpgrade2',
@@ -163,21 +199,21 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     'armorUpgrade1',
     'armorUpgrade2',
   ]),
-  herb: material('薬草', '回復薬の基礎になる苦い草。', ['forest'], '薬草群を採取', 18, '#86efac', 'common', [
+  herb: material('薬草', '回復薬の基礎になる苦い草。生でも少しかじってスタミナを回復できる。', ['forest'], '薬草群を採取', 18, '#86efac', 'common', [
     'potion',
     'hiPotion',
     'bandage',
-  ]),
-  blueMushroom: material('青キノコ', '上級回復薬や集中薬に使う発光キノコ。', ['forest'], 'キノコを採取', 32, '#38bdf8', 'uncommon', ['hiPotion']),
+  ], 12),
+  blueMushroom: material('青キノコ', '上級回復薬や集中薬に使う発光キノコ。生食でもスタミナが回復する。', ['forest'], 'キノコを採取', 32, '#38bdf8', 'uncommon', ['hiPotion'], 22),
   poisonSpore: material('毒胞子', '毒瓶や解毒薬に使う危険な胞子。', ['forest'], '胞子溜まり / 敵ドロップ', 36, '#bef264', 'uncommon', [
     'antidote',
     'poisonVial',
   ]),
-  cleanWater: material('清水', '薬品や回復薬を安定させる水。', ['forest'], '水場を採取', 20, '#7dd3fc', 'common', [
+  cleanWater: material('清水', '薬品や回復薬を安定させる水。飲めばスタミナが少し回復する。', ['forest'], '水場を採取', 20, '#7dd3fc', 'common', [
     'potion',
     'hiPotion',
     'antidote',
-  ]),
+  ], 8),
   slimeGel: material('粘液', '接着剤や罠解除道具に使う粘る素材。', ['forest'], '敵ドロップ', 28, '#67e8f9', 'common', ['lockpickTool']),
   boneShard: material('骨片', '矢や武器強化に使う硬い骨片。', ['fortress'], '敵ドロップ', 32, '#e5e7eb', 'common', [
     'bowUpgrade1',
@@ -251,10 +287,14 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
   mapTable: upgrade('地図台', '入手先や脱出口情報を見やすくする。', 280),
   returnBeacon: upgrade('帰還ビーコン', '脱出補助アイテムを作れるようにする。', 420),
   lockpickTool: upgrade('鍵開け道具', '鍵部屋に入りやすくする。', 180),
+  ancientRelic: collection('古びた遺物', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 220, '#d6c39a'),
+  gildedIdol: collection('金めっきの偶像', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 340, '#facc15'),
+  strangeGem: collection('不思議な宝石', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 180, '#c4b5fd'),
 };
 
 export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
 export const MATERIAL_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'material');
+export const COLLECTION_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'collection');
 export const RAID_CAPACITY = 12;
 
 export const createEmptyInventory = (): Inventory =>

@@ -1,7 +1,8 @@
-import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, RecipeId } from '../engine/types';
+import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
-import { inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
-import { MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
+import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS } from '../game/grid-inventory';
+import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 
 type HudRoots = {
@@ -26,6 +27,7 @@ type BasePlanningRoots = {
   moneyRoot: HTMLElement;
   onStartRaid: (mapId: MapId) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
+  onAppraiseCollection: () => void;
 };
 
 type ContextAction = {
@@ -34,52 +36,21 @@ type ContextAction = {
   disabled?: boolean;
 };
 
-type InventoryGridOptions = {
-  layout: 'stash' | 'raidBag' | 'hand';
-  location: InventoryLocation;
-  minSlots: number;
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
-};
-
 type InventoryDragState = {
   item: ItemKind;
   from: InventoryLocation;
-  fromSlotIndex: number;
   startX: number;
   startY: number;
   ghost: HTMLElement;
   isTouchDrag: boolean;
-  target?: InventoryDropTarget;
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
 };
 
-type InventoryDropTarget = {
-  location: InventoryLocation;
-  slotIndex: number;
-  slot: HTMLElement;
-  grid: HTMLElement;
-  blocked: boolean;
-};
-
-const STASH_MIN_SLOTS = 60;
-const STASH_PAGE_SLOTS = 20;
-const EQUIPMENT_SLOTS = 6;
+const GRID_CELLS = GRID_COLS * GRID_ROWS;
 const DRAG_MOVE_THRESHOLD = 12;
 const TOUCH_DRAG_GHOST_OFFSET = -18;
 
 let inventoryDragState: InventoryDragState | null = null;
-
-const inventorySlotLayouts: Record<InventoryLocation, Array<ItemKind | null>> = {
-  hand: [],
-  stash: [],
-  raidBag: [],
-};
-const inventoryPageByLocation: Partial<Record<InventoryLocation, number>> = {
-  stash: 0,
-};
-
-const inventoryCountsByLocation: Partial<Record<InventoryLocation, Inventory>> = {};
-const inventoryOptionsByLocation: Partial<Record<InventoryLocation, InventoryGridOptions>> = {};
 
 document.addEventListener('pointermove', (event) => {
   if (inventoryDragState) {
@@ -137,7 +108,10 @@ document.addEventListener('touchcancel', () => {
 export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
   const stats = player?.stats;
-  roots.statusRoot.replaceChildren(hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0));
+  roots.statusRoot.replaceChildren(
+    hpBar(Math.max(0, stats?.hp ?? 0), stats?.maxHp ?? 0),
+    staminaBar(snapshot.player.stamina, snapshot.player.maxStamina),
+  );
   updateHandSwitcher(snapshot, roots);
 
   roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem));
@@ -159,8 +133,39 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
   roots.moneyRoot.textContent = `${snapshot.money}G`;
   roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, roots.onStartRaid)));
-  roots.stashRoot.replaceChildren(...stashCards(snapshot.stash));
+  roots.stashRoot.replaceChildren(...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection), ...stashCards(snapshot.stash));
   roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
+};
+
+const collectionSummaryCard = (collectionCount: number, onAppraiseCollection: () => void) => {
+  if (collectionCount <= 0) {
+    return [];
+  }
+
+  const card = document.createElement('article');
+  card.className = 'stash-card stash-card-collection';
+
+  const glyph = document.createElement('span');
+  glyph.className = 'stash-card-glyph';
+  glyph.textContent = '?';
+
+  const body = document.createElement('div');
+  const name = document.createElement('strong');
+  name.textContent = '未鑑定のコレクションアイテム';
+  const detail = document.createElement('small');
+  detail.textContent = '鑑定士に見せると正体が分かり、その場で買い取ってもらえる。';
+  body.append(name, detail);
+
+  const count = document.createElement('b');
+  count.textContent = `x${collectionCount}`;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '鑑定して売る';
+  button.addEventListener('click', onAppraiseCollection);
+
+  card.append(glyph, body, count, button);
+  return [card];
 };
 
 const hpBar = (hp: number, maxHp: number) => {
@@ -179,6 +184,28 @@ const hpBar = (hp: number, maxHp: number) => {
 
   const value = document.createElement('strong');
   value.textContent = `${hp}/${maxHp}`;
+
+  track.append(fill);
+  root.append(label, track, value);
+  return root;
+};
+
+const staminaBar = (stamina: number, maxStamina: number) => {
+  const root = document.createElement('div');
+  root.className = 'hp-bar stamina-bar';
+
+  const label = document.createElement('span');
+  label.textContent = 'スタミナ';
+
+  const track = document.createElement('div');
+  track.className = 'hp-bar-track stamina-bar-track';
+
+  const fill = document.createElement('div');
+  fill.className = 'hp-bar-fill stamina-bar-fill';
+  fill.style.width = `${maxStamina > 0 ? Math.round((stamina / maxStamina) * 100) : 0}%`;
+
+  const value = document.createElement('strong');
+  value.textContent = `${stamina}/${maxStamina}`;
 
   track.append(fill);
   root.append(label, track, value);
@@ -223,7 +250,9 @@ const mapCard = (mapId: MapId, onStartRaid: (mapId: MapId) => void) => {
 };
 
 const stashCards = (inventory: Inventory) => {
-  const items = ITEM_KINDS.filter((item) => inventory[item] > 0 && ITEM_DEFINITIONS[item].category !== 'upgrade');
+  const items = ITEM_KINDS.filter(
+    (item) => inventory[item] > 0 && ITEM_DEFINITIONS[item].category !== 'upgrade' && ITEM_DEFINITIONS[item].category !== 'collection',
+  );
   if (items.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty-list';
@@ -316,12 +345,11 @@ const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe:
 
 const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
   if (snapshot.mode === 'base') {
-    const loadout = snapshot.baseLoadout;
-    const loadoutCount = inventoryItemCount(loadout);
+    const cellsUsed = gridCellsUsed(snapshot.grids.hand);
     roots.previousHandButton.disabled = true;
     roots.nextHandButton.disabled = true;
     roots.handSlotRoot.classList.remove('is-empty');
-    roots.handSlotRoot.replaceChildren(slotText('手持ち予定', `${loadoutCount}/${EQUIPMENT_SLOTS}枠 次の出撃で持ち込み`));
+    roots.handSlotRoot.replaceChildren(slotText('手持ち予定', `${cellsUsed}/${GRID_CELLS}マス 次の出撃で持ち込み`));
     return;
   }
 
@@ -367,58 +395,30 @@ const inventoryPanelNodes = (
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
 ) => {
   if (snapshot.mode === 'base') {
-    const loadout = snapshot.baseLoadout;
-    const storage = snapshot.stash;
     return [
-      inventorySummary('手持ち予定', `${inventoryItemCount(loadout)}/${EQUIPMENT_SLOTS}枠`, '次の探索で自動的に持ち込む装備と道具です。'),
-      inventoryGrid(loadout, {
-        layout: 'hand',
-        location: 'hand',
-        minSlots: EQUIPMENT_SLOTS,
-        onMoveItem,
-      }),
-      inventorySummary('倉庫', `${inventoryItemCount(storage)}個`, '拠点に保管している素材と予備品です。大量保管用に小さくまとめて表示します。'),
-      inventoryGrid(storage, {
-        layout: 'stash',
-        location: 'stash',
-        minSlots: STASH_MIN_SLOTS,
-        onMoveItem,
-      }),
+      inventorySummary('手持ち予定', gridCellsUsed(snapshot.grids.hand), '次の探索で自動的に持ち込む装備と道具です。'),
+      inventoryGridElement('hand', snapshot.grids.hand, snapshot.baseLoadout, onMoveItem),
+      inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。'),
+      inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, onMoveItem),
     ];
   }
 
   return [
-    inventorySummary(
-      '手持ち',
-      `${inventoryItemCount(snapshot.player.handInventory)}/${EQUIPMENT_SLOTS}枠`,
-      '上部の切り替えに出る装備と消耗品です。',
-    ),
-    inventoryGrid(snapshot.player.handInventory, {
-      layout: 'hand',
-      location: 'hand',
-      minSlots: EQUIPMENT_SLOTS,
-      onMoveItem,
-    }),
-    inventorySummary(
-      '持ち帰りバッグ',
-      `${inventoryItemCount(snapshot.player.raidInventory)}/${snapshot.player.raidCapacity}枠`,
-      'ここに入った素材だけが拠点へ持ち帰れます。',
-    ),
-    inventoryGrid(snapshot.player.raidInventory, {
-      layout: 'raidBag',
-      location: 'raidBag',
-      minSlots: snapshot.player.raidCapacity,
-      onMoveItem,
-    }),
+    inventorySummary('手持ち', gridCellsUsed(snapshot.grids.hand), '上部の切り替えに出る装備と消耗品です。'),
+    inventoryGridElement('hand', snapshot.grids.hand, snapshot.player.handInventory, onMoveItem),
+    inventorySummary('持ち帰りバッグ', gridCellsUsed(snapshot.grids.raidBag), 'ここに入った物だけが拠点へ持ち帰れます。'),
+    inventoryGridElement('raidBag', snapshot.grids.raidBag, snapshot.player.raidInventory, onMoveItem),
   ];
 };
 
-const inventorySummary = (labelText: string, countText: string, detailText: string) => {
+const gridCellsUsed = (placed: PlacedItem[]) => placed.reduce((total, entry) => total + entry.width * entry.height, 0);
+
+const inventorySummary = (labelText: string, cellsUsed: number, detailText: string) => {
   const root = document.createElement('div');
   root.className = 'inventory-summary';
 
   const label = document.createElement('strong');
-  label.textContent = `${labelText} ${countText}`;
+  label.textContent = `${labelText} ${cellsUsed}/${GRID_CELLS}マス`;
 
   const detail = document.createElement('small');
   detail.textContent = detailText;
@@ -427,196 +427,91 @@ const inventorySummary = (labelText: string, countText: string, detailText: stri
   return root;
 };
 
-const inventoryGrid = (
+const inventoryGridElement = (
+  location: InventoryLocation,
+  placed: PlacedItem[],
   inventory: Inventory,
-  options: InventoryGridOptions,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
 ) => {
-  inventoryCountsByLocation[options.location] = inventory;
-  inventoryOptionsByLocation[options.location] = options;
-
   const grid = document.createElement('div');
-  grid.className = `inventory-grid inventory-grid-${options.layout}`;
-  grid.dataset.inventoryLocation = options.location;
-  const root = options.location === 'stash' ? inventoryPager(grid, options.location) : grid;
-  populateInventoryGrid(grid, inventory, options);
-  return root;
-};
+  grid.className = 'inventory-grid';
+  grid.dataset.inventoryLocation = location;
+  grid.style.setProperty('--grid-cols', String(GRID_COLS));
+  grid.style.setProperty('--grid-rows', String(GRID_ROWS));
 
-const populateInventoryGrid = (grid: HTMLElement, inventory: Inventory, options: InventoryGridOptions) => {
-  const layout = syncInventorySlotLayout(options.location, inventory, options.minSlots);
-  grid.replaceChildren();
-
-  const pageSize = inventoryPageSize(options.location);
-  const pageCount = pageSize ? Math.max(1, Math.ceil(layout.length / pageSize)) : 1;
-  const currentPage = Math.min(inventoryPageByLocation[options.location] ?? 0, pageCount - 1);
-  inventoryPageByLocation[options.location] = currentPage;
-  const startIndex = pageSize ? currentPage * pageSize : 0;
-  const endIndex = pageSize ? Math.min(startIndex + pageSize, layout.length) : layout.length;
-
-  for (let index = startIndex; index < endIndex; index += 1) {
-    const item = layout[index];
-    const countValue = item ? inventory[item] : 0;
-    grid.append(item && countValue > 0 ? inventorySlot(item, countValue, options, index) : emptyInventorySlot(index, options));
+  for (let index = 0; index < GRID_CELLS; index += 1) {
+    const cell = document.createElement('div');
+    cell.className = 'inventory-cell';
+    cell.style.gridColumn = String((index % GRID_COLS) + 1);
+    cell.style.gridRow = String(Math.floor(index / GRID_COLS) + 1);
+    grid.append(cell);
   }
 
-  updateInventoryPager(grid, currentPage, pageCount);
-};
-
-const inventoryPageSize = (location: InventoryLocation) => (location === 'stash' ? STASH_PAGE_SLOTS : 0);
-
-const inventoryPager = (grid: HTMLElement, location: InventoryLocation) => {
-  const root = document.createElement('div');
-  root.className = 'inventory-pager';
-  root.dataset.inventoryLocation = location;
-
-  const controls = document.createElement('div');
-  controls.className = 'inventory-pager-controls';
-
-  const previous = document.createElement('button');
-  previous.type = 'button';
-  previous.className = 'inventory-pager-button';
-  previous.dataset.inventoryPageAction = 'previous';
-  previous.textContent = '◀';
-  previous.setAttribute('aria-label', '前の倉庫ページ');
-  previous.addEventListener('click', () => changeInventoryPage(location, -1));
-
-  const label = document.createElement('span');
-  label.className = 'inventory-pager-label';
-  label.dataset.inventoryPageLabel = location;
-  label.textContent = '1/1';
-
-  const next = document.createElement('button');
-  next.type = 'button';
-  next.className = 'inventory-pager-button';
-  next.dataset.inventoryPageAction = 'next';
-  next.textContent = '▶';
-  next.setAttribute('aria-label', '次の倉庫ページ');
-  next.addEventListener('click', () => changeInventoryPage(location, 1));
-
-  controls.append(previous, label, next);
-  root.append(grid, controls);
-  return root;
-};
-
-const changeInventoryPage = (location: InventoryLocation, delta: number) => {
-  const inventory = inventoryCountsByLocation[location];
-  const options = inventoryOptionsByLocation[location];
-  if (!inventory || !options) {
-    return;
-  }
-
-  const pageSize = inventoryPageSize(location);
-  if (!pageSize) {
-    return;
-  }
-
-  const pageCount = Math.max(1, Math.ceil(syncInventorySlotLayout(location, inventory, options.minSlots).length / pageSize));
-  const nextPage = Math.min(Math.max((inventoryPageByLocation[location] ?? 0) + delta, 0), pageCount - 1);
-  if (nextPage === inventoryPageByLocation[location]) {
-    return;
-  }
-
-  inventoryPageByLocation[location] = nextPage;
-  rerenderInventoryLocation(location);
-};
-
-const updateInventoryPager = (grid: HTMLElement, currentPage: number, pageCount: number) => {
-  const pager = grid.closest<HTMLElement>('.inventory-pager');
-  if (!pager) {
-    return;
-  }
-
-  const label = pager.querySelector<HTMLElement>('[data-inventory-page-label]');
-  const previous = pager.querySelector<HTMLButtonElement>('[data-inventory-page-action="previous"]');
-  const next = pager.querySelector<HTMLButtonElement>('[data-inventory-page-action="next"]');
-
-  if (label) {
-    label.textContent = `${currentPage + 1}/${pageCount}`;
-  }
-  if (previous) {
-    previous.disabled = currentPage <= 0;
-  }
-  if (next) {
-    next.disabled = currentPage >= pageCount - 1;
-  }
-};
-
-const syncInventorySlotLayout = (location: InventoryLocation, inventory: Inventory, minSlots: number) => {
-  const items = inventoryEntries(inventory).map(({ item }) => item);
-  const slotCount = Math.max(minSlots, items.length, inventorySlotLayouts[location].length);
-  const layout = Array.from({ length: slotCount }, (_, index) => inventorySlotLayouts[location][index] ?? null);
-  const placed = new Set<ItemKind>();
-
-  for (let index = 0; index < layout.length; index += 1) {
-    const item = layout[index];
-    if (!item || inventory[item] <= 0 || placed.has(item)) {
-      layout[index] = null;
-      continue;
-    }
-
-    placed.add(item);
-  }
-
-  items.forEach((item) => {
-    if (placed.has(item)) {
-      return;
-    }
-
-    const emptyIndex = layout.findIndex((slotItem) => slotItem === null);
-    if (emptyIndex === -1) {
-      layout.push(item);
-    } else {
-      layout[emptyIndex] = item;
-    }
-    placed.add(item);
+  placed.forEach((entry) => {
+    grid.append(inventorySlot(entry, inventory[entry.item] ?? 0, location, onMoveItem));
   });
 
-  inventorySlotLayouts[location] = layout;
-  return layout;
+  return grid;
 };
 
-const rerenderInventoryLocation = (location: InventoryLocation) => {
-  const inventory = inventoryCountsByLocation[location];
-  const options = inventoryOptionsByLocation[location];
-  if (!inventory || !options) {
-    return;
-  }
-
-  document.querySelectorAll<HTMLElement>(`.inventory-grid[data-inventory-location="${location}"]`).forEach((grid) => {
-    populateInventoryGrid(grid, inventory, options);
-  });
-};
-
-const inventorySlot = (itemKind: ItemKind, countValue: number, options: InventoryGridOptions, slotIndex: number) => {
-  const definition = ITEM_DEFINITIONS[itemKind];
+const inventorySlot = (
+  entry: PlacedItem,
+  count: number,
+  location: InventoryLocation,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+) => {
+  const definition = ITEM_DEFINITIONS[entry.item];
+  const isUnidentified = definition.category === 'collection';
   const slot = document.createElement('button');
-  slot.className = 'inventory-slot';
   slot.type = 'button';
-  slot.dataset.item = itemKind;
-  slot.dataset.inventoryLocation = options.location;
-  slot.dataset.slotIndex = String(slotIndex);
-  slot.setAttribute('aria-label', `${definition.name} x${countValue}`);
-  slot.title = `${definition.name} x${countValue}: ${definition.description}`;
-  bindInventoryDrag(slot, itemKind, options, slotIndex);
+  slot.className = 'inventory-slot';
+  slot.style.gridColumn = `${entry.x + 1} / span ${entry.width}`;
+  slot.style.gridRow = `${entry.y + 1} / span ${entry.height}`;
+  slot.dataset.item = entry.item;
+  slot.dataset.inventoryLocation = location;
+  slot.setAttribute('aria-label', isUnidentified ? `未鑑定のコレクションアイテム x${count}` : `${definition.name} x${count}`);
+  slot.title = isUnidentified
+    ? '未鑑定のコレクションアイテム。鑑定士に見せるまで正体が分からない。'
+    : `${definition.name} x${count}: ${definition.description}`;
+  bindInventoryDrag(slot, entry.item, location, onMoveItem);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
-  glyph.textContent = definition.glyph;
-  glyph.style.color = definition.color;
+  glyph.textContent = isUnidentified ? '?' : definition.glyph;
+  glyph.style.color = isUnidentified ? '#d6c39a' : definition.color;
+  slot.append(glyph);
+
+  if (count > 1) {
+    const countEl = document.createElement('b');
+    countEl.className = 'inventory-slot-count';
+    countEl.textContent = `x${count}`;
+    slot.append(countEl);
+  }
 
   const name = document.createElement('small');
-  name.textContent = definition.name;
+  name.textContent = isUnidentified ? '未鑑定' : definition.name;
+  slot.append(name);
 
-  const count = document.createElement('b');
-  count.className = 'inventory-slot-count';
-  count.textContent = `x${countValue}`;
+  if (entry.maxDurability !== undefined && entry.durability !== undefined) {
+    const durabilityTrack = document.createElement('div');
+    durabilityTrack.className = 'inventory-slot-durability';
+    const durabilityFill = document.createElement('div');
+    durabilityFill.className = 'inventory-slot-durability-fill';
+    durabilityFill.style.width = `${Math.max(0, Math.round((entry.durability / entry.maxDurability) * 100))}%`;
+    durabilityTrack.append(durabilityFill);
+    slot.append(durabilityTrack);
+  }
 
-  slot.append(glyph, count, name);
   return slot;
 };
 
-const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: InventoryGridOptions, slotIndex: number) => {
-  if (!options.onMoveItem) {
+const bindInventoryDrag = (
+  slot: HTMLElement,
+  itemKind: ItemKind,
+  location: InventoryLocation,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+) => {
+  if (!onMoveItem) {
     return;
   }
 
@@ -631,13 +526,12 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
     ghostHost.append(ghost);
     inventoryDragState = {
       item: itemKind,
-      from: options.location,
-      fromSlotIndex: slotIndex,
+      from: location,
       startX: x,
       startY: y,
       ghost,
       isTouchDrag,
-      onMoveItem: options.onMoveItem,
+      onMoveItem,
     };
     slot.classList.add('is-drag-source');
     moveInventoryGhost(x, y);
@@ -683,6 +577,7 @@ const bindInventoryDrag = (slot: HTMLElement, itemKind: ItemKind, options: Inven
 
 const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
   const definition = ITEM_DEFINITIONS[itemKind];
+  const isUnidentified = definition.category === 'collection';
   const ghost = document.createElement('div');
   const sourceRect = sourceSlot.getBoundingClientRect();
   const sourceCount = sourceSlot.querySelector<HTMLElement>('.inventory-slot-count')?.textContent;
@@ -690,12 +585,12 @@ const inventoryDragGhost = (itemKind: ItemKind, sourceSlot: HTMLElement) => {
   ghost.style.setProperty('--drag-item-size', `${sourceRect.width}px`);
   ghost.style.left = '0px';
   ghost.style.top = '0px';
-  ghost.style.setProperty('--item-color', definition.color);
+  ghost.style.setProperty('--item-color', isUnidentified ? '#d6c39a' : definition.color);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-drag-ghost-glyph';
-  glyph.textContent = definition.glyph;
-  glyph.style.color = definition.color;
+  glyph.textContent = isUnidentified ? '?' : definition.glyph;
+  glyph.style.color = isUnidentified ? '#d6c39a' : definition.color;
 
   const count = document.createElement('b');
   count.className = 'inventory-drag-ghost-count';
@@ -726,61 +621,26 @@ const inventoryDragPoint = (x: number, y: number) => {
   };
 };
 
+const gridElementAtPoint = (x: number, y: number) => document.elementFromPoint(x, y)?.closest<HTMLElement>('.inventory-grid') ?? undefined;
+
 const updateInventoryDropPreview = (x: number, y: number) => {
   clearInventoryDropPreview();
   if (!inventoryDragState) {
     return;
   }
 
-  const target = inventoryDropTargetAtPoint(x, y);
-  inventoryDragState.target = target;
-
-  if (!target) {
-    return;
-  }
-
-  if (target.blocked) {
-    target.grid.classList.add('is-drop-blocked');
-    target.slot.classList.add('is-drop-blocked');
-    return;
-  }
-
-  target.grid.classList.add('is-drop-target');
-  target.slot.classList.add('is-drop-preview');
-};
-
-const inventoryDropTargetAtPoint = (x: number, y: number): InventoryDropTarget | undefined => {
-  if (!inventoryDragState) {
-    return undefined;
-  }
-
-  const element = document.elementFromPoint(x, y);
-  const slot = element?.closest<HTMLElement>('.inventory-slot');
-  const grid = slot?.closest<HTMLElement>('.inventory-grid') ?? element?.closest<HTMLElement>('.inventory-grid');
+  const grid = gridElementAtPoint(x, y);
   const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
-  const slotIndex = Number(slot?.dataset.slotIndex);
-
-  if (!grid || !slot || !location || !Number.isInteger(slotIndex)) {
-    return undefined;
+  if (!grid || !location) {
+    return;
   }
 
-  const target: InventoryDropTarget = {
-    location,
-    slotIndex,
-    slot,
-    grid,
-    blocked: false,
-  };
-  target.blocked = !canDropInventoryItem(inventoryDragState, target);
-  return target;
+  grid.classList.add(location === inventoryDragState.from ? 'is-drop-samelocation' : 'is-drop-target');
 };
 
 const clearInventoryDropPreview = () => {
-  document.querySelectorAll<HTMLElement>('.inventory-grid.is-drop-target, .inventory-grid.is-drop-blocked').forEach((grid) => {
-    grid.classList.remove('is-drop-target', 'is-drop-blocked');
-  });
-  document.querySelectorAll<HTMLElement>('.inventory-slot.is-drop-preview, .inventory-slot.is-drop-blocked').forEach((slot) => {
-    slot.classList.remove('is-drop-preview', 'is-drop-blocked');
+  document.querySelectorAll<HTMLElement>('.inventory-grid.is-drop-target, .inventory-grid.is-drop-samelocation').forEach((grid) => {
+    grid.classList.remove('is-drop-target', 'is-drop-samelocation');
   });
 };
 
@@ -791,9 +651,6 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   }
 
   const distance = Math.hypot(x - state.startX, y - state.startY);
-  const point = inventoryDragPoint(x, y);
-  const currentTarget = commit && distance >= DRAG_MOVE_THRESHOLD ? inventoryDropTargetAtPoint(point.x, point.y) ?? state.target : undefined;
-  const target = currentTarget && !currentTarget.blocked ? currentTarget : undefined;
   state.ghost.remove();
   inventoryDragState = null;
   document.querySelectorAll<HTMLElement>('.inventory-slot.is-drag-source').forEach((slot) => {
@@ -801,91 +658,18 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   });
   clearInventoryDropPreview();
 
-  if (target) {
-    reserveInventoryDrop(state, target);
-    if (target.location === state.from) {
-      rerenderInventoryLocation(state.from);
-      return;
-    }
-
-    state.onMoveItem?.(state.item, state.from, target.location);
-  }
-};
-
-const canDropInventoryItem = (state: InventoryDragState, target: InventoryDropTarget) => {
-  if (target.location === state.from && target.slotIndex === state.fromSlotIndex) {
-    return false;
-  }
-
-  const targetItem = inventorySlotLayouts[target.location][target.slotIndex] ?? null;
-  if (target.location === state.from) {
-    return true;
-  }
-
-  if (targetItem && targetItem !== state.item) {
-    return false;
-  }
-
-  if (target.location === 'hand') {
-    const category = ITEM_DEFINITIONS[state.item].category;
-    if (category !== 'consumable' && category !== 'equipment') {
-      return false;
-    }
-  }
-
-  if (target.location === 'stash') {
-    return true;
-  }
-
-  const targetInventory = inventoryCountsByLocation[target.location];
-  const options = inventoryOptionsByLocation[target.location];
-  if (!targetInventory || !options) {
-    return true;
-  }
-
-  return inventoryItemCount(targetInventory) < options.minSlots;
-};
-
-const reserveInventoryDrop = (state: InventoryDragState, target: InventoryDropTarget) => {
-  const fromLayout = inventorySlotLayouts[state.from];
-  const targetLayout = inventorySlotLayouts[target.location];
-  const sourceIndex = fromLayout[state.fromSlotIndex] === state.item ? state.fromSlotIndex : fromLayout.indexOf(state.item);
-
-  if (sourceIndex < 0) {
+  if (!commit || distance < DRAG_MOVE_THRESHOLD) {
     return;
   }
 
-  if (target.location === state.from) {
-    const targetItem = targetLayout[target.slotIndex] ?? null;
-    targetLayout[target.slotIndex] = state.item;
-    targetLayout[sourceIndex] = target.slotIndex === sourceIndex ? state.item : targetItem;
-    return;
-  }
+  const point = inventoryDragPoint(x, y);
+  const grid = gridElementAtPoint(point.x, point.y);
+  const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
 
-  const sourceInventory = inventoryCountsByLocation[state.from];
-  if ((sourceInventory?.[state.item] ?? 0) <= 1) {
-    fromLayout[sourceIndex] = null;
-  }
-
-  if (targetLayout[target.slotIndex] !== state.item) {
-    targetLayout[target.slotIndex] = state.item;
+  if (location && location !== state.from) {
+    state.onMoveItem?.(state.item, state.from, location);
   }
 };
-
-const emptyInventorySlot = (index: number, options: InventoryGridOptions) => {
-  const slot = document.createElement('div');
-  slot.dataset.inventoryLocation = options.location;
-  slot.dataset.slotIndex = String(index);
-  slot.className = 'inventory-slot is-empty';
-  slot.setAttribute('aria-label', `空きスロット ${index + 1}`);
-  return slot;
-};
-
-const inventoryEntries = (inventory: Inventory) =>
-  ITEM_KINDS.filter((item) => inventory[item] > 0).map((item) => ({
-    item,
-    count: inventory[item],
-  }));
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   const pickup = pickupAction(snapshot);
@@ -924,7 +708,12 @@ const pickupAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   }
 
   const definition = ITEM_DEFINITIONS[item.item];
-  if (!canCarry(snapshot.player.raidInventory, item.item, snapshot.player.raidCapacity)) {
+  const usesHandSlot = definition.category === 'consumable' || definition.category === 'equipment';
+  const fits = usesHandSlot
+    ? canFitAdditionalUnit(snapshot.player.handInventory, snapshot.grids.hand, item.item)
+    : canFitAdditionalUnit(snapshot.player.raidInventory, snapshot.grids.raidBag, item.item);
+
+  if (!fits) {
     return undefined;
   }
 
@@ -952,6 +741,14 @@ const interactAction = (snapshot: GameSnapshot): ContextAction | undefined => {
     };
   }
 
+  const raidStation = stationForInteraction(snapshot, player);
+  if (raidStation?.station === 'barterMerchant') {
+    return {
+      label: '取引',
+      hint: barterHint(raidStation, snapshot),
+    };
+  }
+
   const tile = snapshot.tiles[player.y * snapshot.width + player.x];
   if (tile?.kind === 'stairs') {
     return {
@@ -963,21 +760,55 @@ const interactAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   return undefined;
 };
 
+const barterHint = (station: Entity, snapshot: GameSnapshot) => {
+  const tile = snapshot.tiles[station.y * snapshot.width + station.x];
+  const biome = tile?.biome;
+  const trade = biome ? BARTER_TRADES[biome] : undefined;
+  if (!trade) {
+    return '行商人と話す。';
+  }
+
+  const owned = snapshot.player.raidInventory[trade.give];
+  const giveName = ITEM_DEFINITIONS[trade.give].name;
+  const getName = ITEM_DEFINITIONS[trade.get].name;
+  return owned >= trade.giveAmount
+    ? `行商人と取引し、${giveName}x${trade.giveAmount}を${getName}と交換する。`
+    : `行商人: ${giveName}を${trade.giveAmount}個持ってくると${getName}と交換する。今は${owned}個。`;
+};
+
 const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   if (snapshot.mode !== 'raid') {
     return undefined;
   }
 
+  const player = playerEntity(snapshot);
   const selected = snapshot.player.selectedHandItem;
-  if (!selected || snapshot.player.handInventory[selected] <= 0) {
+  const hasSelected = Boolean(selected && snapshot.player.handInventory[selected] > 0);
+
+  if (!hasSelected) {
+    const targetTile = player ? tileInFront(snapshot, player) : undefined;
+    if (targetTile && isGatheringTile(targetTile.kind)) {
+      return {
+        label: '掘る(素手)',
+        hint: '素手で採取する。ピッケルより効率が悪く、スタミナを多く使う。',
+      };
+    }
+
     return undefined;
   }
 
-  const player = playerEntity(snapshot);
   const stats = player?.stats;
-  const definition = ITEM_DEFINITIONS[selected];
+  const definition = ITEM_DEFINITIONS[selected as ItemKind];
 
-  if (definition.category === 'consumable') {
+  if (definition.category === 'consumable' || definition.staminaRestore) {
+    if (definition.staminaRestore) {
+      const canEat = snapshot.player.stamina < snapshot.player.maxStamina;
+      return {
+        label: '食べる',
+        hint: canEat ? `${definition.name}を食べてスタミナを回復する。` : 'スタミナはすでに満タンだ。',
+        disabled: !canEat,
+      };
+    }
     const canHeal = Boolean(stats && stats.hp < stats.maxHp);
     const isHealingItem = selected === 'potion' || selected === 'hiPotion' || selected === 'bandage';
     return {
@@ -1084,7 +915,7 @@ const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
 const stationHint = (station: Entity, stash: Inventory) => {
   switch (station.station) {
     case 'raidGate':
-      return '出撃ゲートを調べると、複数バイオームが混ざる探索地へすぐ出撃する。';
+      return '出撃ゲートを調べると最初のマップへ出撃する。行き先を選ぶには上の「出撃」ボタンから作戦画面を開こう。';
     case 'stash':
       return '倉庫を調べると中身と所持金をログに表示する。';
     case 'craft': {
@@ -1098,18 +929,17 @@ const stationHint = (station: Entity, stash: Inventory) => {
       return `クラフト台を調べる。素材不足: ${recipe.ingredients.map(formatStack).join(' / ')}。`;
     }
     case 'market':
-      return hasSellableMaterial(stash) ? '換金所で素材をまとめて売る。' : '換金所を調べる。売れる素材はない。';
+      return hasSellableMaterial(stash) ? '商人娘の換金所で素材をまとめて売る。' : '商人娘の換金所を調べる。売れる素材はない。';
     case 'compendium':
       return '図鑑端末を調べると図鑑の案内を表示する。';
+    case 'appraiser':
+      return '鑑定士にコレクションアイテムを見せて鑑定し、その場で買い取ってもらう。';
+    case 'barterMerchant':
+      return '行商人と物々交換する。';
     default:
       return `${station.name}を調べる。`;
   }
 };
-
-const canCarry = (inventory: Inventory, item: ItemKind, capacity: number) =>
-  ITEM_DEFINITIONS[item].category === 'consumable' ||
-  ITEM_DEFINITIONS[item].category === 'equipment' ||
-  inventoryItemCount(inventory) + 1 <= capacity;
 
 const hasSellableMaterial = (stash: Inventory) =>
   ITEM_KINDS.some((item) => ITEM_DEFINITIONS[item].category === 'material' && stash[item] > 0);
@@ -1130,6 +960,9 @@ const categoryLabel = (category: (typeof ITEM_DEFINITIONS)[ItemKind]['category']
   }
   if (category === 'upgrade') {
     return '強化';
+  }
+  if (category === 'collection') {
+    return 'コレクション';
   }
   return '素材';
 };

@@ -1,10 +1,11 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
-import { MAP_DEFINITIONS, MAP_IDS } from './maps';
+import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
-import { createEmptyInventory, createStartingStash, inventoryItemCount, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
+import { canFitAdditionalUnit, layoutGridInventory } from './grid-inventory';
+import { COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 96;
@@ -13,8 +14,13 @@ const BASE_WIDTH = 34;
 const BASE_HEIGHT = 24;
 const FOV_RADIUS = 9;
 const PLAYER_ID = 'player';
-const HAND_CAPACITY = 6;
 const BASE_LOADOUT_ITEMS: ItemKind[] = ['potion', 'sword', 'bow', 'pickaxe'];
+const STARTING_EQUIPMENT: ItemKind[] = ['sword', 'bow', 'pickaxe'];
+const MAX_STAMINA = 100;
+const STAMINA_COST_MOVE = 1;
+const STAMINA_COST_TOOL_ACTION = 3;
+const STAMINA_COST_BAREHANDED_GATHER = 10;
+const COLLECTION_DROP_CHANCE = 0.05;
 
 type RoomLike = {
   getCenter(): number[];
@@ -100,12 +106,17 @@ export class Game {
   private dropId = 0;
   private facing = { x: 0, y: 1 };
   private gameOver = false;
+  private stamina = MAX_STAMINA;
+  private equipmentDurability: Partial<Record<ItemKind, number[]>> = {};
+  private gridLayouts: GridInventories = { hand: [], raidBag: [], stash: [] };
 
   constructor() {
     this.restart();
   }
 
   snapshot(): GameSnapshot {
+    this.refreshGridLayouts();
+
     return {
       mode: this.mode,
       width: this.width,
@@ -121,6 +132,8 @@ export class Game {
         selectedHandItem: this.selectedHandItem,
         raidCapacity: RAID_CAPACITY,
         facing: { ...this.facing },
+        stamina: this.stamina,
+        maxStamina: MAX_STAMINA,
       },
       stash: { ...this.stash },
       baseLoadout: { ...this.baseLoadout },
@@ -135,6 +148,21 @@ export class Game {
       seed: this.seed,
       biome: this.biome,
       mapId: this.activeMapId,
+      grids: {
+        hand: this.gridLayouts.hand.map((entry) => ({ ...entry })),
+        raidBag: this.gridLayouts.raidBag.map((entry) => ({ ...entry })),
+        stash: this.gridLayouts.stash.map((entry) => ({ ...entry })),
+      },
+      collectionCount: COLLECTION_KINDS.reduce((total, item) => total + this.stash[item], 0),
+    };
+  }
+
+  private refreshGridLayouts(): void {
+    const handSource = this.mode === 'base' ? this.baseLoadout : this.handInventory;
+    this.gridLayouts = {
+      hand: layoutGridInventory(handSource, this.gridLayouts.hand, this.equipmentDurability),
+      raidBag: layoutGridInventory(this.raidInventory, this.gridLayouts.raidBag, this.equipmentDurability),
+      stash: layoutGridInventory(this.stash, this.gridLayouts.stash, this.equipmentDurability),
     };
   }
 
@@ -156,6 +184,11 @@ export class Game {
 
     if (command.type === 'craftItem') {
       this.craftItem(command.recipe);
+      return;
+    }
+
+    if (command.type === 'appraiseCollection') {
+      this.appraiseCollection();
       return;
     }
 
@@ -195,6 +228,7 @@ export class Game {
         break;
       case 'wait':
         this.pushMessage('ダンジョンの気配に耳を澄ませた。');
+        this.spendStamina(STAMINA_COST_MOVE);
         turnResult = { usedTurn: true };
         break;
       case 'pickup':
@@ -253,6 +287,7 @@ export class Game {
       case 'startRaid':
       case 'sellItem':
       case 'craftItem':
+      case 'appraiseCollection':
       case 'useHeldItem':
       case 'previousHandItem':
       case 'nextHandItem':
@@ -270,7 +305,14 @@ export class Game {
     this.activeMapId = null;
     this.activeBiomes = BIOME_IDS;
     this.stash = createStartingStash();
+    this.equipmentDurability = {};
+    STARTING_EQUIPMENT.forEach((item) => {
+      if (this.stash[item] > 0) {
+        this.grantEquipmentInstances(item, this.stash[item]);
+      }
+    });
     this.baseLoadout = createEmptyInventory();
+    this.gridLayouts = { hand: [], raidBag: [], stash: [] };
     this.prepareBaseLoadout();
     this.raidInventory = createEmptyInventory();
     this.handInventory = createEmptyInventory();
@@ -281,6 +323,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
+    this.stamina = MAX_STAMINA;
     this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
@@ -308,6 +351,7 @@ export class Game {
     this.gameOver = false;
     this.combatEffects = [];
     this.effectId = 0;
+    this.stamina = MAX_STAMINA;
     this.generateLevel(`${mapDefinition.name}へ出撃した。物資を集めて脱出地点を目指そう。`);
   }
 
@@ -343,10 +387,11 @@ export class Game {
       createStationEntity('station-raid-gate', 'raidGate', '出撃ゲート', '>', '#6ee7b7', 17, 6),
       createStationEntity('station-stash', 'stash', '倉庫', 'C', '#fbbf24', 8, 11),
       createStationEntity('station-craft', 'craft', 'クラフト台', 'T', '#93c5fd', 26, 11),
-      createStationEntity('station-market', 'market', '換金所', '$', '#fcd34d', 8, 17),
+      createStationEntity('station-market', 'market', '商人娘の換金所', '$', '#fcd34d', 8, 17),
       createStationEntity('station-compendium', 'compendium', '図鑑端末', '?', '#c4b5fd', 26, 17),
+      createStationEntity('station-appraiser', 'appraiser', '鑑定士', '?', '#d6c39a', 17, 20),
     ];
-    this.messages = [entryMessage, '出撃ゲート、倉庫、クラフト台、換金所、図鑑端末がある。'];
+    this.messages = [entryMessage, '出撃ゲート、倉庫、クラフト台、換金所、図鑑端末、鑑定士がある。'];
   }
 
   private generateLevel(entryMessage: string): void {
@@ -394,8 +439,23 @@ export class Game {
     this.tileAt(stairsX, stairsY).biome = roomBiomes.get(lastRoom) ?? 'mine';
     this.populateRooms(rooms.slice(1, -1), roomBiomes);
     this.placeGatheringNodes(rooms, roomBiomes);
+    this.placeBarterMerchant(rooms.slice(1, -1));
     this.messages = [entryMessage];
     this.updateFov();
+  }
+
+  private placeBarterMerchant(rooms: RoomLike[]): void {
+    if (rooms.length === 0) {
+      return;
+    }
+
+    const room = rooms[ROT.RNG.getUniformInt(0, rooms.length - 1)];
+    const [x, y] = roomCenter(room);
+    if (this.blockingEntityAt(x, y)) {
+      return;
+    }
+
+    this.entities.push(createStationEntity(`station-barter-${this.depth}`, 'barterMerchant', '行商人', 'm', '#7dd3fc', x, y));
   }
 
   private assignRoomBiomes(rooms: RoomLike[]): Map<RoomLike, BiomeId> {
@@ -618,6 +678,7 @@ export class Game {
 
     player.x = targetX;
     player.y = targetY;
+    this.spendStamina(STAMINA_COST_MOVE);
     return { usedTurn: true };
   }
 
@@ -630,6 +691,8 @@ export class Game {
       return { usedTurn: false };
     }
 
+    this.wearEquipment('sword');
+    this.spendStamina(STAMINA_COST_TOOL_ACTION);
     this.resolveMeleeExchange(player, target);
     return { usedTurn: true, skipEnemyId: target.id };
   }
@@ -660,6 +723,11 @@ export class Game {
       return this.pickup();
     }
 
+    const station = this.stationForInteraction();
+    if (station?.station === 'barterMerchant') {
+      return this.tradeWithBarterMerchant(station);
+    }
+
     return this.extract();
   }
 
@@ -680,9 +748,33 @@ export class Game {
       case 'compendium':
         this.pushMessage('図鑑は右上の図鑑ボタンから確認できる。');
         return;
+      case 'appraiser':
+        this.appraiseCollection();
+        return;
       default:
         this.pushMessage('ここでは何も起きない。');
     }
+  }
+
+  private tradeWithBarterMerchant(station: Entity): boolean {
+    const biome = this.biomeAt(station.x, station.y);
+    const trade = BARTER_TRADES[biome];
+    const owned = this.raidInventory[trade.give];
+
+    if (owned < trade.giveAmount) {
+      this.pushMessage(`行商人: ${ITEM_DEFINITIONS[trade.give].name}を${trade.giveAmount}個持ってきたら${ITEM_DEFINITIONS[trade.get].name}と交換する。今は${owned}個。`);
+      return false;
+    }
+
+    if (!canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, trade.get) && this.raidInventory[trade.get] <= 0) {
+      this.pushMessage('持ち帰りバッグがいっぱいで受け取れない。');
+      return false;
+    }
+
+    this.raidInventory[trade.give] -= trade.giveAmount;
+    this.raidInventory[trade.get] += 1;
+    this.pushMessage(`行商人と取引し、${ITEM_DEFINITIONS[trade.give].name}x${trade.giveAmount}を${ITEM_DEFINITIONS[trade.get].name}と交換した。`);
+    return true;
   }
 
   private pickup(): boolean {
@@ -711,13 +803,35 @@ export class Game {
 
   private useItem(item: ItemKind): boolean {
     const definition = ITEM_DEFINITIONS[item];
+    const player = this.player();
+    const stats = player.stats;
+
+    if (definition.staminaRestore) {
+      const source = this.handInventory[item] > 0 ? this.handInventory : this.raidInventory[item] > 0 ? this.raidInventory : undefined;
+      if (!source) {
+        this.pushMessage(`${definition.name}を持っていない。`);
+        return false;
+      }
+
+      if (this.stamina >= MAX_STAMINA) {
+        this.pushMessage('スタミナはすでに満タンだ。');
+        return false;
+      }
+
+      source[item] -= 1;
+      if (source === this.handInventory) {
+        this.syncSelectedHandItem();
+      }
+      const restored = Math.min(definition.staminaRestore, MAX_STAMINA - this.stamina);
+      this.stamina += restored;
+      this.pushMessage(`${definition.name}を食べてスタミナを${restored}回復した。`);
+      return true;
+    }
+
     if (definition.category !== 'consumable') {
       this.pushMessage(`${definition.name}はここでは使えない。`);
       return false;
     }
-
-    const player = this.player();
-    const stats = player.stats;
 
     if (!stats) {
       return false;
@@ -751,27 +865,43 @@ export class Game {
 
   private useHeldItem(): TurnResult {
     const item = this.selectedHandItem;
-    if (!item || this.handInventory[item] <= 0) {
-      this.pushMessage('手に持っているアイテムがない。');
-      return { usedTurn: false };
-    }
+    const hasItem = item !== null && this.handInventory[item] > 0;
 
-    if (item === 'pickaxe') {
+    if (hasItem && item === 'pickaxe') {
       return { usedTurn: this.mineFacing() };
     }
 
-    if (item === 'sword') {
+    if (hasItem && item === 'sword') {
       return this.attackFacing();
     }
 
-    if (item === 'bow') {
+    if (hasItem && item === 'bow') {
       return { usedTurn: this.shootFacing() };
     }
 
-    return { usedTurn: this.useItem(item) };
+    if (hasItem && item) {
+      return { usedTurn: this.useItem(item) };
+    }
+
+    const player = this.player();
+    const frontTile = this.tileAt(player.x + this.facing.x, player.y + this.facing.y);
+    if (this.mode === 'raid' && frontTile && this.isGatheringTile(frontTile.kind)) {
+      return { usedTurn: this.gatherFacing(false) };
+    }
+
+    this.pushMessage('手に持っているアイテムがない。');
+    return { usedTurn: false };
   }
 
   private mineFacing(): boolean {
+    const success = this.gatherFacing(true);
+    if (success) {
+      this.wearEquipment('pickaxe');
+    }
+    return success;
+  }
+
+  private gatherFacing(withTool: boolean): boolean {
     const player = this.player();
     const targetX = player.x + this.facing.x;
     const targetY = player.y + this.facing.y;
@@ -783,27 +913,42 @@ export class Game {
 
     const tile = this.tileAt(targetX, targetY);
     const tileBiome = this.biomeAt(targetX, targetY);
-    if (tile.kind !== 'wall' && !this.isGatheringTile(tile.kind)) {
+    const gathered = this.isGatheringTile(tile.kind);
+
+    if (!withTool && !gathered) {
+      this.pushMessage('素手では壁を掘れない。ピッケルが必要。');
+      return false;
+    }
+
+    if (tile.kind !== 'wall' && !gathered) {
       this.pushMessage('正面に採掘や採取ができる場所がない。');
       return false;
     }
 
-    const gathered = this.isGatheringTile(tile.kind);
     tile.kind = 'floor';
     tile.biome = tileBiome;
     tile.visible = true;
     tile.explored = true;
+    this.spendStamina(withTool ? STAMINA_COST_TOOL_ACTION : STAMINA_COST_BAREHANDED_GATHER);
 
     if (gathered) {
       const biome = BIOME_DEFINITIONS[tileBiome];
-      const item = this.randomBiomeMaterial(tileBiome);
+      const item = this.rollForCollectionItem() ?? this.randomBiomeMaterial(tileBiome);
       this.entities.push(createItemEntity(`node-${this.depth}-${++this.dropId}`, item, targetX, targetY));
-      this.pushMessage(`${biome.specialTileLabel}を調べ、${ITEM_DEFINITIONS[item].name}が落ちた。`);
+      this.pushMessage(`${biome.specialTileLabel}を${withTool ? '調べ' : '素手で漁り'}、${ITEM_DEFINITIONS[item].name}が落ちた。`);
     } else {
       this.pushMessage('壁を掘って通路を開けた。');
     }
 
     return true;
+  }
+
+  private rollForCollectionItem(): ItemKind | undefined {
+    if (COLLECTION_KINDS.length === 0 || ROT.RNG.getUniform() >= COLLECTION_DROP_CHANCE) {
+      return undefined;
+    }
+
+    return COLLECTION_KINDS[ROT.RNG.getUniformInt(0, COLLECTION_KINDS.length - 1)];
   }
 
   private shootFacing(): boolean {
@@ -824,6 +969,8 @@ export class Game {
 
       const target = this.blockingEntityAt(x, y);
       if (target?.kind === 'monster') {
+        this.wearEquipment('bow');
+        this.spendStamina(STAMINA_COST_TOOL_ACTION);
         this.attack(player, target);
         return true;
       }
@@ -858,8 +1005,32 @@ export class Game {
     }
 
     this.stash[item] -= 1;
+    if (ITEM_DEFINITIONS[item].category === 'equipment') {
+      this.equipmentDurability[item]?.pop();
+    }
     this.money += ITEM_DEFINITIONS[item].value;
     this.pushMessage(`${ITEM_DEFINITIONS[item].name}を${ITEM_DEFINITIONS[item].value}Gで売却した。`);
+  }
+
+  private appraiseCollection(): void {
+    if (this.mode !== 'base') {
+      this.pushMessage('鑑定は拠点でのみ行える。');
+      return;
+    }
+
+    const owned = COLLECTION_KINDS.filter((item) => this.stash[item] > 0);
+    if (owned.length === 0) {
+      this.pushMessage('鑑定できるコレクションアイテムが倉庫にない。');
+      return;
+    }
+
+    let total = 0;
+    owned.forEach((item) => {
+      total += ITEM_DEFINITIONS[item].value * this.stash[item];
+      this.stash[item] = 0;
+    });
+    this.money += total;
+    this.pushMessage(`鑑定士がコレクションアイテムを鑑定し、${total}Gで買い取った。`);
   }
 
   private craftItem(recipeId: RecipeId): void {
@@ -881,6 +1052,9 @@ export class Game {
 
     consumeIngredients(this.stash, recipe);
     addRecipeResult(this.stash, recipe);
+    if (ITEM_DEFINITIONS[recipe.result.item].category === 'equipment') {
+      this.grantEquipmentInstances(recipe.result.item, recipe.result.amount);
+    }
     this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
   }
 
@@ -907,13 +1081,8 @@ export class Game {
       return;
     }
 
-    if (to === 'hand' && inventoryItemCount(target) >= HAND_CAPACITY) {
-      this.pushMessage('手持ちがいっぱいで移動できない。');
-      return;
-    }
-
-    if (to === 'raidBag' && inventoryItemCount(target) >= RAID_CAPACITY) {
-      this.pushMessage('持ち帰りバッグがいっぱいで移動できない。');
+    if (!canFitAdditionalUnit(target, this.gridLayouts[to], item)) {
+      this.pushMessage(`${inventoryLocationLabel(to)}のマスが足りず移動できない。`);
       return;
     }
 
@@ -1037,6 +1206,13 @@ export class Game {
   private kill(entity: Entity, killer: Entity): void {
     if (entity.kind === 'player') {
       this.gameOver = true;
+      STARTING_EQUIPMENT.forEach((item) => {
+        const lostCount = this.handInventory[item];
+        if (lostCount > 0) {
+          const remaining = this.equipmentDurability[item] ?? [];
+          this.equipmentDurability[item] = remaining.slice(0, Math.max(0, remaining.length - lostCount));
+        }
+      });
       this.raidInventory = createEmptyInventory();
       this.handInventory = createEmptyInventory();
       this.selectedHandItem = null;
@@ -1179,10 +1355,10 @@ export class Game {
 
   private canCarry(item: ItemKind): boolean {
     if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment') {
-      return true;
+      return canFitAdditionalUnit(this.handInventory, this.gridLayouts.hand, item);
     }
 
-    return inventoryItemCount(this.raidInventory) + 1 <= RAID_CAPACITY;
+    return canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, item);
   }
 
   private transferRaidInventoryToStash(): void {
@@ -1250,12 +1426,18 @@ export class Game {
 
   private prepareBaseLoadout(): void {
     BASE_LOADOUT_ITEMS.forEach((item) => {
-      if (this.stash[item] <= 0 || inventoryItemCount(this.baseLoadout) >= HAND_CAPACITY) {
+      if (this.stash[item] <= 0) {
+        return;
+      }
+
+      const layout = layoutGridInventory(this.baseLoadout, this.gridLayouts.hand, this.equipmentDurability);
+      if (!canFitAdditionalUnit(this.baseLoadout, layout, item)) {
         return;
       }
 
       this.stash[item] -= 1;
       this.baseLoadout[item] += 1;
+      this.gridLayouts.hand = layoutGridInventory(this.baseLoadout, layout, this.equipmentDurability);
     });
   }
 
@@ -1267,8 +1449,8 @@ export class Game {
   }
 
   private canMoveToHand(item: ItemKind): boolean {
-    const category = ITEM_DEFINITIONS[item].category;
-    return category === 'consumable' || category === 'equipment';
+    const definition = ITEM_DEFINITIONS[item];
+    return definition.category === 'consumable' || definition.category === 'equipment' || Boolean(definition.staminaRestore);
   }
 
   private availableHandItems(): ItemKind[] {
@@ -1280,6 +1462,56 @@ export class Game {
     const definition = ITEM_DEFINITIONS[item];
     this.entities.push(createItemEntity(`drop-${this.depth}-${++this.dropId}`, item, entity.x, entity.y));
     this.pushMessage(`${entity.name}が${definition.name}を落とした。`);
+  }
+
+  private spendStamina(amount: number): void {
+    if (this.mode !== 'raid') {
+      return;
+    }
+
+    const wasEmpty = this.stamina <= 0;
+    this.stamina = Math.max(0, this.stamina - amount);
+
+    if (wasEmpty) {
+      const player = this.player();
+      if (player.stats) {
+        player.stats.hp -= 1;
+        this.pushMessage('スタミナ切れで体力が1減った。食べ物でスタミナを回復しよう。');
+        if (player.stats.hp <= 0) {
+          this.kill(player, player);
+        }
+      }
+    }
+  }
+
+  private grantEquipmentInstances(item: ItemKind, amount: number): void {
+    const maxDurability = ITEM_DEFINITIONS[item].maxDurability;
+    if (maxDurability === undefined) {
+      return;
+    }
+
+    const existing = this.equipmentDurability[item] ?? [];
+    this.equipmentDurability[item] = [...existing, ...Array.from({ length: amount }, () => maxDurability)];
+  }
+
+  private wearEquipment(item: ItemKind): void {
+    const maxDurability = ITEM_DEFINITIONS[item].maxDurability;
+    if (maxDurability === undefined) {
+      return;
+    }
+
+    const units = this.equipmentDurability[item];
+    if (!units || units.length === 0) {
+      return;
+    }
+
+    units[0] -= 1;
+    if (units[0] <= 0) {
+      units.shift();
+      this.handInventory[item] = Math.max(0, this.handInventory[item] - 1);
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}の耐久値が尽きて壊れた。拠点で作り直そう。`);
+      this.syncSelectedHandItem();
+    }
   }
 
   private pushCombatEffect(attacker: Entity, defender: Entity, damage: number): void {

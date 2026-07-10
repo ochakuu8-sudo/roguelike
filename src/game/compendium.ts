@@ -64,7 +64,16 @@ export const ITEM_ENTRIES: ItemEntry[] = ITEM_KINDS.map((id) => {
     id,
     name: item.name,
     description: item.description,
-    category: item.category === 'consumable' ? '消耗品' : item.category === 'equipment' ? '装備' : item.category === 'upgrade' ? '強化' : '素材',
+    category:
+      item.category === 'consumable'
+        ? '消耗品'
+        : item.category === 'equipment'
+          ? '装備'
+          : item.category === 'upgrade'
+            ? '強化'
+            : item.category === 'collection'
+              ? 'コレクション'
+              : '素材',
     size: item.size,
     value: item.value,
     sources: item.sources.map((biome) => BIOME_DEFINITIONS[biome].name).join(' / ') || '拠点',
