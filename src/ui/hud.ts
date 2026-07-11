@@ -20,7 +20,7 @@ type HudRoots = {
   pickupButton: HTMLButtonElement;
   interactButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
-  onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+  onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
@@ -32,7 +32,7 @@ type BasePlanningRoots = {
   onStartRaid: (mapId: MapId) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
   onAppraiseCollection: () => void;
-  onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+  onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
@@ -49,7 +49,7 @@ type InventoryDragState = {
   startY: number;
   ghost: HTMLElement;
   isTouchDrag: boolean;
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
@@ -366,7 +366,7 @@ const slotText = (labelText: string, detailText: string) => {
 
 const inventoryPanelNodes = (
   snapshot: GameSnapshot,
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   if (snapshot.mode === 'base') {
@@ -408,7 +408,7 @@ const inventoryGridElement = (
   location: InventoryLocation,
   placed: PlacedItem[],
   inventory: Inventory,
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   lastKnownLayouts[location] = placed;
@@ -438,7 +438,7 @@ const inventorySlot = (
   entry: PlacedItem,
   count: number,
   location: InventoryLocation,
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   const definition = ITEM_DEFINITIONS[entry.item];
@@ -489,7 +489,7 @@ const bindInventoryDrag = (
   slot: HTMLElement,
   itemKind: ItemKind,
   location: InventoryLocation,
-  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   if (!onMoveItem) {
@@ -650,15 +650,13 @@ const updateInventoryDropPreview = (x: number, y: number) => {
     return;
   }
 
-  if (location !== state.from) {
-    grid.classList.add('is-drop-target');
-    return;
-  }
-
   const { width, height } = ITEM_DEFINITIONS[state.item].gridSize;
   const cell = snappedCellAtPoint(grid, x, y, width, height);
   const layout = lastKnownLayouts[location] ?? [];
   const blocked = layout.some((entry) => entry.item !== state.item && overlaps(entry, cell.x, cell.y, width, height));
+  if (location !== state.from) {
+    grid.classList.add('is-drop-target');
+  }
   showPlacementPreview(grid, cell, width, height, blocked);
 };
 
@@ -695,14 +693,15 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
     return;
   }
 
+  const { width, height } = ITEM_DEFINITIONS[state.item].gridSize;
+  const cell = snappedCellAtPoint(grid, point.x, point.y, width, height);
+
   if (location === state.from) {
-    const { width, height } = ITEM_DEFINITIONS[state.item].gridSize;
-    const cell = snappedCellAtPoint(grid, point.x, point.y, width, height);
     state.onPlaceItem?.(state.item, location, cell.x, cell.y);
     return;
   }
 
-  state.onMoveItem?.(state.item, state.from, location);
+  state.onMoveItem?.(state.item, state.from, location, cell.x, cell.y);
 };
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {

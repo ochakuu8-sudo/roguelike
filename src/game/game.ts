@@ -193,7 +193,7 @@ export class Game {
     }
 
     if (command.type === 'moveItem') {
-      this.moveItem(command.item, command.from, command.to);
+      this.moveItem(command.item, command.from, command.to, command.x, command.y);
       return;
     }
 
@@ -1064,7 +1064,7 @@ export class Game {
     this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
   }
 
-  private moveItem(item: ItemKind, from: InventoryLocation, to: InventoryLocation): void {
+  private moveItem(item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number): void {
     if (from === to) {
       return;
     }
@@ -1094,6 +1094,18 @@ export class Game {
 
     source[item] -= 1;
     target[item] += 1;
+
+    if (x !== undefined && y !== undefined) {
+      const definition = ITEM_DEFINITIONS[item];
+      const { width, height } = definition.gridSize;
+      const layout = this.gridLayouts[to];
+      const clampedX = Math.max(0, Math.min(GRID_COLS - width, x));
+      const clampedY = Math.max(0, Math.min(GRID_ROWS - height, y));
+      const blocked = layout.some((entry) => entry.item !== item && overlaps(entry, clampedX, clampedY, width, height));
+      if (!blocked) {
+        layout.push({ item, x: clampedX, y: clampedY, width, height });
+      }
+    }
 
     if (this.mode === 'raid') {
       this.syncSelectedHandItem(to === 'hand' ? item : undefined);

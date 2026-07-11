@@ -120,8 +120,8 @@ const refresh = () => {
     pickupButton,
     interactButton,
     heldActionButton,
-    onMoveItem: (item, from, to) => {
-      game.dispatch({ type: 'moveItem', item, from, to });
+    onMoveItem: (item, from, to, x, y) => {
+      game.dispatch({ type: 'moveItem', item, from, to, x, y });
       refresh();
     },
     onPlaceItem: (item, location, x, y) => {
@@ -143,8 +143,8 @@ const refresh = () => {
       game.dispatch({ type: 'craftItem', recipe });
       refresh();
     },
-    onMoveItem: (item, from, to) => {
-      game.dispatch({ type: 'moveItem', item, from, to });
+    onMoveItem: (item, from, to, x, y) => {
+      game.dispatch({ type: 'moveItem', item, from, to, x, y });
       refresh();
     },
     onPlaceItem: (item, location, x, y) => {

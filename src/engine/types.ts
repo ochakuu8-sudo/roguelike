@@ -14,7 +14,7 @@ export type Command =
   | { type: 'previousHandItem' }
   | { type: 'nextHandItem' }
   | { type: 'useItem'; item: ItemKind }
-  | { type: 'moveItem'; item: ItemKind; from: InventoryLocation; to: InventoryLocation }
+  | { type: 'moveItem'; item: ItemKind; from: InventoryLocation; to: InventoryLocation; x?: number; y?: number }
   | { type: 'placeItem'; item: ItemKind; location: InventoryLocation; x: number; y: number }
   | { type: 'appraiseCollection' }
   | { type: 'descend' }
