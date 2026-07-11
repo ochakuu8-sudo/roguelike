@@ -835,21 +835,36 @@ const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   const player = playerEntity(snapshot);
   const selected = snapshot.player.selectedHandItem;
   const hasSelected = Boolean(selected && snapshot.player.handInventory[selected] > 0);
+  const definition = hasSelected ? ITEM_DEFINITIONS[selected as ItemKind] : undefined;
+  const isPickaxe = hasSelected && selected === 'pickaxe';
+  const canAttack = !hasSelected || definition?.attackPower !== undefined;
 
-  if (!hasSelected) {
-    const targetTile = player ? tileInFront(snapshot, player) : undefined;
-    if (targetTile && isGatheringTile(targetTile.kind)) {
+  if (canAttack) {
+    const range = definition?.attackRange ?? 1;
+    const target = player ? monsterInLine(snapshot, player, range) : undefined;
+    if (target) {
       return {
-        label: '掘る(素手)',
-        hint: '素手で採取する。ピッケルより効率が悪く、スタミナを多く使う。',
+        label: hasSelected ? '攻撃' : '素手で攻撃',
+        hint: `${target.name}を攻撃する。`,
       };
     }
+  }
 
+  const targetTile = player ? tileInFront(snapshot, player) : undefined;
+  const gatherable = Boolean(targetTile && isGatheringTile(targetTile.kind));
+
+  if (gatherable || (isPickaxe && targetTile?.kind === 'wall')) {
+    return {
+      label: isPickaxe ? '掘る' : '掘る(素手)',
+      hint: isPickaxe ? '正面の壁や採取ポイントを調べる。' : '素手で採取する。ピッケルより効率が悪く、スタミナを多く使う。',
+    };
+  }
+
+  if (!hasSelected || !definition) {
     return undefined;
   }
 
   const stats = player?.stats;
-  const definition = ITEM_DEFINITIONS[selected as ItemKind];
 
   if (definition.category === 'consumable' || definition.staminaRestore) {
     if (definition.staminaRestore) {
@@ -873,32 +888,11 @@ const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
     };
   }
 
-  if (selected === 'pickaxe') {
-    const targetTile = player ? tileInFront(snapshot, player) : undefined;
-    const canMine = targetTile?.kind === 'wall' || Boolean(targetTile && isGatheringTile(targetTile.kind));
+  if (definition.attackPower !== undefined) {
     return {
-      label: '掘る',
-      hint: canMine ? '正面の壁や採取ポイントを調べる。' : '正面に掘れる壁や採取ポイントがない。',
-      disabled: !canMine,
-    };
-  }
-
-  if (selected === 'sword') {
-    const target = player ? entityInFront(snapshot, player) : undefined;
-    const canSlash = target?.kind === 'monster';
-    return {
-      label: '斬る',
-      hint: canSlash ? `${target.name}を斬る。` : '正面に斬れる敵がいない。',
-      disabled: !canSlash,
-    };
-  }
-
-  if (selected === 'bow') {
-    const target = player ? monsterInLine(snapshot, player, 5) : undefined;
-    return {
-      label: '射る',
-      hint: target ? `${target.name}を弓で狙う。` : '向いている方向に狙える敵がいない。',
-      disabled: !target,
+      label: '攻撃',
+      hint: '向いている方向に狙える敵がいない。',
+      disabled: true,
     };
   }
 
@@ -913,14 +907,6 @@ const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity)
 
 const itemAt = (snapshot: GameSnapshot, x: number, y: number) =>
   snapshot.entities.find((entity) => entity.kind === 'item' && entity.x === x && entity.y === y);
-
-const entityInFront = (snapshot: GameSnapshot, player: Entity) =>
-  snapshot.entities.find(
-    (entity) =>
-      entity.blocks &&
-      entity.x === player.x + snapshot.player.facing.x &&
-      entity.y === player.y + snapshot.player.facing.y,
-  );
 
 const tileInFront = (snapshot: GameSnapshot, player: Entity) =>
   snapshot.tiles[(player.y + snapshot.player.facing.y) * snapshot.width + player.x + snapshot.player.facing.x];
