@@ -1,8 +1,13 @@
-import type { Inventory, ItemKind, PlacedItem } from '../engine/types';
+import type { Inventory, InventoryLocation, ItemKind, PlacedItem } from '../engine/types';
 import { ITEM_DEFINITIONS } from './items';
 
-export const GRID_COLS = 3;
-export const GRID_ROWS = 5;
+export type GridDimensions = { cols: number; rows: number };
+
+export const GRID_DIMENSIONS: Record<InventoryLocation, GridDimensions> = {
+  hand: { cols: 3, rows: 5 },
+  raidBag: { cols: 3, rows: 5 },
+  stash: { cols: 6, rows: 10 },
+};
 
 const isStackable = (item: ItemKind): boolean => {
   const category = ITEM_DEFINITIONS[item].category;
@@ -12,9 +17,14 @@ const isStackable = (item: ItemKind): boolean => {
 export const overlaps = (a: PlacedItem, x: number, y: number, width: number, height: number) =>
   x < a.x + a.width && x + width > a.x && y < a.y + a.height && y + height > a.y;
 
-const findFreeSpot = (placed: PlacedItem[], width: number, height: number): { x: number; y: number } | undefined => {
-  for (let y = 0; y <= GRID_ROWS - height; y += 1) {
-    for (let x = 0; x <= GRID_COLS - width; x += 1) {
+const findFreeSpot = (
+  placed: PlacedItem[],
+  width: number,
+  height: number,
+  dimensions: GridDimensions,
+): { x: number; y: number } | undefined => {
+  for (let y = 0; y <= dimensions.rows - height; y += 1) {
+    for (let x = 0; x <= dimensions.cols - width; x += 1) {
       if (!placed.some((entry) => overlaps(entry, x, y, width, height))) {
         return { x, y };
       }
@@ -32,6 +42,7 @@ export const layoutGridInventory = (
   inventory: Inventory,
   previous: PlacedItem[],
   durability: Partial<Record<ItemKind, number[]>>,
+  dimensions: GridDimensions,
 ): PlacedItem[] => {
   const next: PlacedItem[] = [];
 
@@ -58,7 +69,7 @@ export const layoutGridInventory = (
         continue;
       }
 
-      const spot = findFreeSpot(next, width, height);
+      const spot = findFreeSpot(next, width, height, dimensions);
       if (spot) {
         next.push({ item, x: spot.x, y: spot.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability });
       }
@@ -68,12 +79,17 @@ export const layoutGridInventory = (
   return next;
 };
 
-export const canFitAdditionalUnit = (inventory: Inventory, layout: PlacedItem[], item: ItemKind): boolean => {
+export const canFitAdditionalUnit = (
+  inventory: Inventory,
+  layout: PlacedItem[],
+  item: ItemKind,
+  dimensions: GridDimensions,
+): boolean => {
   const definition = ITEM_DEFINITIONS[item];
 
   if (isStackable(item) && (inventory[item] ?? 0) > 0) {
     return true;
   }
 
-  return findFreeSpot(layout, definition.gridSize.width, definition.gridSize.height) !== undefined;
+  return findFreeSpot(layout, definition.gridSize.width, definition.gridSize.height, dimensions) !== undefined;
 };

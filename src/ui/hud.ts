@@ -1,6 +1,6 @@
 import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
-import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS, overlaps } from '../game/grid-inventory';
+import { canFitAdditionalUnit, GRID_DIMENSIONS, overlaps } from '../game/grid-inventory';
 import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
@@ -53,7 +53,7 @@ type InventoryDragState = {
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
-const GRID_CELLS = GRID_COLS * GRID_ROWS;
+const gridCellCount = (location: InventoryLocation) => GRID_DIMENSIONS[location].cols * GRID_DIMENSIONS[location].rows;
 const DRAG_MOVE_THRESHOLD = 12;
 const TOUCH_DRAG_GHOST_OFFSET = -18;
 
@@ -142,7 +142,7 @@ export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRo
   roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, roots.onStartRaid)));
   roots.stashRoot.replaceChildren(
     ...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection),
-    inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
+    inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
     inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, roots.onMoveItem, roots.onPlaceItem),
   );
   roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
@@ -323,7 +323,7 @@ const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
     roots.previousHandButton.disabled = true;
     roots.nextHandButton.disabled = true;
     roots.handSlotRoot.classList.remove('is-empty');
-    roots.handSlotRoot.replaceChildren(slotText('手持ち予定', `${cellsUsed}/${GRID_CELLS}マス 次の出撃で持ち込み`));
+    roots.handSlotRoot.replaceChildren(slotText('手持ち予定', `${cellsUsed}/${gridCellCount('hand')}マス 次の出撃で持ち込み`));
     return;
   }
 
@@ -371,29 +371,29 @@ const inventoryPanelNodes = (
 ) => {
   if (snapshot.mode === 'base') {
     return [
-      inventorySummary('手持ち予定', gridCellsUsed(snapshot.grids.hand), '次の探索で自動的に持ち込む装備と道具です。'),
+      inventorySummary('手持ち予定', 'hand', gridCellsUsed(snapshot.grids.hand), '次の探索で自動的に持ち込む装備と道具です。'),
       inventoryGridElement('hand', snapshot.grids.hand, snapshot.baseLoadout, onMoveItem, onPlaceItem),
-      inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。ドラッグで自由に並べ替えられます。'),
+      inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。ドラッグで自由に並べ替えられます。'),
       inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, onMoveItem, onPlaceItem),
     ];
   }
 
   return [
-    inventorySummary('手持ち', gridCellsUsed(snapshot.grids.hand), '上部の切り替えに出る装備と消耗品です。'),
+    inventorySummary('手持ち', 'hand', gridCellsUsed(snapshot.grids.hand), '上部の切り替えに出る装備と消耗品です。'),
     inventoryGridElement('hand', snapshot.grids.hand, snapshot.player.handInventory, onMoveItem, onPlaceItem),
-    inventorySummary('持ち帰りバッグ', gridCellsUsed(snapshot.grids.raidBag), 'ここに入った物だけが拠点へ持ち帰れます。'),
+    inventorySummary('持ち帰りバッグ', 'raidBag', gridCellsUsed(snapshot.grids.raidBag), 'ここに入った物だけが拠点へ持ち帰れます。'),
     inventoryGridElement('raidBag', snapshot.grids.raidBag, snapshot.player.raidInventory, onMoveItem, onPlaceItem),
   ];
 };
 
 const gridCellsUsed = (placed: PlacedItem[]) => placed.reduce((total, entry) => total + entry.width * entry.height, 0);
 
-const inventorySummary = (labelText: string, cellsUsed: number, detailText: string) => {
+const inventorySummary = (labelText: string, location: InventoryLocation, cellsUsed: number, detailText: string) => {
   const root = document.createElement('div');
   root.className = 'inventory-summary';
 
   const label = document.createElement('strong');
-  label.textContent = `${labelText} ${cellsUsed}/${GRID_CELLS}マス`;
+  label.textContent = `${labelText} ${cellsUsed}/${gridCellCount(location)}マス`;
 
   const detail = document.createElement('small');
   detail.textContent = detailText;
@@ -413,17 +413,18 @@ const inventoryGridElement = (
 ) => {
   lastKnownLayouts[location] = placed;
 
+  const { cols, rows } = GRID_DIMENSIONS[location];
   const grid = document.createElement('div');
   grid.className = 'inventory-grid';
   grid.dataset.inventoryLocation = location;
-  grid.style.setProperty('--grid-cols', String(GRID_COLS));
-  grid.style.setProperty('--grid-rows', String(GRID_ROWS));
+  grid.style.setProperty('--grid-cols', String(cols));
+  grid.style.setProperty('--grid-rows', String(rows));
 
-  for (let index = 0; index < GRID_CELLS; index += 1) {
+  for (let index = 0; index < cols * rows; index += 1) {
     const cell = document.createElement('div');
     cell.className = 'inventory-cell';
-    cell.style.gridColumn = String((index % GRID_COLS) + 1);
-    cell.style.gridRow = String(Math.floor(index / GRID_COLS) + 1);
+    cell.style.gridColumn = String((index % cols) + 1);
+    cell.style.gridRow = String(Math.floor(index / cols) + 1);
     grid.append(cell);
   }
 
@@ -604,14 +605,16 @@ const gridElementAtPoint = (x: number, y: number) => document.elementFromPoint(x
 // Snaps to the nearest cell (not just whichever cell the raw pointer sits in) and
 // centers the dragged item's footprint on the pointer, so lining it up feels forgiving.
 const snappedCellAtPoint = (grid: HTMLElement, x: number, y: number, width: number, height: number) => {
+  const location = grid.dataset.inventoryLocation as InventoryLocation;
+  const { cols, rows } = GRID_DIMENSIONS[location];
   const rect = grid.getBoundingClientRect();
-  const cellWidth = rect.width / GRID_COLS;
-  const cellHeight = rect.height / GRID_ROWS;
+  const cellWidth = rect.width / cols;
+  const cellHeight = rect.height / rows;
   const rawX = (x - rect.left) / cellWidth - width / 2;
   const rawY = (y - rect.top) / cellHeight - height / 2;
   return {
-    x: Math.max(0, Math.min(GRID_COLS - width, Math.round(rawX))),
-    y: Math.max(0, Math.min(GRID_ROWS - height, Math.round(rawY))),
+    x: Math.max(0, Math.min(cols - width, Math.round(rawX))),
+    y: Math.max(0, Math.min(rows - height, Math.round(rawY))),
   };
 };
 
@@ -743,8 +746,8 @@ const pickupAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   const definition = ITEM_DEFINITIONS[item.item];
   const usesHandSlot = definition.category === 'consumable' || definition.category === 'equipment';
   const fits = usesHandSlot
-    ? canFitAdditionalUnit(snapshot.player.handInventory, snapshot.grids.hand, item.item)
-    : canFitAdditionalUnit(snapshot.player.raidInventory, snapshot.grids.raidBag, item.item);
+    ? canFitAdditionalUnit(snapshot.player.handInventory, snapshot.grids.hand, item.item, GRID_DIMENSIONS.hand)
+    : canFitAdditionalUnit(snapshot.player.raidInventory, snapshot.grids.raidBag, item.item, GRID_DIMENSIONS.raidBag);
 
   if (!fits) {
     return undefined;

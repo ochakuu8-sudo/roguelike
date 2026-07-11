@@ -224,11 +224,17 @@ h2 {
 }
 
 .biome-list,
-.stash-list,
 .recipe-plan-list {
   display: grid;
   gap: 8px;
   max-height: 100%;
+  overflow: auto;
+}
+
+.stash-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(60dvh, 460px);
   overflow: auto;
 }
 
@@ -635,7 +641,7 @@ h2 {
 }
 
 .inventory-grid {
-  --inventory-slot-size: 52px;
+  --inventory-slot-size: 44px;
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--grid-cols, 3), var(--inventory-slot-size));
@@ -972,7 +978,7 @@ button.inventory-slot:hover {
 }
 
 .item-list .inventory-grid {
-  --inventory-slot-size: 40px;
+  --inventory-slot-size: 34px;
   max-height: min(58dvh, 420px);
   overflow: auto;
 }
@@ -1162,7 +1168,7 @@ button.inventory-slot:hover {
   }
 
   .inventory-grid {
-    --inventory-slot-size: 42px;
+    --inventory-slot-size: 36px;
   }
 
   .inventory-slot small {

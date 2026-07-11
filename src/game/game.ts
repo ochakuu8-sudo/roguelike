@@ -4,7 +4,7 @@ import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Gr
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
-import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS, layoutGridInventory, overlaps } from './grid-inventory';
+import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
 import { COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
@@ -160,9 +160,9 @@ export class Game {
   private refreshGridLayouts(): void {
     const handSource = this.mode === 'base' ? this.baseLoadout : this.handInventory;
     this.gridLayouts = {
-      hand: layoutGridInventory(handSource, this.gridLayouts.hand, this.equipmentDurability),
-      raidBag: layoutGridInventory(this.raidInventory, this.gridLayouts.raidBag, this.equipmentDurability),
-      stash: layoutGridInventory(this.stash, this.gridLayouts.stash, this.equipmentDurability),
+      hand: layoutGridInventory(handSource, this.gridLayouts.hand, this.equipmentDurability, GRID_DIMENSIONS.hand),
+      raidBag: layoutGridInventory(this.raidInventory, this.gridLayouts.raidBag, this.equipmentDurability, GRID_DIMENSIONS.raidBag),
+      stash: layoutGridInventory(this.stash, this.gridLayouts.stash, this.equipmentDurability, GRID_DIMENSIONS.stash),
     };
   }
 
@@ -772,7 +772,7 @@ export class Game {
       return false;
     }
 
-    if (!canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, trade.get) && this.raidInventory[trade.get] <= 0) {
+    if (!canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, trade.get, GRID_DIMENSIONS.raidBag) && this.raidInventory[trade.get] <= 0) {
       this.pushMessage('持ち帰りバッグがいっぱいで受け取れない。');
       return false;
     }
@@ -1087,7 +1087,7 @@ export class Game {
       return;
     }
 
-    if (!canFitAdditionalUnit(target, this.gridLayouts[to], item)) {
+    if (!canFitAdditionalUnit(target, this.gridLayouts[to], item, GRID_DIMENSIONS[to])) {
       this.pushMessage(`${inventoryLocationLabel(to)}のマスが足りず移動できない。`);
       return;
     }
@@ -1099,8 +1099,9 @@ export class Game {
       const definition = ITEM_DEFINITIONS[item];
       const { width, height } = definition.gridSize;
       const layout = this.gridLayouts[to];
-      const clampedX = Math.max(0, Math.min(GRID_COLS - width, x));
-      const clampedY = Math.max(0, Math.min(GRID_ROWS - height, y));
+      const { cols, rows } = GRID_DIMENSIONS[to];
+      const clampedX = Math.max(0, Math.min(cols - width, x));
+      const clampedY = Math.max(0, Math.min(rows - height, y));
       const blocked = layout.some((entry) => entry.item !== item && overlaps(entry, clampedX, clampedY, width, height));
       if (!blocked) {
         layout.push({ item, x: clampedX, y: clampedY, width, height });
@@ -1126,8 +1127,9 @@ export class Game {
       return;
     }
 
-    const clampedX = Math.max(0, Math.min(GRID_COLS - entry.width, x));
-    const clampedY = Math.max(0, Math.min(GRID_ROWS - entry.height, y));
+    const { cols, rows } = GRID_DIMENSIONS[location];
+    const clampedX = Math.max(0, Math.min(cols - entry.width, x));
+    const clampedY = Math.max(0, Math.min(rows - entry.height, y));
 
     const blocked = layout.some((other) => other !== entry && overlaps(other, clampedX, clampedY, entry.width, entry.height));
     if (blocked) {
@@ -1398,10 +1400,10 @@ export class Game {
 
   private canCarry(item: ItemKind): boolean {
     if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment') {
-      return canFitAdditionalUnit(this.handInventory, this.gridLayouts.hand, item);
+      return canFitAdditionalUnit(this.handInventory, this.gridLayouts.hand, item, GRID_DIMENSIONS.hand);
     }
 
-    return canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, item);
+    return canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, item, GRID_DIMENSIONS.raidBag);
   }
 
   private transferRaidInventoryToStash(): void {
@@ -1473,14 +1475,14 @@ export class Game {
         return;
       }
 
-      const layout = layoutGridInventory(this.baseLoadout, this.gridLayouts.hand, this.equipmentDurability);
-      if (!canFitAdditionalUnit(this.baseLoadout, layout, item)) {
+      const layout = layoutGridInventory(this.baseLoadout, this.gridLayouts.hand, this.equipmentDurability, GRID_DIMENSIONS.hand);
+      if (!canFitAdditionalUnit(this.baseLoadout, layout, item, GRID_DIMENSIONS.hand)) {
         return;
       }
 
       this.stash[item] -= 1;
       this.baseLoadout[item] += 1;
-      this.gridLayouts.hand = layoutGridInventory(this.baseLoadout, layout, this.equipmentDurability);
+      this.gridLayouts.hand = layoutGridInventory(this.baseLoadout, layout, this.equipmentDurability, GRID_DIMENSIONS.hand);
     });
   }
 
