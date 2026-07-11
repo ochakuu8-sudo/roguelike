@@ -61,25 +61,57 @@ export const CRAFTING_RECIPES: RecipeDefinition[] = [
     ['chemicalBottle', 1],
     ['tornCloth', 1],
   ]),
-  recipe('throwingKnife', 'throwingKnife', 1, '投擲作業台', '遠距離の単体攻撃に使う。', 'consumable', [
+  recipe('throwingKnife', 'throwingKnife', 1, '投擲作業台', '遠距離から貫通属性のダメージを与える投擲武器。', 'consumable', [
     ['brokenBlade', 1],
     ['wood', 1],
   ]),
-  recipe('swordUpgrade1', 'swordUpgrade1', 1, '鍛冶台', '近接攻撃を強化する序盤目標。', 'upgrade', [
+  recipe('axe', 'axe', 1, '鍛冶台', '打撃属性の重い一撃を叩き込む近接武器。', 'upgrade', [
+    ['ironOre', 4],
+    ['wood', 2],
+    ['swordUpgrade1', 1],
+  ]),
+  recipe('dagger', 'dagger', 1, '鍛冶台', '毒属性を纏わせた軽量な近接武器。', 'upgrade', [
+    ['brokenBlade', 1],
+    ['poisonSpore', 1],
+    ['wood', 1],
+    ['swordUpgrade2', 1],
+  ]),
+  recipe('blowgun', 'blowgun', 1, '鍛冶台', '毒属性の針を飛ばす遠距離武器。', 'upgrade', [
+    ['wood', 2],
+    ['poisonSpore', 2],
+    ['bowUpgrade1', 1],
+  ]),
+  recipe('sparkCrossbow', 'sparkCrossbow', 1, '鍛冶台 Lv.2', '電撃属性を纏わせた高威力の弩。', 'upgrade', [
+    ['copperOre', 3],
+    ['boneShard', 2],
+    ['arcaneCore', 1],
+    ['crestFragment', 1],
+    ['bowUpgrade2', 1],
+  ]),
+  recipe('leatherArmor', 'leatherArmor', 1, '防具台', '打撃属性のダメージを和らげる軽装の鎧。', 'upgrade', [
+    ['sturdyLeather', 4],
+    ['armorUpgrade1', 1],
+  ]),
+  recipe('hazmatSuit', 'hazmatSuit', 1, '防具台 Lv.2', '毒属性のダメージを和らげる防護服。', 'upgrade', [
+    ['chemicalBottle', 2],
+    ['mutantMeat', 1],
+    ['armorUpgrade2', 1],
+  ]),
+  recipe('swordUpgrade1', 'swordUpgrade1', 1, '鍛冶台', '斧や短剣の材料になる鍛冶素材。', 'upgrade', [
     ['ironOre', 4],
     ['brokenBlade', 1],
   ]),
-  recipe('swordUpgrade2', 'swordUpgrade2', 1, '鍛冶台 Lv.2', '近接攻撃をさらに強化する。', 'upgrade', [
+  recipe('swordUpgrade2', 'swordUpgrade2', 1, '鍛冶台 Lv.2', '上位の近接武器に使う鍛冶素材。', 'upgrade', [
     ['ironOre', 6],
     ['brokenBlade', 2],
     ['arcaneCore', 1],
   ]),
-  recipe('bowUpgrade1', 'bowUpgrade1', 1, '鍛冶台', '弓の威力か射程を強化する。', 'upgrade', [
+  recipe('bowUpgrade1', 'bowUpgrade1', 1, '鍛冶台', '吹き矢の材料になる素材。', 'upgrade', [
     ['copperOre', 3],
     ['boneShard', 2],
     ['wood', 2],
   ]),
-  recipe('bowUpgrade2', 'bowUpgrade2', 1, '鍛冶台 Lv.2', '弓の性能をさらに伸ばす。', 'upgrade', [
+  recipe('bowUpgrade2', 'bowUpgrade2', 1, '鍛冶台 Lv.2', '電撃弩に使う上位素材。', 'upgrade', [
     ['copperOre', 5],
     ['boneShard', 4],
     ['dataRecord', 1],
@@ -94,48 +126,14 @@ export const CRAFTING_RECIPES: RecipeDefinition[] = [
     ['oldGear', 2],
     ['arcaneCore', 1],
   ]),
-  recipe('armorUpgrade1', 'armorUpgrade1', 1, '防具台', '最大HPか防御を上げる。', 'upgrade', [
+  recipe('armorUpgrade1', 'armorUpgrade1', 1, '防具台', '革鎧の材料になる素材。', 'upgrade', [
     ['sturdyLeather', 3],
     ['hardShell', 2],
   ]),
-  recipe('armorUpgrade2', 'armorUpgrade2', 1, '防具台 Lv.2', '防御をさらに上げる。', 'upgrade', [
+  recipe('armorUpgrade2', 'armorUpgrade2', 1, '防具台 Lv.2', '防護服に使う上位素材。', 'upgrade', [
     ['sturdyLeather', 4],
     ['hardShell', 4],
     ['mutantMeat', 1],
-  ]),
-  recipe('bagUpgrade1', 'bagUpgrade1', 1, '縫製台', '持ち帰り枠を増やす抽出ゲームらしい大目標。', 'upgrade', [
-    ['sturdyLeather', 4],
-    ['tornCloth', 3],
-  ]),
-  recipe('bagUpgrade2', 'bagUpgrade2', 1, '縫製台 Lv.2', '持ち帰り枠をさらに増やす。', 'upgrade', [
-    ['sturdyLeather', 6],
-    ['oldGear', 2],
-    ['crestFragment', 1],
-  ]),
-  recipe('stashUpgrade1', 'stashUpgrade1', 1, '拠点設備', '倉庫 UI / 保管枠を強化する。', 'upgrade', [
-    ['wood', 5],
-    ['oldGear', 1],
-    ['oldCoin', 5],
-  ]),
-  recipe('craftBenchUpgrade1', 'craftBenchUpgrade1', 1, '拠点設備', '上位レシピを解放する。', 'upgrade', [
-    ['copperOre', 4],
-    ['glassShard', 2],
-    ['dataRecord', 1],
-  ]),
-  recipe('mapTable', 'mapTable', 1, '拠点設備', '入手先や脱出口情報を見やすくする。', 'upgrade', [
-    ['mapFragment', 3],
-    ['oldGear', 1],
-    ['dataRecord', 1],
-  ]),
-  recipe('returnBeacon', 'returnBeacon', 1, '拠点設備', '脱出補助アイテムを作れるようにする。', 'upgrade', [
-    ['arcaneCore', 1],
-    ['oldGear', 2],
-    ['glassShard', 2],
-  ]),
-  recipe('lockpickTool', 'lockpickTool', 1, '拠点設備', '鍵部屋に入りやすくする。', 'upgrade', [
-    ['keyBundle', 1],
-    ['copperOre', 2],
-    ['slimeGel', 1],
   ]),
 ];
 

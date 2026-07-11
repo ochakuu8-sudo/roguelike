@@ -3,6 +3,8 @@ export type Point = {
   y: number;
 };
 
+export type ElementId = 'impact' | 'pierce' | 'poison' | 'shock';
+
 export type Command =
   | { type: 'face'; dx: number; dy: number }
   | { type: 'forward' }
@@ -95,6 +97,12 @@ export type ItemKind =
   | 'oldCoin'
   | 'keyBundle'
   | 'mapFragment'
+  | 'axe'
+  | 'dagger'
+  | 'blowgun'
+  | 'sparkCrossbow'
+  | 'leatherArmor'
+  | 'hazmatSuit'
   | 'swordUpgrade1'
   | 'swordUpgrade2'
   | 'bowUpgrade1'
@@ -103,13 +111,6 @@ export type ItemKind =
   | 'pickaxeUpgrade2'
   | 'armorUpgrade1'
   | 'armorUpgrade2'
-  | 'bagUpgrade1'
-  | 'bagUpgrade2'
-  | 'stashUpgrade1'
-  | 'craftBenchUpgrade1'
-  | 'mapTable'
-  | 'returnBeacon'
-  | 'lockpickTool'
   | 'ancientRelic'
   | 'gildedIdol'
   | 'strangeGem';
@@ -125,6 +126,12 @@ export type RecipeId =
   | 'smokeBomb'
   | 'explosive'
   | 'throwingKnife'
+  | 'axe'
+  | 'dagger'
+  | 'blowgun'
+  | 'sparkCrossbow'
+  | 'leatherArmor'
+  | 'hazmatSuit'
   | 'swordUpgrade1'
   | 'swordUpgrade2'
   | 'bowUpgrade1'
@@ -132,14 +139,7 @@ export type RecipeId =
   | 'pickaxeUpgrade1'
   | 'pickaxeUpgrade2'
   | 'armorUpgrade1'
-  | 'armorUpgrade2'
-  | 'bagUpgrade1'
-  | 'bagUpgrade2'
-  | 'stashUpgrade1'
-  | 'craftBenchUpgrade1'
-  | 'mapTable'
-  | 'returnBeacon'
-  | 'lockpickTool';
+  | 'armorUpgrade2';
 export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';
 export type InventoryLocation = 'hand' | 'stash' | 'raidBag';

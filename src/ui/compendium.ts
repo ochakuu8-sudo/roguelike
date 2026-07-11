@@ -74,6 +74,9 @@ const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number]) => {
       ['攻撃', String(entry.stats.attack)],
       ['防御', String(entry.stats.defense)],
       ['素早さ', String(entry.stats.speed)],
+      ['攻撃属性', entry.attackElement],
+      ['弱点', entry.weakness ?? 'なし'],
+      ['耐性', entry.resistance ?? 'なし'],
       ['出現先', entry.biome],
       ['ドロップ', entry.drop],
     ]),
@@ -83,16 +86,21 @@ const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number]) => {
 
 const itemCard = (entry: (typeof ITEM_ENTRIES)[number]) => {
   const card = baseCard(entry.name, entry.description, spriteKeyForItem(entry.id as ItemKind));
-  card.append(
-    detailGrid([
-      ['分類', entry.category],
-      ['サイズ', String(entry.size)],
-      ['売値', `${entry.value}G`],
-      ['主な入手先', entry.sources],
-      ['入手方法', entry.obtain],
-      ['レア度', entry.rarity],
-    ]),
+  const details: Array<[string, string]> = [['分類', entry.category]];
+  if (entry.attackInfo) {
+    details.push(['攻撃', entry.attackInfo]);
+  }
+  if (entry.resistanceInfo) {
+    details.push(['耐性', entry.resistanceInfo]);
+  }
+  details.push(
+    ['サイズ', String(entry.size)],
+    ['売値', `${entry.value}G`],
+    ['主な入手先', entry.sources],
+    ['入手方法', entry.obtain],
+    ['レア度', entry.rarity],
   );
+  card.append(detailGrid(details));
   return card;
 };
 

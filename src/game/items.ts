@@ -1,4 +1,4 @@
-import type { BiomeId, Inventory, ItemKind, RecipeId } from '../engine/types';
+import type { BiomeId, ElementId, Inventory, ItemKind, RecipeId } from '../engine/types';
 
 export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade' | 'collection';
 export type ItemRarity = 'common' | 'uncommon' | 'rare';
@@ -19,9 +19,15 @@ export type ItemDefinition = {
   gridSize: GridSize;
   maxDurability?: number;
   staminaRestore?: number;
+  attackPower?: number;
+  attackElement?: ElementId;
+  attackRange?: number;
+  resistance?: ElementId;
 };
 
 const DEFAULT_GRID_SIZE: GridSize = { width: 1, height: 1 };
+
+type AttackSpec = { power: number; element: ElementId; range?: number };
 
 const consumable = (
   name: string,
@@ -30,6 +36,7 @@ const consumable = (
   color: string,
   value: number,
   usedIn: RecipeId[] = [],
+  attack?: AttackSpec,
 ): Omit<ItemDefinition, 'sources' | 'obtain' | 'rarity'> => ({
   name,
   description,
@@ -40,6 +47,9 @@ const consumable = (
   size: 1,
   gridSize: DEFAULT_GRID_SIZE,
   usedIn,
+  attackPower: attack?.power,
+  attackElement: attack?.element,
+  attackRange: attack?.range,
 });
 
 const material = (
@@ -68,28 +78,38 @@ const material = (
   staminaRestore,
 });
 
-const equipment = (
-  name: string,
-  description: string,
-  glyph: string,
-  color: string,
-  value: number,
-  maxDurability: number,
-  gridSize: GridSize = { width: 1, height: 2 },
-): ItemDefinition => ({
-  name,
-  description,
+type EquipmentOptions = {
+  name: string;
+  description: string;
+  glyph: string;
+  color: string;
+  value: number;
+  maxDurability: number;
+  gridSize?: GridSize;
+  attackPower?: number;
+  attackElement?: ElementId;
+  attackRange?: number;
+  resistance?: ElementId;
+};
+
+const equipment = (options: EquipmentOptions): ItemDefinition => ({
+  name: options.name,
+  description: options.description,
   category: 'equipment',
-  glyph,
-  color,
-  value,
+  glyph: options.glyph,
+  color: options.color,
+  value: options.value,
   size: 1,
-  gridSize,
+  gridSize: options.gridSize ?? { width: 1, height: 2 },
   sources: [],
   obtain: '初期装備 / クラフト',
   rarity: 'common',
   usedIn: [],
-  maxDurability,
+  maxDurability: options.maxDurability,
+  attackPower: options.attackPower,
+  attackElement: options.attackElement,
+  attackRange: options.attackRange,
+  resistance: options.resistance,
 });
 
 const upgrade = (name: string, description: string, value: number): ItemDefinition => ({
@@ -148,7 +168,7 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     rarity: 'common',
   },
   poisonVial: {
-    ...consumable('毒瓶', '敵に毒を与える投擲品。', '!', '#a3e635', 70),
+    ...consumable('毒瓶', '正面の敵に毒属性のダメージを与える投擲品。', '!', '#a3e635', 70, [], { power: 3, element: 'poison', range: 2 }),
     sources: ['forest', 'lab'],
     obtain: '毒胞子、ガラス片でクラフト',
     rarity: 'uncommon',
@@ -160,40 +180,133 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     rarity: 'common',
   },
   explosive: {
-    ...consumable('爆薬', '壁や敵に大きな効果を出す。', 'o', '#fb7185', 130),
+    ...consumable('爆薬', '正面の敵に打撃属性の大ダメージを与える投擲品。高価だが威力が高い。', 'o', '#fb7185', 130, [], { power: 9, element: 'impact', range: 2 }),
     sources: ['mine', 'lab'],
     obtain: '硫黄、薬品瓶、裂けた布でクラフト',
     rarity: 'rare',
   },
   throwingKnife: {
-    ...consumable('投げナイフ', '遠距離の単体攻撃に使う。', '/', '#e5e7eb', 50),
+    ...consumable('投げナイフ', '遠距離から貫通属性のダメージを与える投擲武器。', '/', '#e5e7eb', 50, [], { power: 5, element: 'pierce', range: 3 }),
     sources: ['fortress'],
     obtain: '折れた刃、木材でクラフト',
     rarity: 'common',
   },
-  sword: equipment('剣', '近くの敵を斬る基本武器。使うたびに耐久値が減り、尽きると壊れる。', '/', '#e5e7eb', 80, 30, { width: 1, height: 2 }),
-  bow: equipment('弓', '向いている方向へ矢を放つ遠距離武器。使うたびに耐久値が減り、尽きると壊れる。', ')', '#fbbf24', 90, 24, { width: 2, height: 2 }),
-  pickaxe: equipment('ピッケル', '壁や鉱石ブロックを掘れる道具。使うたびに耐久値が減り、尽きると壊れる。', 'T', '#93c5fd', 70, 40, { width: 1, height: 2 }),
-  ironOre: material('鉄鉱石', '剣、ピッケル、防具に使う基本金属。', ['mine'], '鉱脈を採掘', 28, '#93c5fd', 'common', [
+  sword: equipment({
+    name: '剣',
+    description: '近くの敵を斬る貫通属性の基本武器。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: '/',
+    color: '#e5e7eb',
+    value: 80,
+    maxDurability: 30,
+    gridSize: { width: 1, height: 2 },
+    attackPower: 4,
+    attackElement: 'pierce',
+  }),
+  bow: equipment({
+    name: '弓',
+    description: '向いている方向へ矢を放つ貫通属性の遠距離武器。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: ')',
+    color: '#fbbf24',
+    value: 90,
+    maxDurability: 24,
+    gridSize: { width: 2, height: 2 },
+    attackPower: 3,
+    attackElement: 'pierce',
+    attackRange: 5,
+  }),
+  pickaxe: equipment({
+    name: 'ピッケル',
+    description: '壁や鉱石ブロックを掘れる道具。正面に敵がいる時は打撃属性の弱い攻撃にも使える。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: 'T',
+    color: '#93c5fd',
+    value: 70,
+    maxDurability: 40,
+    gridSize: { width: 1, height: 2 },
+    attackPower: 1,
+    attackElement: 'impact',
+  }),
+  axe: equipment({
+    name: '斧',
+    description: '重い一撃を叩き込む打撃属性の近接武器。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: '/',
+    color: '#fca5a5',
+    value: 95,
+    maxDurability: 55,
+    gridSize: { width: 1, height: 2 },
+    attackPower: 7,
+    attackElement: 'impact',
+  }),
+  dagger: equipment({
+    name: '短剣',
+    description: '毒を纏わせた軽量な近接武器。威力は低いが取り回しがいい。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: '\\',
+    color: '#bef264',
+    value: 60,
+    maxDurability: 45,
+    gridSize: { width: 1, height: 1 },
+    attackPower: 2,
+    attackElement: 'poison',
+  }),
+  blowgun: equipment({
+    name: '吹き矢',
+    description: '毒針を飛ばす遠距離武器。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: ')',
+    color: '#a3e635',
+    value: 85,
+    maxDurability: 45,
+    gridSize: { width: 1, height: 2 },
+    attackPower: 2,
+    attackElement: 'poison',
+    attackRange: 4,
+  }),
+  sparkCrossbow: equipment({
+    name: '電撃弩',
+    description: '魔導核で矢に電撃を纏わせた高威力の弩。使うたびに耐久値が減り、尽きると壊れる。',
+    glyph: ')',
+    color: '#f0abfc',
+    value: 150,
+    maxDurability: 35,
+    gridSize: { width: 2, height: 2 },
+    attackPower: 6,
+    attackElement: 'shock',
+    attackRange: 4,
+  }),
+  leatherArmor: equipment({
+    name: '革鎧',
+    description: '打撃属性のダメージを和らげる軽装の鎧。手持ちに入れているだけで効果を発揮する。',
+    glyph: '[',
+    color: '#d6a76c',
+    value: 90,
+    maxDurability: 50,
+    gridSize: { width: 1, height: 2 },
+    resistance: 'impact',
+  }),
+  hazmatSuit: equipment({
+    name: '防護服',
+    description: '毒属性のダメージを和らげる防護服。手持ちに入れているだけで効果を発揮する。',
+    glyph: '[',
+    color: '#86efac',
+    value: 130,
+    maxDurability: 45,
+    gridSize: { width: 1, height: 2 },
+    resistance: 'poison',
+  }),
+  ironOre: material('鉄鉱石', '剣、ピッケル、斧、防具に使う基本金属。', ['mine'], '鉱脈を採掘', 28, '#93c5fd', 'common', [
+    'axe',
     'swordUpgrade1',
     'swordUpgrade2',
     'pickaxeUpgrade1',
     'pickaxeUpgrade2',
   ]),
-  copperOre: material('銅鉱石', '弓、道具、拠点設備に使う柔らかい金属。', ['mine'], '鉱脈を採掘', 24, '#f59e0b', 'common', [
+  copperOre: material('銅鉱石', '弓、電撃弩、拠点設備に使う柔らかい金属。', ['mine'], '鉱脈を採掘', 24, '#f59e0b', 'common', [
+    'sparkCrossbow',
     'bowUpgrade1',
     'bowUpgrade2',
-    'craftBenchUpgrade1',
-    'lockpickTool',
   ]),
   sulfur: material('硫黄', '爆薬や煙玉の材料になる黄色い鉱物。', ['mine'], '鉱脈を採掘', 34, '#fde047', 'uncommon', ['smokeBomb', 'explosive']),
-  oldGear: material('古い歯車', '倉庫拡張、地図台、帰還ビーコンに使う機械部品。', ['mine', 'lab'], '機械残骸を調べる', 58, '#94a3b8', 'uncommon', [
+  oldGear: material('古い歯車', 'ピッケル強化に使う機械部品。', ['mine', 'lab'], '機械残骸を調べる', 58, '#94a3b8', 'uncommon', [
     'pickaxeUpgrade1',
     'pickaxeUpgrade2',
-    'bagUpgrade2',
-    'stashUpgrade1',
-    'mapTable',
-    'returnBeacon',
   ]),
   hardShell: material('硬殻', '防具や盾系アイテムに使う硬い殻。', ['mine'], '鉱石虫などの敵ドロップ', 42, '#a3e635', 'uncommon', [
     'armorUpgrade1',
@@ -205,88 +318,76 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     'bandage',
   ], 12),
   blueMushroom: material('青キノコ', '上級回復薬や集中薬に使う発光キノコ。生食でもスタミナが回復する。', ['forest'], 'キノコを採取', 32, '#38bdf8', 'uncommon', ['hiPotion'], 22),
-  poisonSpore: material('毒胞子', '毒瓶や解毒薬に使う危険な胞子。', ['forest'], '胞子溜まり / 敵ドロップ', 36, '#bef264', 'uncommon', [
+  poisonSpore: material('毒胞子', '毒瓶、短剣、吹き矢に使う危険な胞子。', ['forest'], '胞子溜まり / 敵ドロップ', 36, '#bef264', 'uncommon', [
     'antidote',
     'poisonVial',
+    'dagger',
+    'blowgun',
   ]),
   cleanWater: material('清水', '薬品や回復薬を安定させる水。飲めばスタミナが少し回復する。', ['forest'], '水場を採取', 20, '#7dd3fc', 'common', [
     'potion',
     'hiPotion',
     'antidote',
   ], 8),
-  slimeGel: material('粘液', '接着剤や罠解除道具に使う粘る素材。', ['forest'], '敵ドロップ', 28, '#67e8f9', 'common', ['lockpickTool']),
-  boneShard: material('骨片', '矢や武器強化に使う硬い骨片。', ['fortress'], '敵ドロップ', 32, '#e5e7eb', 'common', [
+  slimeGel: material('粘液', '粘る素材。売却素材として重宝される。', ['forest'], '敵ドロップ', 28, '#67e8f9', 'common', []),
+  boneShard: material('骨片', '矢や電撃弩に使う硬い骨片。', ['fortress'], '敵ドロップ', 32, '#e5e7eb', 'common', [
     'bowUpgrade1',
     'bowUpgrade2',
+    'sparkCrossbow',
   ]),
-  sturdyLeather: material('丈夫な革', '防具やバッグ拡張に使う厚い革。', ['fortress'], '敵ドロップ / 木箱', 44, '#d6a76c', 'common', [
+  sturdyLeather: material('丈夫な革', '防具に使う厚い革。', ['fortress'], '敵ドロップ / 木箱', 44, '#d6a76c', 'common', [
     'armorUpgrade1',
     'armorUpgrade2',
-    'bagUpgrade1',
-    'bagUpgrade2',
+    'leatherArmor',
   ]),
   tornCloth: material('裂けた布', '包帯、煙玉、爆薬の導火に使える布。', ['fortress'], '木箱 / 敵ドロップ', 22, '#fef3c7', 'common', [
     'bandage',
     'smokeBomb',
     'explosive',
-    'bagUpgrade1',
   ]),
-  brokenBlade: material('折れた刃', '剣強化や投げナイフに使う刃物片。', ['fortress'], '宝箱 / 敵ドロップ', 54, '#cbd5e1', 'uncommon', [
+  brokenBlade: material('折れた刃', '剣強化や短剣・投げナイフに使う刃物片。', ['fortress'], '宝箱 / 敵ドロップ', 54, '#cbd5e1', 'uncommon', [
     'throwingKnife',
+    'dagger',
     'swordUpgrade1',
     'swordUpgrade2',
   ]),
-  crestFragment: material('紋章片', '拠点強化や換金に使う砦の証。', ['fortress'], '鍵部屋 / 強敵', 95, '#facc15', 'rare', ['bagUpgrade2']),
+  crestFragment: material('紋章片', '電撃弩に使う砦の証。', ['fortress'], '鍵部屋 / 強敵', 95, '#facc15', 'rare', ['sparkCrossbow']),
   glassShard: material('ガラス片', '薬品や投擲瓶に使う透明な破片。', ['lab'], '研究棚を調べる', 36, '#bae6fd', 'common', [
     'poisonVial',
-    'craftBenchUpgrade1',
-    'returnBeacon',
   ]),
-  chemicalBottle: material('薬品瓶', '上級薬や爆薬に使う薬品容器。', ['lab'], '研究棚を調べる', 58, '#c4b5fd', 'uncommon', [
+  chemicalBottle: material('薬品瓶', '上級薬や爆薬、防護服に使う薬品容器。', ['lab'], '研究棚を調べる', 58, '#c4b5fd', 'uncommon', [
     'antidote',
     'explosive',
+    'hazmatSuit',
   ]),
-  arcaneCore: material('魔導核', '上位装備や帰還ビーコンに使う高価値素材。', ['lab'], '装置 / 強敵', 140, '#f0abfc', 'rare', [
+  arcaneCore: material('魔導核', '電撃弩など高位装備に使う高価値素材。', ['lab'], '装置 / 強敵', 140, '#f0abfc', 'rare', [
     'swordUpgrade2',
     'pickaxeUpgrade2',
-    'returnBeacon',
+    'sparkCrossbow',
   ]),
-  dataRecord: material('記録媒体', '地図台やレシピ解放に使う記録端末。', ['lab'], '端末 / 鍵部屋', 100, '#a5b4fc', 'rare', [
+  dataRecord: material('記録媒体', '弓強化に使う記録端末。', ['lab'], '端末 / 鍵部屋', 100, '#a5b4fc', 'rare', [
     'bowUpgrade2',
-    'craftBenchUpgrade1',
-    'mapTable',
   ]),
-  mutantMeat: material('変質肉', '危険薬や売却に回せる不気味な素材。', ['lab'], '敵ドロップ', 48, '#fb7185', 'uncommon', ['armorUpgrade2']),
-  wood: material('木材', '矢、道具、拠点設備に広く使う。', ['mine', 'forest', 'fortress', 'lab'], '木箱 / 残骸', 12, '#c08457', 'common', [
+  mutantMeat: material('変質肉', '防護服や売却に回せる不気味な素材。', ['lab'], '敵ドロップ', 48, '#fb7185', 'uncommon', ['armorUpgrade2', 'hazmatSuit']),
+  wood: material('木材', '矢、斧、短剣、吹き矢など広く使う。', ['mine', 'forest', 'fortress', 'lab'], '木箱 / 残骸', 12, '#c08457', 'common', [
     'throwingKnife',
+    'axe',
+    'dagger',
+    'blowgun',
     'bowUpgrade1',
     'pickaxeUpgrade1',
-    'stashUpgrade1',
   ]),
-  oldCoin: material('古銭', '換金やレシピ費用に使う。', ['mine', 'forest', 'fortress', 'lab'], '宝箱 / 敵ドロップ', 25, '#fcd34d', 'common', [
-    'stashUpgrade1',
-  ]),
-  keyBundle: material('鍵束', '鍵部屋や封鎖扉を開けるための素材。', ['fortress', 'lab'], '敵ドロップ / 宝箱', 70, '#fef08a', 'uncommon', [
-    'lockpickTool',
-  ]),
-  mapFragment: material('地図断片', '探索先情報や脱出口情報の解析に使う。', ['mine', 'forest', 'fortress', 'lab'], '宝箱 / 端末', 62, '#bfdbfe', 'uncommon', [
-    'mapTable',
-  ]),
-  swordUpgrade1: upgrade('剣強化 I', '近接攻撃を強化する拠点強化。', 180),
-  swordUpgrade2: upgrade('剣強化 II', '近接攻撃をさらに強化する上位強化。', 360),
-  bowUpgrade1: upgrade('弓強化 I', '弓の威力と射程を強化する。', 170),
-  bowUpgrade2: upgrade('弓強化 II', '弓の性能をさらに高める。', 340),
+  oldCoin: material('古銭', '換金に使う古銭。', ['mine', 'forest', 'fortress', 'lab'], '宝箱 / 敵ドロップ', 25, '#fcd34d', 'common', []),
+  keyBundle: material('鍵束', '希少な鍵の束。売却価値が高い。', ['fortress', 'lab'], '敵ドロップ / 宝箱', 70, '#fef08a', 'uncommon', []),
+  mapFragment: material('地図断片', '古い地図の断片。売却価値が高い希少品。', ['mine', 'forest', 'fortress', 'lab'], '宝箱 / 端末', 62, '#bfdbfe', 'uncommon', []),
+  swordUpgrade1: upgrade('剣強化 I', '斧や短剣の材料になる鍛冶素材。', 180),
+  swordUpgrade2: upgrade('剣強化 II', '上位の近接武器に使う鍛冶素材。', 360),
+  bowUpgrade1: upgrade('弓強化 I', '吹き矢の材料になる素材。', 170),
+  bowUpgrade2: upgrade('弓強化 II', '電撃弩に使う上位素材。', 340),
   pickaxeUpgrade1: upgrade('ピッケル強化 I', '採掘できる対象を増やす。', 160),
   pickaxeUpgrade2: upgrade('ピッケル強化 II', '硬い壁やレア鉱脈に対応する。', 360),
-  armorUpgrade1: upgrade('防具補強 I', '最大HPと防御を上げる。', 180),
-  armorUpgrade2: upgrade('防具補強 II', '防御をさらに上げる。', 380),
-  bagUpgrade1: upgrade('バッグ拡張 I', '持ち帰り枠を増やす。', 220),
-  bagUpgrade2: upgrade('バッグ拡張 II', '持ち帰り枠をさらに増やす。', 460),
-  stashUpgrade1: upgrade('倉庫拡張 I', '倉庫 UI と保管枠を強化する。', 180),
-  craftBenchUpgrade1: upgrade('クラフト台強化 I', '上位レシピを解放する。', 320),
-  mapTable: upgrade('地図台', '入手先や脱出口情報を見やすくする。', 280),
-  returnBeacon: upgrade('帰還ビーコン', '脱出補助アイテムを作れるようにする。', 420),
-  lockpickTool: upgrade('鍵開け道具', '鍵部屋に入りやすくする。', 180),
+  armorUpgrade1: upgrade('防具補強 I', '革鎧の材料になる素材。', 180),
+  armorUpgrade2: upgrade('防具補強 II', '防護服に使う上位素材。', 380),
   ancientRelic: collection('古びた遺物', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 220, '#d6c39a'),
   gildedIdol: collection('金めっきの偶像', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 340, '#facc15'),
   strangeGem: collection('不思議な宝石', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 180, '#c4b5fd'),
@@ -295,6 +396,7 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
 export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
 export const MATERIAL_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'material');
 export const COLLECTION_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'collection');
+export const ARMOR_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].resistance !== undefined);
 export const RAID_CAPACITY = 12;
 
 export const createEmptyInventory = (): Inventory =>
@@ -313,4 +415,3 @@ export const createStartingStash = (): Inventory => ({
 
 export const inventoryItemCount = (inventory: Inventory) =>
   ITEM_KINDS.reduce((total, item) => total + inventory[item], 0);
-

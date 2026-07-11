@@ -1,8 +1,15 @@
-import type { ItemKind } from '../engine/types';
+import type { ElementId, ItemKind } from '../engine/types';
 import { ENEMY_DEFINITIONS, ENEMY_KINDS } from './enemies';
 import { ITEM_DEFINITIONS, ITEM_KINDS } from './items';
 import { CRAFTING_RECIPES, formatStack } from './recipes';
 import { BIOME_DEFINITIONS } from './biomes';
+
+export const ELEMENT_LABELS: Record<ElementId, string> = {
+  impact: '打撃',
+  pierce: '貫通',
+  poison: '毒',
+  shock: '感電',
+};
 
 export type EnemyEntry = {
   id: string;
@@ -16,6 +23,9 @@ export type EnemyEntry = {
   };
   drop: string;
   biome: string;
+  attackElement: string;
+  weakness?: string;
+  resistance?: string;
 };
 
 export type ItemEntry = {
@@ -28,6 +38,8 @@ export type ItemEntry = {
   sources: string;
   obtain: string;
   rarity: string;
+  attackInfo?: string;
+  resistanceInfo?: string;
 };
 
 export type RecipeEntry = {
@@ -55,6 +67,9 @@ export const ENEMY_ENTRIES: EnemyEntry[] = ENEMY_KINDS.map((id) => {
     },
     drop: enemy.drops.map((drop) => ITEM_DEFINITIONS[drop].name).join(' / '),
     biome: enemy.biomes.map((biome) => BIOME_DEFINITIONS[biome].name).join(' / '),
+    attackElement: ELEMENT_LABELS[enemy.attackElement],
+    weakness: enemy.weakness ? ELEMENT_LABELS[enemy.weakness] : undefined,
+    resistance: enemy.resistance ? ELEMENT_LABELS[enemy.resistance] : undefined,
   };
 });
 
@@ -79,6 +94,11 @@ export const ITEM_ENTRIES: ItemEntry[] = ITEM_KINDS.map((id) => {
     sources: item.sources.map((biome) => BIOME_DEFINITIONS[biome].name).join(' / ') || '拠点',
     obtain: item.obtain,
     rarity: item.rarity,
+    attackInfo:
+      item.attackPower !== undefined && item.attackElement
+        ? `${ELEMENT_LABELS[item.attackElement]}属性 威力${item.attackPower}${item.attackRange && item.attackRange > 1 ? ` / 射程${item.attackRange}` : ''}`
+        : undefined,
+    resistanceInfo: item.resistance ? `${ELEMENT_LABELS[item.resistance]}耐性` : undefined,
   };
 });
 

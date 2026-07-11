@@ -1,11 +1,11 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, ElementId, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
-import { COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
+import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 96;
@@ -20,6 +20,9 @@ const MAX_STAMINA = 100;
 const STAMINA_COST_MOVE = 1;
 const STAMINA_COST_TOOL_ACTION = 3;
 const STAMINA_COST_BAREHANDED_GATHER = 10;
+const STAMINA_COST_BAREHANDED_ATTACK = 6;
+const BAREHANDED_ATTACK_POWER = 0;
+const BAREHANDED_ATTACK_ELEMENT: ElementId = 'impact';
 const COLLECTION_DROP_CHANCE = 0.05;
 
 type RoomLike = {
@@ -669,13 +672,7 @@ export class Game {
     const target = this.blockingEntityAt(targetX, targetY);
 
     if (target?.kind === 'monster') {
-      if (this.selectedHandItem === 'sword' && this.handInventory.sword > 0) {
-        return this.attackFacing();
-      }
-      if (this.selectedHandItem === 'bow' && this.handInventory.bow > 0) {
-        return { usedTurn: this.shootFacing() };
-      }
-      this.pushMessage(`${target.name}が正面にいる。剣か弓を選んで使ってください。`);
+      this.pushMessage(`${target.name}が正面にいる。攻撃するには「使う」を押してください。`);
       return { usedTurn: false };
     }
 
@@ -693,21 +690,6 @@ export class Game {
     player.y = targetY;
     this.spendStamina(STAMINA_COST_MOVE);
     return { usedTurn: true };
-  }
-
-  private attackFacing(): TurnResult {
-    const player = this.player();
-    const target = this.blockingEntityAt(player.x + this.facing.x, player.y + this.facing.y);
-
-    if (target?.kind !== 'monster') {
-      this.pushMessage('正面に攻撃できる敵はいない。');
-      return { usedTurn: false };
-    }
-
-    this.wearEquipment('sword');
-    this.spendStamina(STAMINA_COST_TOOL_ACTION);
-    this.resolveMeleeExchange(player, target);
-    return { usedTurn: true, skipEnemyId: target.id };
   }
 
   private face(dx: number, dy: number): void {
@@ -819,6 +801,11 @@ export class Game {
     const player = this.player();
     const stats = player.stats;
 
+    if (definition.attackPower !== undefined) {
+      this.pushMessage(`${definition.name}は正面に敵がいる時だけ使える。`);
+      return false;
+    }
+
     if (definition.staminaRestore) {
       const source = this.handInventory[item] > 0 ? this.handInventory : this.raidInventory[item] > 0 ? this.raidInventory : undefined;
       if (!source) {
@@ -872,46 +859,110 @@ export class Game {
 
     this.handInventory[item] -= 1;
     this.syncSelectedHandItem();
-    this.pushMessage(`${definition.name}を使った。詳しい効果は今後の状態異常/投擲実装で拡張する。`);
+    this.pushMessage(`${definition.name}を使った。`);
     return true;
   }
 
   private useHeldItem(): TurnResult {
     const item = this.selectedHandItem;
     const hasItem = item !== null && this.handInventory[item] > 0;
+    const definition = hasItem ? ITEM_DEFINITIONS[item] : undefined;
+    const isPickaxe = hasItem && item === 'pickaxe';
+    const canAttack = !hasItem || definition?.attackPower !== undefined;
 
-    if (hasItem && item === 'pickaxe') {
-      return { usedTurn: this.mineFacing() };
+    if (canAttack) {
+      const range = definition?.attackRange ?? 1;
+      if (this.findFacingMonster(range)) {
+        return this.performAttack(hasItem ? item : null);
+      }
     }
 
-    if (hasItem && item === 'sword') {
-      return this.attackFacing();
+    const player = this.player();
+    const frontX = player.x + this.facing.x;
+    const frontY = player.y + this.facing.y;
+    const frontTarget = this.blockingEntityAt(frontX, frontY);
+
+    if (frontTarget?.kind === 'monster') {
+      this.pushMessage(`${definition?.name ?? 'それ'}では攻撃できない。`);
+      return { usedTurn: false };
     }
 
-    if (hasItem && item === 'bow') {
-      return { usedTurn: this.shootFacing() };
+    if (this.mode === 'raid' && this.inBounds(frontX, frontY)) {
+      const frontTile = this.tileAt(frontX, frontY);
+      const gatherable = this.isGatheringTile(frontTile.kind);
+
+      if (gatherable || (isPickaxe && frontTile.kind === 'wall')) {
+        const success = this.gatherFacing(isPickaxe);
+        if (success && isPickaxe) {
+          this.wearEquipment('pickaxe');
+        }
+        return { usedTurn: success };
+      }
     }
 
     if (hasItem && item) {
       return { usedTurn: this.useItem(item) };
     }
 
-    const player = this.player();
-    const frontTile = this.tileAt(player.x + this.facing.x, player.y + this.facing.y);
-    if (this.mode === 'raid' && frontTile && this.isGatheringTile(frontTile.kind)) {
-      return { usedTurn: this.gatherFacing(false) };
-    }
-
     this.pushMessage('手に持っているアイテムがない。');
     return { usedTurn: false };
   }
 
-  private mineFacing(): boolean {
-    const success = this.gatherFacing(true);
-    if (success) {
-      this.wearEquipment('pickaxe');
+  private findFacingMonster(range: number): Entity | undefined {
+    const player = this.player();
+
+    for (let step = 1; step <= range; step += 1) {
+      const x = player.x + this.facing.x * step;
+      const y = player.y + this.facing.y * step;
+      if (!this.inBounds(x, y)) {
+        break;
+      }
+
+      const tile = this.tileAt(x, y);
+      if (tile.kind === 'wall' || this.isGatheringTile(tile.kind)) {
+        break;
+      }
+
+      const target = this.blockingEntityAt(x, y);
+      if (target?.kind === 'monster') {
+        return target;
+      }
     }
-    return success;
+
+    return undefined;
+  }
+
+  private performAttack(item: ItemKind | null): TurnResult {
+    const player = this.player();
+    const definition = item ? ITEM_DEFINITIONS[item] : undefined;
+    const attackBonus = definition?.attackPower ?? BAREHANDED_ATTACK_POWER;
+    const attackElement = definition?.attackElement ?? BAREHANDED_ATTACK_ELEMENT;
+    const range = definition?.attackRange ?? 1;
+
+    const target = this.findFacingMonster(range);
+    if (!target) {
+      this.pushMessage(range <= 1 ? '正面に攻撃できる敵はいない。' : '攻撃が届く範囲に敵がいない。');
+      return { usedTurn: false };
+    }
+
+    if (item) {
+      if (definition?.category === 'equipment') {
+        this.wearEquipment(item);
+      } else {
+        this.handInventory[item] -= 1;
+        this.syncSelectedHandItem();
+      }
+    }
+
+    this.spendStamina(item ? STAMINA_COST_TOOL_ACTION : STAMINA_COST_BAREHANDED_ATTACK);
+
+    if (range <= 1) {
+      this.resolveMeleeExchange(player, target, attackBonus, attackElement);
+    } else {
+      this.attack(player, target, attackBonus, attackElement);
+    }
+
+    return { usedTurn: true, skipEnemyId: range <= 1 ? target.id : undefined };
   }
 
   private gatherFacing(withTool: boolean): boolean {
@@ -962,35 +1013,6 @@ export class Game {
     }
 
     return COLLECTION_KINDS[ROT.RNG.getUniformInt(0, COLLECTION_KINDS.length - 1)];
-  }
-
-  private shootFacing(): boolean {
-    const player = this.player();
-    const range = 5;
-
-    for (let step = 1; step <= range; step += 1) {
-      const x = player.x + this.facing.x * step;
-      const y = player.y + this.facing.y * step;
-      if (!this.inBounds(x, y)) {
-        break;
-      }
-
-      const tile = this.tileAt(x, y);
-      if (tile.kind === 'wall' || this.isGatheringTile(tile.kind)) {
-        break;
-      }
-
-      const target = this.blockingEntityAt(x, y);
-      if (target?.kind === 'monster') {
-        this.wearEquipment('bow');
-        this.spendStamina(STAMINA_COST_TOOL_ACTION);
-        this.attack(player, target);
-        return true;
-      }
-    }
-
-    this.pushMessage('弓で狙える敵がいない。');
-    return false;
   }
 
   private extract(): boolean {
@@ -1189,7 +1211,7 @@ export class Game {
     });
   }
 
-  private resolveMeleeExchange(player: Entity, monster: Entity): void {
+  private resolveMeleeExchange(player: Entity, monster: Entity, playerAttackBonus: number, playerAttackElement: ElementId): void {
     const actors = [player, monster].sort(compareActionOrder);
 
     actors.forEach((actor) => {
@@ -1202,7 +1224,11 @@ export class Game {
         return;
       }
 
-      this.attack(actor, target);
+      if (actor.id === player.id) {
+        this.attack(actor, target, playerAttackBonus, playerAttackElement);
+      } else {
+        this.attack(actor, target);
+      }
     });
   }
 
@@ -1240,19 +1266,31 @@ export class Game {
     }
   }
 
-  private attack(attacker: Entity, defender: Entity): void {
+  private attack(attacker: Entity, defender: Entity, attackerBonus = 0, attackerElement?: ElementId): void {
     if (!attacker.stats || !defender.stats) {
       return;
     }
 
-    const damage = Math.max(1, attacker.stats.attack - defender.stats.defense + ROT.RNG.getUniformInt(-1, 2));
+    const resolvedElement = attackerElement ?? (attacker.enemy ? ENEMY_DEFINITIONS[attacker.enemy].attackElement : undefined);
+    const defenderWeakness = defender.enemy ? ENEMY_DEFINITIONS[defender.enemy].weakness : undefined;
+    const defenderResistance = defender.kind === 'player' ? this.playerArmorResistance() : defender.enemy ? ENEMY_DEFINITIONS[defender.enemy].resistance : undefined;
+
+    const rawDamage = Math.max(0, attacker.stats.attack + attackerBonus - defender.stats.defense) + ROT.RNG.getUniformInt(-1, 2);
+    const multiplier = elementMultiplier(resolvedElement, defenderWeakness, defenderResistance);
+    const damage = Math.max(1, Math.round(rawDamage * multiplier));
+
     defender.stats.hp = Math.max(0, defender.stats.hp - damage);
     this.pushCombatEffect(attacker, defender, damage);
-    this.pushMessage(attackMessage(attacker, defender, damage));
+    this.pushMessage(attackMessage(attacker, defender, damage, multiplier));
 
     if (defender.stats.hp <= 0) {
       this.kill(defender, attacker);
     }
+  }
+
+  private playerArmorResistance(): ElementId | undefined {
+    const armorItem = ARMOR_KINDS.find((item) => this.handInventory[item] > 0);
+    return armorItem ? ITEM_DEFINITIONS[armorItem].resistance : undefined;
   }
 
   private kill(entity: Entity, killer: Entity): void {
@@ -1648,16 +1686,31 @@ const directionFromPlayer = (target: Entity, player: Entity) => {
   return '北西';
 };
 
-const attackMessage = (attacker: Entity, defender: Entity, damage: number) => {
+const elementMultiplier = (element: ElementId | undefined, weakness?: ElementId, resistance?: ElementId): number => {
+  if (!element) {
+    return 1;
+  }
+  if (element === weakness) {
+    return 1.5;
+  }
+  if (element === resistance) {
+    return 0.6;
+  }
+  return 1;
+};
+
+const attackMessage = (attacker: Entity, defender: Entity, damage: number, multiplier: number) => {
+  const suffix = multiplier > 1 ? ' 弱点を突いた！' : multiplier < 1 ? ' 耐性で軽減された。' : '';
+
   if (attacker.kind === 'player') {
-    return `${defender.name}に${damage}ダメージを与えた。`;
+    return `${defender.name}に${damage}ダメージを与えた。${suffix}`;
   }
 
   if (defender.kind === 'player') {
-    return `${attacker.name}から${damage}ダメージを受けた。`;
+    return `${attacker.name}から${damage}ダメージを受けた。${suffix}`;
   }
 
-  return `${attacker.name}が${defender.name}に${damage}ダメージを与えた。`;
+  return `${attacker.name}が${defender.name}に${damage}ダメージを与えた。${suffix}`;
 };
 
 const inventoryLocationLabel = (location: InventoryLocation) => {

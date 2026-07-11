@@ -1,4 +1,4 @@
-import type { ActorStats, BiomeId, EnemyKind, ItemKind } from '../engine/types';
+import type { ActorStats, BiomeId, ElementId, EnemyKind, ItemKind } from '../engine/types';
 import { BIOME_DEFINITIONS } from './biomes';
 
 type EnemyDefinition = {
@@ -11,12 +11,15 @@ type EnemyDefinition = {
   biomes: BiomeId[];
   minDanger: number;
   weight: number;
+  attackElement: ElementId;
+  weakness?: ElementId;
+  resistance?: ElementId;
 };
 
 export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
   caveImp: {
     name: '洞窟インプ',
-    description: '序盤の基本敵。金属素材や古銭を持っていることがある。',
+    description: '序盤の基本敵。金属素材や古銭を持っていることがある。貫通属性に弱い。',
     glyph: 'i',
     color: '#d97878',
     stats: { hp: 9, maxHp: 9, attack: 5, defense: 0, speed: 12 },
@@ -24,10 +27,12 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['mine'],
     minDanger: 1,
     weight: 36,
+    attackElement: 'impact',
+    weakness: 'pierce',
   },
   oreBeetle: {
     name: '鉱石虫',
-    description: '防具素材の供給源になる硬い虫。',
+    description: '防具素材の供給源になる硬い虫。硬殻が打撃を防ぐが、貫通属性には弱い。',
     glyph: 'b',
     color: '#a3e635',
     stats: { hp: 14, maxHp: 14, attack: 5, defense: 2, speed: 7 },
@@ -35,10 +40,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['mine'],
     minDanger: 1,
     weight: 28,
+    attackElement: 'impact',
+    weakness: 'pierce',
+    resistance: 'impact',
   },
   tunnelGnoll: {
     name: '坑道ノール',
-    description: '廃坑の強めの敵。古い歯車を持つことがある。',
+    description: '廃坑の強めの敵。古い歯車を持つことがある。金属装備が電撃を通しやすい。',
     glyph: 'G',
     color: '#f0a95b',
     stats: { hp: 20, maxHp: 20, attack: 8, defense: 2, speed: 8 },
@@ -46,10 +54,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['mine'],
     minDanger: 1,
     weight: 16,
+    attackElement: 'impact',
+    weakness: 'shock',
+    resistance: 'pierce',
   },
   sporeBat: {
     name: '胞子コウモリ',
-    description: '素早く先制されやすい菌糸の森の敵。',
+    description: '素早く先制されやすい菌糸の森の敵。体が薄く打撃に弱い。',
     glyph: 'b',
     color: '#c084fc',
     stats: { hp: 7, maxHp: 7, attack: 4, defense: 0, speed: 15 },
@@ -57,10 +68,12 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['forest'],
     minDanger: 1,
     weight: 32,
+    attackElement: 'poison',
+    weakness: 'impact',
   },
   slime: {
     name: '粘液スライム',
-    description: '遅いが硬い敵。粘液や清水を落とす。',
+    description: '遅いが硬い敵。粘液や清水を落とす。毒はほぼ効かないが、電撃には弱い。',
     glyph: 's',
     color: '#67e8f9',
     stats: { hp: 15, maxHp: 15, attack: 4, defense: 1, speed: 5 },
@@ -68,10 +81,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['forest'],
     minDanger: 1,
     weight: 28,
+    attackElement: 'poison',
+    weakness: 'shock',
+    resistance: 'poison',
   },
   herbEater: {
     name: '森の薬喰い',
-    description: '回復素材を持つが、不用意に近づくと反撃される。',
+    description: '回復素材を持つが、不用意に近づくと反撃される。毒に弱い。',
     glyph: 'h',
     color: '#86efac',
     stats: { hp: 13, maxHp: 13, attack: 6, defense: 1, speed: 9 },
@@ -79,10 +95,12 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['forest'],
     minDanger: 1,
     weight: 20,
+    attackElement: 'poison',
+    weakness: 'poison',
   },
   boneSentinel: {
     name: '骨の番兵',
-    description: '砦の基本敵。矢や武器強化に使う骨片を持つ。',
+    description: '砦の基本敵。矢や武器強化に使う骨片を持つ。骨は打撃で砕けやすく、貫通は通りにくい。',
     glyph: 'B',
     color: '#e5e7eb',
     stats: { hp: 16, maxHp: 16, attack: 7, defense: 1, speed: 10 },
@@ -90,10 +108,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['fortress'],
     minDanger: 2,
     weight: 30,
+    attackElement: 'pierce',
+    weakness: 'impact',
+    resistance: 'pierce',
   },
   fortRaider: {
     name: '砦の略奪者',
-    description: '鍵部屋への導線になる鍵束を落とすことがある。',
+    description: '鍵部屋への導線になる鍵束を落とすことがある。防具が薄く貫通に弱い。',
     glyph: 'r',
     color: '#d6a76c',
     stats: { hp: 18, maxHp: 18, attack: 8, defense: 1, speed: 11 },
@@ -101,10 +122,12 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['fortress'],
     minDanger: 2,
     weight: 24,
+    attackElement: 'pierce',
+    weakness: 'pierce',
   },
   crestKnight: {
     name: '紋章騎士',
-    description: '砦の強敵。紋章片を狙えるが正面戦闘は危険。',
+    description: '砦の強敵。紋章片を狙えるが正面戦闘は危険。重装甲は貫通を防ぐが、打撃には弱い。',
     glyph: 'K',
     color: '#facc15',
     stats: { hp: 24, maxHp: 24, attack: 10, defense: 3, speed: 9 },
@@ -112,10 +135,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['fortress'],
     minDanger: 2,
     weight: 10,
+    attackElement: 'pierce',
+    weakness: 'impact',
+    resistance: 'pierce',
   },
   failedSubject: {
     name: '研究区の失敗作',
-    description: '不気味な基本敵。危険薬や売却素材につながる。',
+    description: '不気味な基本敵。危険薬や売却素材につながる。毒には強いが電撃に弱い不安定な体組織。',
     glyph: 'f',
     color: '#fb7185',
     stats: { hp: 19, maxHp: 19, attack: 8, defense: 1, speed: 10 },
@@ -123,10 +149,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['lab'],
     minDanger: 3,
     weight: 28,
+    attackElement: 'shock',
+    weakness: 'shock',
+    resistance: 'poison',
   },
   observerDrone: {
     name: '浮遊観測機',
-    description: '遠距離から接近してくる索敵系の敵。',
+    description: '遠距離から接近してくる索敵系の敵。装甲は打撃を防ぐが、電子機器なので電撃に弱い。',
     glyph: 'o',
     color: '#a5b4fc',
     stats: { hp: 14, maxHp: 14, attack: 7, defense: 1, speed: 14 },
@@ -134,10 +163,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['lab'],
     minDanger: 3,
     weight: 22,
+    attackElement: 'shock',
+    weakness: 'shock',
+    resistance: 'impact',
   },
   arcaneGuardian: {
     name: '魔導炉の番人',
-    description: '高価値素材の守護敵。倒すか避けるかの判断が重要。',
+    description: '高価値素材の守護敵。倒すか避けるかの判断が重要。魔力の壁が電撃を防ぐが、貫通には弱い。',
     glyph: 'A',
     color: '#f0abfc',
     stats: { hp: 28, maxHp: 28, attack: 11, defense: 3, speed: 8 },
@@ -145,6 +177,9 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     biomes: ['lab'],
     minDanger: 3,
     weight: 10,
+    attackElement: 'shock',
+    weakness: 'pierce',
+    resistance: 'shock',
   },
 };
 
@@ -184,4 +219,3 @@ export const scaledEnemyStats = (enemy: EnemyKind, dangerBonus: number): ActorSt
     speed: stats.speed,
   };
 };
-
