@@ -1,6 +1,6 @@
 import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
-import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS } from '../game/grid-inventory';
+import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS, overlaps } from '../game/grid-inventory';
 import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
@@ -402,6 +402,8 @@ const inventorySummary = (labelText: string, cellsUsed: number, detailText: stri
   return root;
 };
 
+const lastKnownLayouts: Partial<Record<InventoryLocation, PlacedItem[]>> = {};
+
 const inventoryGridElement = (
   location: InventoryLocation,
   placed: PlacedItem[],
@@ -409,6 +411,8 @@ const inventoryGridElement = (
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
+  lastKnownLayouts[location] = placed;
+
   const grid = document.createElement('div');
   grid.className = 'inventory-grid';
   grid.dataset.inventoryLocation = location;
@@ -597,37 +601,72 @@ const inventoryDragPoint = (x: number, y: number) => {
 
 const gridElementAtPoint = (x: number, y: number) => document.elementFromPoint(x, y)?.closest<HTMLElement>('.inventory-grid') ?? undefined;
 
-const cellAtPoint = (grid: HTMLElement, x: number, y: number) => {
+// Snaps to the nearest cell (not just whichever cell the raw pointer sits in) and
+// centers the dragged item's footprint on the pointer, so lining it up feels forgiving.
+const snappedCellAtPoint = (grid: HTMLElement, x: number, y: number, width: number, height: number) => {
   const rect = grid.getBoundingClientRect();
   const cellWidth = rect.width / GRID_COLS;
   const cellHeight = rect.height / GRID_ROWS;
-  const cellX = Math.floor((x - rect.left) / cellWidth);
-  const cellY = Math.floor((y - rect.top) / cellHeight);
+  const rawX = (x - rect.left) / cellWidth - width / 2;
+  const rawY = (y - rect.top) / cellHeight - height / 2;
   return {
-    x: Math.max(0, Math.min(GRID_COLS - 1, cellX)),
-    y: Math.max(0, Math.min(GRID_ROWS - 1, cellY)),
+    x: Math.max(0, Math.min(GRID_COLS - width, Math.round(rawX))),
+    y: Math.max(0, Math.min(GRID_ROWS - height, Math.round(rawY))),
   };
 };
 
+let placementPreviewEl: HTMLElement | null = null;
+
+const clearPlacementPreview = () => {
+  placementPreviewEl?.remove();
+  placementPreviewEl = null;
+};
+
+const showPlacementPreview = (grid: HTMLElement, cell: { x: number; y: number }, width: number, height: number, blocked: boolean) => {
+  if (!placementPreviewEl) {
+    placementPreviewEl = document.createElement('div');
+    placementPreviewEl.className = 'inventory-placement-preview';
+  }
+  placementPreviewEl.classList.toggle('is-blocked', blocked);
+  placementPreviewEl.style.gridColumn = `${cell.x + 1} / span ${width}`;
+  placementPreviewEl.style.gridRow = `${cell.y + 1} / span ${height}`;
+  if (placementPreviewEl.parentElement !== grid) {
+    grid.append(placementPreviewEl);
+  }
+};
+
 const updateInventoryDropPreview = (x: number, y: number) => {
-  clearInventoryDropPreview();
-  if (!inventoryDragState) {
+  const state = inventoryDragState;
+  if (!state) {
+    clearInventoryDropPreview();
     return;
   }
 
   const grid = gridElementAtPoint(x, y);
   const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
+  clearInventoryDropPreview();
+
   if (!grid || !location) {
     return;
   }
 
-  grid.classList.add(location === inventoryDragState.from ? 'is-drop-samelocation' : 'is-drop-target');
+  if (location !== state.from) {
+    grid.classList.add('is-drop-target');
+    return;
+  }
+
+  const { width, height } = ITEM_DEFINITIONS[state.item].gridSize;
+  const cell = snappedCellAtPoint(grid, x, y, width, height);
+  const layout = lastKnownLayouts[location] ?? [];
+  const blocked = layout.some((entry) => entry.item !== state.item && overlaps(entry, cell.x, cell.y, width, height));
+  showPlacementPreview(grid, cell, width, height, blocked);
 };
 
 const clearInventoryDropPreview = () => {
-  document.querySelectorAll<HTMLElement>('.inventory-grid.is-drop-target, .inventory-grid.is-drop-samelocation').forEach((grid) => {
-    grid.classList.remove('is-drop-target', 'is-drop-samelocation');
+  document.querySelectorAll<HTMLElement>('.inventory-grid.is-drop-target').forEach((grid) => {
+    grid.classList.remove('is-drop-target');
   });
+  clearPlacementPreview();
 };
 
 const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
@@ -657,7 +696,8 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   }
 
   if (location === state.from) {
-    const cell = cellAtPoint(grid, point.x, point.y);
+    const { width, height } = ITEM_DEFINITIONS[state.item].gridSize;
+    const cell = snappedCellAtPoint(grid, point.x, point.y, width, height);
     state.onPlaceItem?.(state.item, location, cell.x, cell.y);
     return;
   }
