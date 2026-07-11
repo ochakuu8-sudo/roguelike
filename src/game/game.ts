@@ -4,7 +4,7 @@ import type { BiomeId, CombatEffect, Command, Entity, GameMode, GameSnapshot, Gr
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
-import { canFitAdditionalUnit, layoutGridInventory } from './grid-inventory';
+import { canFitAdditionalUnit, GRID_COLS, GRID_ROWS, layoutGridInventory, overlaps } from './grid-inventory';
 import { COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
@@ -197,6 +197,11 @@ export class Game {
       return;
     }
 
+    if (command.type === 'placeItem') {
+      this.placeItem(command.item, command.location, command.x, command.y);
+      return;
+    }
+
     if (command.type === 'previousHandItem') {
       this.selectHandItem(-1);
       return;
@@ -283,6 +288,7 @@ export class Game {
         this.pushMessage('拠点ではバッグのアイテムを使わない。');
         return;
       case 'moveItem':
+      case 'placeItem':
         return;
       case 'startRaid':
       case 'sellItem':
@@ -1094,6 +1100,31 @@ export class Game {
     }
 
     this.pushMessage(`${ITEM_DEFINITIONS[item].name}を${inventoryLocationLabel(to)}へ移した。`);
+  }
+
+  private placeItem(item: ItemKind, location: InventoryLocation, x: number, y: number): void {
+    const inventory = this.inventoryForLocation(location);
+    if (!inventory || inventory[item] <= 0) {
+      return;
+    }
+
+    const layout = this.gridLayouts[location];
+    const entry = layout.find((placed) => placed.item === item);
+    if (!entry) {
+      return;
+    }
+
+    const clampedX = Math.max(0, Math.min(GRID_COLS - entry.width, x));
+    const clampedY = Math.max(0, Math.min(GRID_ROWS - entry.height, y));
+
+    const blocked = layout.some((other) => other !== entry && overlaps(other, clampedX, clampedY, entry.width, entry.height));
+    if (blocked) {
+      this.pushMessage('そのマスには別のアイテムがある。');
+      return;
+    }
+
+    entry.x = clampedX;
+    entry.y = clampedY;
   }
 
   private sellAllMaterials(): void {

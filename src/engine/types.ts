@@ -15,6 +15,7 @@ export type Command =
   | { type: 'nextHandItem' }
   | { type: 'useItem'; item: ItemKind }
   | { type: 'moveItem'; item: ItemKind; from: InventoryLocation; to: InventoryLocation }
+  | { type: 'placeItem'; item: ItemKind; location: InventoryLocation; x: number; y: number }
   | { type: 'appraiseCollection' }
   | { type: 'descend' }
   | { type: 'startRaid'; mapId: MapId }

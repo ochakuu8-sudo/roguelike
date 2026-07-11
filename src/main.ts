@@ -124,6 +124,10 @@ const refresh = () => {
       game.dispatch({ type: 'moveItem', item, from, to });
       refresh();
     },
+    onPlaceItem: (item, location, x, y) => {
+      game.dispatch({ type: 'placeItem', item, location, x, y });
+      refresh();
+    },
   });
   updateBasePlanning(snapshot, {
     biomeRoot: baseBiomeRoot,
@@ -137,6 +141,14 @@ const refresh = () => {
     },
     onCraftRecipe: (recipe) => {
       game.dispatch({ type: 'craftItem', recipe });
+      refresh();
+    },
+    onMoveItem: (item, from, to) => {
+      game.dispatch({ type: 'moveItem', item, from, to });
+      refresh();
+    },
+    onPlaceItem: (item, location, x, y) => {
+      game.dispatch({ type: 'placeItem', item, location, x, y });
       refresh();
     },
   });

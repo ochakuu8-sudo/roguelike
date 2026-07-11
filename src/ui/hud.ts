@@ -21,6 +21,7 @@ type HudRoots = {
   interactButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+  onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
 type BasePlanningRoots = {
@@ -31,6 +32,8 @@ type BasePlanningRoots = {
   onStartRaid: (mapId: MapId) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
   onAppraiseCollection: () => void;
+  onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+  onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
 type ContextAction = {
@@ -47,6 +50,7 @@ type InventoryDragState = {
   ghost: HTMLElement;
   isTouchDrag: boolean;
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void;
+  onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
 const GRID_CELLS = GRID_COLS * GRID_ROWS;
@@ -117,7 +121,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   );
   updateHandSwitcher(snapshot, roots);
 
-  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem));
+  roots.inventoryRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem, roots.onPlaceItem));
 
   roots.logRoot.replaceChildren(
     ...snapshot.messages.map((message) => {
@@ -128,7 +132,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   );
   roots.logRoot.scrollTop = roots.logRoot.scrollHeight;
 
-  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem));
+  roots.itemListRoot.replaceChildren(...inventoryPanelNodes(snapshot, roots.onMoveItem, roots.onPlaceItem));
 
   updateActionControls(snapshot, roots);
 };
@@ -136,7 +140,11 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
   roots.moneyRoot.textContent = `${snapshot.money}G`;
   roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, roots.onStartRaid)));
-  roots.stashRoot.replaceChildren(...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection), ...stashCards(snapshot.stash));
+  roots.stashRoot.replaceChildren(
+    ...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection),
+    inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
+    inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, roots.onMoveItem, roots.onPlaceItem),
+  );
   roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
 };
 
@@ -252,42 +260,6 @@ const mapCard = (mapId: MapId, onStartRaid: (mapId: MapId) => void) => {
   return card;
 };
 
-const stashCards = (inventory: Inventory) => {
-  const items = ITEM_KINDS.filter(
-    (item) => inventory[item] > 0 && ITEM_DEFINITIONS[item].category !== 'upgrade' && ITEM_DEFINITIONS[item].category !== 'collection',
-  );
-  if (items.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'empty-list';
-    empty.textContent = '倉庫は空です。まず探索で素材を持ち帰りましょう。';
-    return [empty];
-  }
-
-  return items.map((item) => {
-    const definition = ITEM_DEFINITIONS[item];
-    const card = document.createElement('article');
-    card.className = `stash-card stash-card-${definition.category}`;
-    card.title = `${definition.name}: ${definition.description}`;
-
-    const glyph = document.createElement('span');
-    glyph.className = 'stash-card-glyph';
-    glyph.textContent = emojiForItem(item);
-
-    const body = document.createElement('div');
-    const name = document.createElement('strong');
-    name.textContent = definition.name;
-    const detail = document.createElement('small');
-    detail.textContent = `${categoryLabel(definition.category)} / ${definition.sources.map(biomeName).join('・') || definition.obtain}`;
-    body.append(name, detail);
-
-    const count = document.createElement('b');
-    count.textContent = `x${inventory[item]}`;
-
-    card.append(glyph, body, count);
-    return card;
-  });
-};
-
 const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe: (recipe: RecipeId) => void) => {
   const recipe = CRAFTING_RECIPES.find((candidate) => candidate.id === recipeId);
   if (!recipe) {
@@ -395,21 +367,22 @@ const slotText = (labelText: string, detailText: string) => {
 const inventoryPanelNodes = (
   snapshot: GameSnapshot,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   if (snapshot.mode === 'base') {
     return [
       inventorySummary('手持ち予定', gridCellsUsed(snapshot.grids.hand), '次の探索で自動的に持ち込む装備と道具です。'),
-      inventoryGridElement('hand', snapshot.grids.hand, snapshot.baseLoadout, onMoveItem),
-      inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。'),
-      inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, onMoveItem),
+      inventoryGridElement('hand', snapshot.grids.hand, snapshot.baseLoadout, onMoveItem, onPlaceItem),
+      inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。ドラッグで自由に並べ替えられます。'),
+      inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, onMoveItem, onPlaceItem),
     ];
   }
 
   return [
     inventorySummary('手持ち', gridCellsUsed(snapshot.grids.hand), '上部の切り替えに出る装備と消耗品です。'),
-    inventoryGridElement('hand', snapshot.grids.hand, snapshot.player.handInventory, onMoveItem),
+    inventoryGridElement('hand', snapshot.grids.hand, snapshot.player.handInventory, onMoveItem, onPlaceItem),
     inventorySummary('持ち帰りバッグ', gridCellsUsed(snapshot.grids.raidBag), 'ここに入った物だけが拠点へ持ち帰れます。'),
-    inventoryGridElement('raidBag', snapshot.grids.raidBag, snapshot.player.raidInventory, onMoveItem),
+    inventoryGridElement('raidBag', snapshot.grids.raidBag, snapshot.player.raidInventory, onMoveItem, onPlaceItem),
   ];
 };
 
@@ -434,6 +407,7 @@ const inventoryGridElement = (
   placed: PlacedItem[],
   inventory: Inventory,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   const grid = document.createElement('div');
   grid.className = 'inventory-grid';
@@ -450,7 +424,7 @@ const inventoryGridElement = (
   }
 
   placed.forEach((entry) => {
-    grid.append(inventorySlot(entry, inventory[entry.item] ?? 0, location, onMoveItem));
+    grid.append(inventorySlot(entry, inventory[entry.item] ?? 0, location, onMoveItem, onPlaceItem));
   });
 
   return grid;
@@ -461,6 +435,7 @@ const inventorySlot = (
   count: number,
   location: InventoryLocation,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   const definition = ITEM_DEFINITIONS[entry.item];
   const isUnidentified = definition.category === 'collection';
@@ -475,7 +450,7 @@ const inventorySlot = (
   slot.title = isUnidentified
     ? '未鑑定のコレクションアイテム。鑑定士に見せるまで正体が分からない。'
     : `${definition.name} x${count}: ${definition.description}`;
-  bindInventoryDrag(slot, entry.item, location, onMoveItem);
+  bindInventoryDrag(slot, entry.item, location, onMoveItem, onPlaceItem);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
@@ -511,6 +486,7 @@ const bindInventoryDrag = (
   itemKind: ItemKind,
   location: InventoryLocation,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation) => void,
+  onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
   if (!onMoveItem) {
     return;
@@ -533,6 +509,7 @@ const bindInventoryDrag = (
       ghost,
       isTouchDrag,
       onMoveItem,
+      onPlaceItem,
     };
     slot.classList.add('is-drag-source');
     moveInventoryGhost(x, y);
@@ -620,6 +597,18 @@ const inventoryDragPoint = (x: number, y: number) => {
 
 const gridElementAtPoint = (x: number, y: number) => document.elementFromPoint(x, y)?.closest<HTMLElement>('.inventory-grid') ?? undefined;
 
+const cellAtPoint = (grid: HTMLElement, x: number, y: number) => {
+  const rect = grid.getBoundingClientRect();
+  const cellWidth = rect.width / GRID_COLS;
+  const cellHeight = rect.height / GRID_ROWS;
+  const cellX = Math.floor((x - rect.left) / cellWidth);
+  const cellY = Math.floor((y - rect.top) / cellHeight);
+  return {
+    x: Math.max(0, Math.min(GRID_COLS - 1, cellX)),
+    y: Math.max(0, Math.min(GRID_ROWS - 1, cellY)),
+  };
+};
+
 const updateInventoryDropPreview = (x: number, y: number) => {
   clearInventoryDropPreview();
   if (!inventoryDragState) {
@@ -663,9 +652,17 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   const grid = gridElementAtPoint(point.x, point.y);
   const location = grid?.dataset.inventoryLocation as InventoryLocation | undefined;
 
-  if (location && location !== state.from) {
-    state.onMoveItem?.(state.item, state.from, location);
+  if (!grid || !location) {
+    return;
   }
+
+  if (location === state.from) {
+    const cell = cellAtPoint(grid, point.x, point.y);
+    state.onPlaceItem?.(state.item, location, cell.x, cell.y);
+    return;
+  }
+
+  state.onMoveItem?.(state.item, state.from, location);
 };
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
@@ -947,19 +944,3 @@ const isGatheringTile = (kind: GameSnapshot['tiles'][number]['kind']) =>
   kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
 
 const biomeName = (biome: BiomeId) => BIOME_DEFINITIONS[biome].name;
-
-const categoryLabel = (category: (typeof ITEM_DEFINITIONS)[ItemKind]['category']) => {
-  if (category === 'consumable') {
-    return '消耗品';
-  }
-  if (category === 'equipment') {
-    return '装備';
-  }
-  if (category === 'upgrade') {
-    return '強化';
-  }
-  if (category === 'collection') {
-    return 'コレクション';
-  }
-  return '素材';
-};

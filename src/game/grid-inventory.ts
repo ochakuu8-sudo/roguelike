@@ -9,7 +9,7 @@ const isStackable = (item: ItemKind): boolean => {
   return category === 'material' || category === 'consumable' || category === 'upgrade';
 };
 
-const overlaps = (a: PlacedItem, x: number, y: number, width: number, height: number) =>
+export const overlaps = (a: PlacedItem, x: number, y: number, width: number, height: number) =>
   x < a.x + a.width && x + width > a.x && y < a.y + a.height && y + height > a.y;
 
 const findFreeSpot = (placed: PlacedItem[], width: number, height: number): { x: number; y: number } | undefined => {
