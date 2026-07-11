@@ -75,6 +75,7 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
         command === 'nextHandItem' ||
         command === 'descend' ||
         command === 'restart' ||
+        command === 'acknowledgeDeath' ||
         command === 'help'
       ) {
         onCommand({ type: command });

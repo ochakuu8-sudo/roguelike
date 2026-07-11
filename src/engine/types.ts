@@ -22,6 +22,7 @@ export type Command =
   | { type: 'sellItem'; item: ItemKind }
   | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
+  | { type: 'acknowledgeDeath' }
   | { type: 'help' };
 
 export type TileKind = 'wall' | 'floor' | 'stairs' | 'ore' | 'forage' | 'crate' | 'device' | 'locked';

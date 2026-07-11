@@ -219,8 +219,8 @@ export class CanvasRenderer {
     this.drawFacing(snapshot, camera);
     this.drawCombatEffects(combatEffects, camera);
 
-    if (snapshot.gameOver) {
-      this.drawOverlay(displayWidth, displayHeight, '倒れた', '再開ボタンで新しいダンジョンに挑戦できます。');
+    if (snapshot.gameOver && combatEffects.length === 0) {
+      this.drawOverlay(displayWidth, displayHeight, '倒れた', '「拠点に戻る」を押すと帰還する。探索中の荷物は失われる。');
     }
   }
 

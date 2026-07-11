@@ -18,6 +18,7 @@ const nextHandButton = document.querySelector<HTMLButtonElement>('[data-command=
 const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="pickup"]');
 const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
 const heldActionButton = document.querySelector<HTMLButtonElement>('[data-command="useHeldItem"]');
+const returnToBaseButton = document.querySelector<HTMLButtonElement>('#return-to-base-button');
 const basePlanningButton = document.querySelector<HTMLButtonElement>('#base-planning-button');
 const basePlanningCloseButton = document.querySelector<HTMLButtonElement>('#base-planning-close');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
@@ -45,6 +46,7 @@ if (
   !pickupButton ||
   !interactButton ||
   !heldActionButton ||
+  !returnToBaseButton ||
   !basePlanningButton ||
   !basePlanningCloseButton ||
   !compendiumButton ||
@@ -103,6 +105,7 @@ const startRaid = (mapId: MapId) => {
 const refresh = () => {
   const snapshot = game.snapshot();
   document.body.classList.toggle('is-base', snapshot.mode === 'base');
+  document.body.classList.toggle('is-dead', snapshot.gameOver);
   if (snapshot.mode !== 'base') {
     document.body.classList.remove('show-base-planning');
   }
@@ -120,6 +123,7 @@ const refresh = () => {
     pickupButton,
     interactButton,
     heldActionButton,
+    returnToBaseButton,
     onMoveItem: (item, from, to, x, y) => {
       game.dispatch({ type: 'moveItem', item, from, to, x, y });
       refresh();

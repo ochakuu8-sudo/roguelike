@@ -172,6 +172,18 @@ export class Game {
       return;
     }
 
+    if (command.type === 'acknowledgeDeath') {
+      if (this.gameOver) {
+        this.finalizeDeath();
+      }
+      return;
+    }
+
+    if (this.gameOver) {
+      this.pushMessage('倒れています。「拠点に戻る」を押してください。');
+      return;
+    }
+
     if (command.type === 'startRaid') {
       this.startRaid(command.mapId);
       return;
@@ -214,11 +226,6 @@ export class Game {
 
     if (this.mode === 'base') {
       this.dispatchBase(command);
-      return;
-    }
-
-    if (this.gameOver) {
-      this.pushMessage('倒れています。再開してやり直してください。');
       return;
     }
 
@@ -1239,7 +1246,7 @@ export class Game {
     }
 
     const damage = Math.max(1, attacker.stats.attack - defender.stats.defense + ROT.RNG.getUniformInt(-1, 2));
-    defender.stats.hp -= damage;
+    defender.stats.hp = Math.max(0, defender.stats.hp - damage);
     this.pushCombatEffect(attacker, defender, damage);
     this.pushMessage(attackMessage(attacker, defender, damage));
 
@@ -1251,17 +1258,6 @@ export class Game {
   private kill(entity: Entity, killer: Entity): void {
     if (entity.kind === 'player') {
       this.gameOver = true;
-      STARTING_EQUIPMENT.forEach((item) => {
-        const lostCount = this.handInventory[item];
-        if (lostCount > 0) {
-          const remaining = this.equipmentDurability[item] ?? [];
-          this.equipmentDurability[item] = remaining.slice(0, Math.max(0, remaining.length - lostCount));
-        }
-      });
-      this.raidInventory = createEmptyInventory();
-      this.handInventory = createEmptyInventory();
-      this.selectedHandItem = null;
-      this.createBase('探索に失敗した。探索中の荷物は失われた。');
       return;
     }
 
@@ -1271,6 +1267,20 @@ export class Game {
       this.pushMessage(`${entity.name}を倒した。`);
       this.dropMaterial(entity);
     }
+  }
+
+  private finalizeDeath(): void {
+    STARTING_EQUIPMENT.forEach((item) => {
+      const lostCount = this.handInventory[item];
+      if (lostCount > 0) {
+        const remaining = this.equipmentDurability[item] ?? [];
+        this.equipmentDurability[item] = remaining.slice(0, Math.max(0, remaining.length - lostCount));
+      }
+    });
+    this.raidInventory = createEmptyInventory();
+    this.handInventory = createEmptyInventory();
+    this.selectedHandItem = null;
+    this.createBase('探索に失敗した。探索中の荷物は失われた。');
   }
 
   private updateFov(): void {

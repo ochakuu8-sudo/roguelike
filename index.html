@@ -25,6 +25,15 @@
       <main class="game-shell">
         <section class="play-area" aria-label="ゲーム盤面">
           <canvas id="game-canvas" width="960" height="720"></canvas>
+          <button
+            class="text-button return-to-base-button"
+            id="return-to-base-button"
+            data-command="acknowledgeDeath"
+            type="button"
+            hidden
+          >
+            拠点に戻る
+          </button>
         </section>
 
         <section class="base-screen" aria-label="拠点作戦画面">

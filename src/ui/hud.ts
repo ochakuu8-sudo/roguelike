@@ -20,6 +20,7 @@ type HudRoots = {
   pickupButton: HTMLButtonElement;
   interactButton: HTMLButtonElement;
   heldActionButton: HTMLButtonElement;
+  returnToBaseButton: HTMLButtonElement;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
@@ -708,6 +709,20 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
 };
 
 const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
+  roots.returnToBaseButton.hidden = !snapshot.gameOver;
+  roots.returnToBaseButton.disabled = !snapshot.gameOver;
+
+  if (snapshot.gameOver) {
+    roots.pickupButton.hidden = true;
+    roots.pickupButton.disabled = true;
+    roots.interactButton.hidden = true;
+    roots.interactButton.disabled = true;
+    roots.heldActionButton.hidden = true;
+    roots.heldActionButton.disabled = true;
+    roots.actionHintRoot.hidden = true;
+    return;
+  }
+
   const pickup = pickupAction(snapshot);
   const interact = interactAction(snapshot);
   const held = heldItemAction(snapshot);

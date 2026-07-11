@@ -447,6 +447,34 @@ h2 {
   touch-action: manipulation;
 }
 
+.return-to-base-button {
+  position: absolute;
+  z-index: 6;
+  top: 50%;
+  left: 50%;
+  min-height: 48px;
+  padding: 0 24px;
+  border-color: rgba(248, 113, 113, 0.6);
+  background: rgba(28, 12, 12, 0.85);
+  color: #f8fafc;
+  font-size: 0.94rem;
+  font-weight: 900;
+  transform: translate(-50%, calc(-50% + 56px));
+}
+
+.return-to-base-button:hover {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: rgba(46, 16, 16, 0.9);
+}
+
+.return-to-base-button:active {
+  transform: translate(-50%, calc(-50% + 57px));
+}
+
+.is-dead #game-canvas {
+  pointer-events: none;
+}
+
 .side-panel {
   position: absolute;
   z-index: 3;
