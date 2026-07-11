@@ -1,9 +1,9 @@
-import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
+import type { BiomeId, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
-import { canFitAdditionalUnit, GRID_DIMENSIONS, overlaps } from '../game/grid-inventory';
+import { GRID_DIMENSIONS, overlaps } from '../game/grid-inventory';
 import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
-import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
-import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
+import { MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
+import { CRAFTING_RECIPES, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 import { SPRITE_SHAPES, spriteKeyForItem } from './canvas-renderer';
 
 const emojiForItem = (item: ItemKind) => SPRITE_SHAPES[spriteKeyForItem(item)];
@@ -35,12 +35,6 @@ type BasePlanningRoots = {
   onAppraiseCollection: () => void;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
-};
-
-type ContextAction = {
-  label: string;
-  hint: string;
-  disabled?: boolean;
 };
 
 type InventoryDragState = {
@@ -723,9 +717,7 @@ const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
     return;
   }
 
-  const pickup = pickupAction(snapshot);
-  const interact = interactAction(snapshot);
-  const held = heldItemAction(snapshot);
+  const { pickup, interact, heldItem: held } = snapshot.actions;
   const hints = [pickup?.hint, interact?.hint, held?.hint].filter(Boolean);
 
   roots.pickupButton.hidden = !pickup;
@@ -746,244 +738,5 @@ const updateActionControls = (snapshot: GameSnapshot, roots: HudRoots) => {
   roots.actionHintRoot.hidden = hints.length === 0;
   roots.actionHintRoot.textContent = hints.join(' / ');
 };
-
-const pickupAction = (snapshot: GameSnapshot): ContextAction | undefined => {
-  if (snapshot.mode !== 'raid') {
-    return undefined;
-  }
-
-  const player = playerEntity(snapshot);
-  const item = player ? itemAt(snapshot, player.x, player.y) : undefined;
-  if (!item?.item) {
-    return undefined;
-  }
-
-  const definition = ITEM_DEFINITIONS[item.item];
-  const usesHandSlot = definition.category === 'consumable' || definition.category === 'equipment';
-  const fits = usesHandSlot
-    ? canFitAdditionalUnit(snapshot.player.handInventory, snapshot.grids.hand, item.item, GRID_DIMENSIONS.hand)
-    : canFitAdditionalUnit(snapshot.player.raidInventory, snapshot.grids.raidBag, item.item, GRID_DIMENSIONS.raidBag);
-
-  if (!fits) {
-    return undefined;
-  }
-
-  return {
-    label: '拾う',
-    hint: `${definition.name}を拾ってバッグに入れる。`,
-  };
-};
-
-const interactAction = (snapshot: GameSnapshot): ContextAction | undefined => {
-  const player = playerEntity(snapshot);
-  if (!player) {
-    return undefined;
-  }
-
-  if (snapshot.mode === 'base') {
-    const station = stationForInteraction(snapshot, player);
-    if (!station) {
-      return undefined;
-    }
-
-    return {
-      label: '調べる',
-      hint: stationHint(station, snapshot.stash),
-    };
-  }
-
-  const raidStation = stationForInteraction(snapshot, player);
-  if (raidStation?.station === 'barterMerchant') {
-    return {
-      label: '取引',
-      hint: barterHint(raidStation, snapshot),
-    };
-  }
-
-  const tile = snapshot.tiles[player.y * snapshot.width + player.x];
-  if (tile?.kind === 'stairs') {
-    return {
-      label: '脱出',
-      hint: '脱出してバッグの中身を倉庫に持ち帰る。',
-    };
-  }
-
-  return undefined;
-};
-
-const barterHint = (station: Entity, snapshot: GameSnapshot) => {
-  const tile = snapshot.tiles[station.y * snapshot.width + station.x];
-  const biome = tile?.biome;
-  const trade = biome ? BARTER_TRADES[biome] : undefined;
-  if (!trade) {
-    return '行商人と話す。';
-  }
-
-  const owned = snapshot.player.raidInventory[trade.give];
-  const giveName = ITEM_DEFINITIONS[trade.give].name;
-  const getName = ITEM_DEFINITIONS[trade.get].name;
-  return owned >= trade.giveAmount
-    ? `行商人と取引し、${giveName}x${trade.giveAmount}を${getName}と交換する。`
-    : `行商人: ${giveName}を${trade.giveAmount}個持ってくると${getName}と交換する。今は${owned}個。`;
-};
-
-const heldItemAction = (snapshot: GameSnapshot): ContextAction | undefined => {
-  if (snapshot.mode !== 'raid') {
-    return undefined;
-  }
-
-  const player = playerEntity(snapshot);
-  const selected = snapshot.player.selectedHandItem;
-  const hasSelected = Boolean(selected && snapshot.player.handInventory[selected] > 0);
-  const definition = hasSelected ? ITEM_DEFINITIONS[selected as ItemKind] : undefined;
-  const isPickaxe = hasSelected && selected === 'pickaxe';
-  const canAttack = !hasSelected || definition?.attackPower !== undefined;
-
-  if (canAttack) {
-    const range = definition?.attackRange ?? 1;
-    const target = player ? monsterInLine(snapshot, player, range) : undefined;
-    if (target) {
-      return {
-        label: hasSelected ? '攻撃' : '素手で攻撃',
-        hint: `${target.name}を攻撃する。`,
-      };
-    }
-  }
-
-  const targetTile = player ? tileInFront(snapshot, player) : undefined;
-  const gatherable = Boolean(targetTile && isGatheringTile(targetTile.kind));
-
-  if (gatherable || (isPickaxe && targetTile?.kind === 'wall')) {
-    return {
-      label: isPickaxe ? '掘る' : '掘る(素手)',
-      hint: isPickaxe ? '正面の壁や採取ポイントを調べる。' : '素手で採取する。ピッケルより効率が悪く、スタミナを多く使う。',
-    };
-  }
-
-  if (!hasSelected || !definition) {
-    return undefined;
-  }
-
-  const stats = player?.stats;
-
-  if (definition.category === 'consumable' || definition.staminaRestore) {
-    if (definition.staminaRestore) {
-      const canEat = snapshot.player.stamina < snapshot.player.maxStamina;
-      return {
-        label: '食べる',
-        hint: canEat ? `${definition.name}を食べてスタミナを回復する。` : 'スタミナはすでに満タンだ。',
-        disabled: !canEat,
-      };
-    }
-    const canHeal = Boolean(stats && stats.hp < stats.maxHp);
-    const isHealingItem = selected === 'potion' || selected === 'hiPotion' || selected === 'bandage';
-    return {
-      label: isHealingItem ? '回復' : '使う',
-      hint: isHealingItem
-        ? canHeal
-          ? `${definition.name}を使ってHPを回復する。`
-          : 'HPが最大なので回復系アイテムはまだ使えない。'
-        : `${definition.name}を使う。`,
-      disabled: isHealingItem && !canHeal,
-    };
-  }
-
-  if (definition.attackPower !== undefined) {
-    return {
-      label: '攻撃',
-      hint: '向いている方向に狙える敵がいない。',
-      disabled: true,
-    };
-  }
-
-  return {
-    label: '使う',
-    hint: `${definition.name}は今は使えない。`,
-    disabled: true,
-  };
-};
-
-const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
-
-const itemAt = (snapshot: GameSnapshot, x: number, y: number) =>
-  snapshot.entities.find((entity) => entity.kind === 'item' && entity.x === x && entity.y === y);
-
-const tileInFront = (snapshot: GameSnapshot, player: Entity) =>
-  snapshot.tiles[(player.y + snapshot.player.facing.y) * snapshot.width + player.x + snapshot.player.facing.x];
-
-const monsterInLine = (snapshot: GameSnapshot, player: Entity, range: number) => {
-  for (let step = 1; step <= range; step += 1) {
-    const x = player.x + snapshot.player.facing.x * step;
-    const y = player.y + snapshot.player.facing.y * step;
-    if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
-      return undefined;
-    }
-
-    const tile = snapshot.tiles[y * snapshot.width + x];
-    if (tile?.kind === 'wall' || (tile && isGatheringTile(tile.kind))) {
-      return undefined;
-    }
-
-    const target = snapshot.entities.find((entity) => entity.kind === 'monster' && entity.x === x && entity.y === y);
-    if (target) {
-      return target;
-    }
-  }
-
-  return undefined;
-};
-
-const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
-  const inFront = snapshot.entities.find(
-    (entity) =>
-      entity.kind === 'station' &&
-      entity.x === player.x + snapshot.player.facing.x &&
-      entity.y === player.y + snapshot.player.facing.y,
-  );
-  if (inFront) {
-    return inFront;
-  }
-
-  return snapshot.entities
-    .filter((entity) => entity.kind === 'station' && distance(entity, player) <= 1)
-    .sort((a, b) => a.id.localeCompare(b.id))[0];
-};
-
-const stationHint = (station: Entity, stash: Inventory) => {
-  switch (station.station) {
-    case 'raidGate':
-      return '出撃ゲートを調べると最初のマップへ出撃する。行き先を選ぶには上の「出撃」ボタンから作戦画面を開こう。';
-    case 'stash':
-      return '倉庫を調べると中身と所持金をログに表示する。';
-    case 'craft': {
-      const recipe = CRAFTING_RECIPES[0];
-      if (!recipe) {
-        return 'クラフト台を調べる。';
-      }
-      if (hasIngredients(stash, recipe)) {
-        return `クラフト台で${formatStack(recipe.result)}を作る。`;
-      }
-      return `クラフト台を調べる。素材不足: ${recipe.ingredients.map(formatStack).join(' / ')}。`;
-    }
-    case 'market':
-      return hasSellableMaterial(stash) ? '商人娘の換金所で素材をまとめて売る。' : '商人娘の換金所を調べる。売れる素材はない。';
-    case 'compendium':
-      return '図鑑端末を調べると図鑑の案内を表示する。';
-    case 'appraiser':
-      return '鑑定士にコレクションアイテムを見せて鑑定し、その場で買い取ってもらう。';
-    case 'barterMerchant':
-      return '行商人と物々交換する。';
-    default:
-      return `${station.name}を調べる。`;
-  }
-};
-
-const hasSellableMaterial = (stash: Inventory) =>
-  ITEM_KINDS.some((item) => ITEM_DEFINITIONS[item].category === 'material' && stash[item] > 0);
-
-const distance = (a: Entity, b: Entity) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-
-const isGatheringTile = (kind: GameSnapshot['tiles'][number]['kind']) =>
-  kind === 'ore' || kind === 'forage' || kind === 'crate' || kind === 'device' || kind === 'locked';
 
 const biomeName = (biome: BiomeId) => BIOME_DEFINITIONS[biome].name;

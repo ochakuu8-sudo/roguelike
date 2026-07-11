@@ -200,6 +200,18 @@ export type GridInventories = {
   stash: PlacedItem[];
 };
 
+export type ActionInfo = {
+  label: string;
+  hint: string;
+  disabled?: boolean;
+};
+
+export type AvailableActions = {
+  pickup?: ActionInfo;
+  interact?: ActionInfo;
+  heldItem?: ActionInfo;
+};
+
 export type GameSnapshot = {
   mode: GameMode;
   width: number;
@@ -219,4 +231,5 @@ export type GameSnapshot = {
   mapId: MapId | null;
   grids: GridInventories;
   collectionCount: number;
+  actions: AvailableActions;
 };

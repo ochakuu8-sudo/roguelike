@@ -1,12 +1,12 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, ElementId, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { ActionInfo, AvailableActions, BiomeId, CombatEffect, Command, ElementId, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
 import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
-import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
+import { addRecipeResult, consumeIngredients, CRAFTING_RECIPES, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 96;
 const MAP_HEIGHT = 60;
@@ -155,7 +155,177 @@ export class Game {
         stash: this.gridLayouts.stash.map((entry) => ({ ...entry })),
       },
       collectionCount: COLLECTION_KINDS.reduce((total, item) => total + this.stash[item], 0),
+      actions: this.gameOver ? {} : this.availableActions(),
     };
+  }
+
+  /**
+   * Single source of truth for what the pickup/interact/held-item buttons
+   * currently do. Mirrors the branching in pickup()/interactBase()/
+   * interactRaid()/useHeldItem() using the same private helpers, so the UI
+   * can never predict an action the dispatcher wouldn't actually take.
+   */
+  private availableActions(): AvailableActions {
+    return {
+      pickup: this.describePickupAction(),
+      interact: this.describeInteractAction(),
+      heldItem: this.describeHeldItemAction(),
+    };
+  }
+
+  private describePickupAction(): ActionInfo | undefined {
+    if (this.mode !== 'raid') {
+      return undefined;
+    }
+
+    const player = this.player();
+    const item = this.entities.find((entity) => entity.kind === 'item' && entity.x === player.x && entity.y === player.y);
+    if (!item?.item || !this.canCarry(item.item)) {
+      return undefined;
+    }
+
+    return {
+      label: '拾う',
+      hint: `${ITEM_DEFINITIONS[item.item].name}を拾ってバッグに入れる。`,
+    };
+  }
+
+  private describeInteractAction(): ActionInfo | undefined {
+    const player = this.player();
+
+    if (this.mode === 'base') {
+      const station = this.stationForInteraction();
+      if (!station) {
+        return undefined;
+      }
+
+      return { label: '調べる', hint: this.stationHint(station) };
+    }
+
+    const raidStation = this.stationForInteraction();
+    if (raidStation?.station === 'barterMerchant') {
+      return { label: '取引', hint: this.barterHint(raidStation) };
+    }
+
+    if (this.tileAt(player.x, player.y).kind === 'stairs') {
+      return { label: '脱出', hint: '脱出してバッグの中身を倉庫に持ち帰る。' };
+    }
+
+    return undefined;
+  }
+
+  private describeHeldItemAction(): ActionInfo | undefined {
+    if (this.mode !== 'raid') {
+      return undefined;
+    }
+
+    const item = this.selectedHandItem;
+    const hasItem = item !== null && this.handInventory[item] > 0;
+    const definition = hasItem ? ITEM_DEFINITIONS[item as ItemKind] : undefined;
+    const isPickaxe = hasItem && item === 'pickaxe';
+    const canAttack = !hasItem || definition?.attackPower !== undefined;
+
+    if (canAttack) {
+      const range = definition?.attackRange ?? 1;
+      const target = this.findFacingMonster(range);
+      if (target) {
+        return {
+          label: hasItem ? '攻撃' : '素手で攻撃',
+          hint: `${target.name}を攻撃する。`,
+        };
+      }
+    }
+
+    const player = this.player();
+    const frontX = player.x + this.facing.x;
+    const frontY = player.y + this.facing.y;
+    const frontTile = this.inBounds(frontX, frontY) ? this.tileAt(frontX, frontY) : undefined;
+    const gatherable = Boolean(frontTile && this.isGatheringTile(frontTile.kind));
+
+    if (gatherable || (isPickaxe && frontTile?.kind === 'wall')) {
+      return {
+        label: isPickaxe ? '掘る' : '掘る(素手)',
+        hint: isPickaxe ? '正面の壁や採取ポイントを調べる。' : '素手で採取する。ピッケルより効率が悪く、スタミナを多く使う。',
+      };
+    }
+
+    if (!hasItem || !definition) {
+      return undefined;
+    }
+
+    if (definition.category === 'consumable' || definition.staminaRestore) {
+      if (definition.staminaRestore) {
+        const canEat = this.stamina < MAX_STAMINA;
+        return {
+          label: '食べる',
+          hint: canEat ? `${definition.name}を食べてスタミナを回復する。` : 'スタミナはすでに満タンだ。',
+          disabled: !canEat,
+        };
+      }
+
+      const stats = player.stats;
+      const canHeal = Boolean(stats && stats.hp < stats.maxHp);
+      const isHealingItem = item === 'potion' || item === 'hiPotion' || item === 'bandage';
+      return {
+        label: isHealingItem ? '回復' : '使う',
+        hint: isHealingItem
+          ? canHeal
+            ? `${definition.name}を使ってHPを回復する。`
+            : 'HPが最大なので回復系アイテムはまだ使えない。'
+          : `${definition.name}を使う。`,
+        disabled: isHealingItem && !canHeal,
+      };
+    }
+
+    if (definition.attackPower !== undefined) {
+      return { label: '攻撃', hint: '向いている方向に狙える敵がいない。', disabled: true };
+    }
+
+    return { label: '使う', hint: `${definition.name}は今は使えない。`, disabled: true };
+  }
+
+  private stationHint(station: Entity): string {
+    switch (station.station) {
+      case 'raidGate':
+        return '出撃ゲートを調べると最初のマップへ出撃する。行き先を選ぶには上の「出撃」ボタンから作戦画面を開こう。';
+      case 'stash':
+        return '倉庫を調べると中身と所持金をログに表示する。';
+      case 'craft': {
+        const recipe = CRAFTING_RECIPES[0];
+        if (!recipe) {
+          return 'クラフト台を調べる。';
+        }
+        if (hasIngredients(this.stash, recipe)) {
+          return `クラフト台で${formatStack(recipe.result)}を作る。`;
+        }
+        return `クラフト台を調べる。素材不足: ${recipe.ingredients.map(formatStack).join(' / ')}。`;
+      }
+      case 'market':
+        return this.hasSellableMaterial() ? '商人娘の換金所で素材をまとめて売る。' : '商人娘の換金所を調べる。売れる素材はない。';
+      case 'compendium':
+        return '図鑑端末を調べると図鑑の案内を表示する。';
+      case 'appraiser':
+        return '鑑定士にコレクションアイテムを見せて鑑定し、その場で買い取ってもらう。';
+      case 'barterMerchant':
+        return '行商人と物々交換する。';
+      default:
+        return `${station.name}を調べる。`;
+    }
+  }
+
+  private hasSellableMaterial(): boolean {
+    return ITEM_KINDS.some((item) => ITEM_DEFINITIONS[item].category === 'material' && this.stash[item] > 0);
+  }
+
+  private barterHint(station: Entity): string {
+    const biome = this.biomeAt(station.x, station.y);
+    const trade = BARTER_TRADES[biome];
+    const owned = this.raidInventory[trade.give];
+    const giveName = ITEM_DEFINITIONS[trade.give].name;
+    const getName = ITEM_DEFINITIONS[trade.get].name;
+    return owned >= trade.giveAmount
+      ? `行商人と取引し、${giveName}x${trade.giveAmount}を${getName}と交換する。`
+      : `行商人: ${giveName}を${trade.giveAmount}個持ってくると${getName}と交換する。今は${owned}個。`;
   }
 
   private refreshGridLayouts(): void {
