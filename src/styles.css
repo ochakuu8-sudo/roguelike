@@ -179,12 +179,6 @@ h2 {
   line-height: 1.5;
 }
 
-.base-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 #base-planning-close {
   width: 100%;
 }
@@ -688,10 +682,6 @@ h2 {
   background: rgba(9, 15, 19, 0.34);
 }
 
-.equipment-summary {
-  margin-bottom: 6px;
-}
-
 .inventory-summary {
   display: grid;
   gap: 2px;
@@ -856,12 +846,6 @@ button.inventory-slot:hover {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.empty-list {
-  margin: 0;
-  color: #9fb0ba;
-  font-size: 0.82rem;
 }
 
 .message-log {

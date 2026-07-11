@@ -394,7 +394,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
 };
 
 export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
-export const MATERIAL_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'material');
 export const COLLECTION_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'collection');
 export const ARMOR_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].resistance !== undefined);
 export const RAID_CAPACITY = 12;
@@ -412,6 +411,3 @@ export const createStartingStash = (): Inventory => ({
   bow: 1,
   pickaxe: 1,
 });
-
-export const inventoryItemCount = (inventory: Inventory) =>
-  ITEM_KINDS.reduce((total, item) => total + inventory[item], 0);

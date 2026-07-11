@@ -95,7 +95,6 @@ export class Game {
   private effectId = 0;
   private seed = Date.now();
   private depth = 1;
-  private xp = 0;
   private mode: GameMode = 'base';
   private biome: BiomeId | null = null;
   private activeMapId: MapId | null = null;
@@ -129,7 +128,6 @@ export class Game {
       playerId: PLAYER_ID,
       player: {
         depth: this.depth,
-        xp: this.xp,
         raidInventory: { ...this.raidInventory },
         handInventory: { ...this.handInventory },
         selectedHandItem: this.selectedHandItem,
@@ -315,7 +313,6 @@ export class Game {
   private restart(): void {
     this.seed = Date.now();
     this.depth = 1;
-    this.xp = 0;
     this.mode = 'base';
     this.biome = null;
     this.activeMapId = null;
@@ -1301,7 +1298,6 @@ export class Game {
 
     this.entities = this.entities.filter((candidate) => candidate.id !== entity.id);
     if (killer.kind === 'player') {
-      this.xp += 1;
       this.pushMessage(`${entity.name}を倒した。`);
       this.dropMaterial(entity);
     }

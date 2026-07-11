@@ -175,7 +175,6 @@ export type CombatEffect = {
 
 export type PlayerState = {
   depth: number;
-  xp: number;
   raidInventory: Inventory;
   handInventory: Inventory;
   selectedHandItem: ItemKind | null;
