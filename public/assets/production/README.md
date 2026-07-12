@@ -8,5 +8,4 @@ Current production character picks:
 
 - [`characters/merchant-girl.png`](characters/merchant-girl.png)
 - [`characters/chibi-demon.png`](characters/chibi-demon.png)
-- [`characters/male-chef.png`](characters/male-chef.png)
 
