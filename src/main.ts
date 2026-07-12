@@ -5,6 +5,9 @@ import type { Command, Entity, GameSnapshot, MapId } from './engine/types';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
 import { updateBasePlanning, updateHud } from './ui/hud';
+import { requestPersistentStorage, saveGame } from './game/save';
+
+const AUTOSAVE_DEBOUNCE_MS = 250;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const statusRoot = document.querySelector<HTMLElement>('#status');
@@ -64,8 +67,34 @@ if (
   throw new Error('Missing app root elements.');
 }
 
+requestPersistentStorage();
+
 const game = new Game();
 const renderer = new CanvasRenderer(canvas);
+
+let autosaveTimeout: number | undefined;
+
+const flushAutosave = () => {
+  if (autosaveTimeout !== undefined) {
+    window.clearTimeout(autosaveTimeout);
+    autosaveTimeout = undefined;
+  }
+  saveGame(game.serialize());
+};
+
+const scheduleAutosave = () => {
+  if (autosaveTimeout !== undefined) {
+    window.clearTimeout(autosaveTimeout);
+  }
+  autosaveTimeout = window.setTimeout(flushAutosave, AUTOSAVE_DEBOUNCE_MS);
+};
+
+window.addEventListener('beforeunload', flushAutosave);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    flushAutosave();
+  }
+});
 
 const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
 
@@ -164,7 +193,13 @@ const refresh = () => {
     }),
   );
   baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
+  scheduleAutosave();
 };
+
+const hasProgressWorthKeeping = (snapshot: GameSnapshot) =>
+  snapshot.mode !== 'base' ||
+  snapshot.money > 0 ||
+  Object.values(snapshot.stash).some((count) => count > 0);
 
 basePlanningButton.textContent = '出撃';
 basePlanningButton.addEventListener('click', openBasePlanning);
@@ -192,6 +227,12 @@ bindInput({
       refresh();
       itemDialog.showModal();
       return;
+    }
+
+    if (command.type === 'restart' && hasProgressWorthKeeping(game.snapshot())) {
+      if (!window.confirm('セーブデータを削除して最初からやり直しますか？')) {
+        return;
+      }
     }
 
     if (shouldOpenBasePlanningFromGate(command)) {

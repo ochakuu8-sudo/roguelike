@@ -7,6 +7,7 @@ import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats }
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
 import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, CRAFTING_RECIPES, formatStack, hasIngredients, recipeById } from './recipes';
+import { createSaveData, loadGame, type SaveData } from './save';
 
 const MAP_WIDTH = 96;
 const MAP_HEIGHT = 60;
@@ -113,7 +114,78 @@ export class Game {
   private gridLayouts: GridInventories = { hand: [], raidBag: [], stash: [] };
 
   constructor() {
-    this.restart();
+    const saved = loadGame();
+    if (saved) {
+      this.loadFrom(saved);
+    } else {
+      this.restart();
+    }
+  }
+
+  /** Plain-data snapshot of everything needed to resume this exact game later. */
+  serialize(): SaveData {
+    return createSaveData({
+      width: this.width,
+      height: this.height,
+      tiles: this.tiles.map((tile) => ({ ...tile })),
+      entities: this.entities.map((entity) => ({ ...entity, stats: entity.stats ? { ...entity.stats } : undefined })),
+      messages: [...this.messages],
+      combatEffects: this.combatEffects.map((effect) => ({ ...effect, from: { ...effect.from }, to: { ...effect.to } })),
+      effectId: this.effectId,
+      seed: this.seed,
+      depth: this.depth,
+      mode: this.mode,
+      biome: this.biome,
+      activeMapId: this.activeMapId,
+      activeBiomes: [...this.activeBiomes],
+      stash: { ...this.stash },
+      baseLoadout: { ...this.baseLoadout },
+      raidInventory: { ...this.raidInventory },
+      handInventory: { ...this.handInventory },
+      selectedHandItem: this.selectedHandItem,
+      money: this.money,
+      dropId: this.dropId,
+      facing: { ...this.facing },
+      gameOver: this.gameOver,
+      stamina: this.stamina,
+      equipmentDurability: Object.fromEntries(
+        Object.entries(this.equipmentDurability).map(([item, units]) => [item, [...(units ?? [])]]),
+      ) as Partial<Record<ItemKind, number[]>>,
+    });
+  }
+
+  private loadFrom(data: SaveData): void {
+    this.width = data.width;
+    this.height = data.height;
+    this.tiles = data.tiles.map((tile) => ({ ...tile }));
+    this.entities = data.entities.map((entity) => ({ ...entity, stats: entity.stats ? { ...entity.stats } : undefined }));
+    this.messages = [...data.messages];
+    this.combatEffects = data.combatEffects.map((effect) => ({ ...effect, from: { ...effect.from }, to: { ...effect.to } }));
+    this.effectId = data.effectId;
+    this.seed = data.seed;
+    this.depth = data.depth;
+    this.mode = data.mode;
+    this.biome = data.biome;
+    this.activeMapId = data.activeMapId;
+    this.activeBiomes = [...data.activeBiomes];
+    // Merge onto a fresh empty inventory so item kinds added in a later update
+    // (missing from an older save) default to 0 instead of undefined.
+    this.stash = { ...createEmptyInventory(), ...data.stash };
+    this.baseLoadout = { ...createEmptyInventory(), ...data.baseLoadout };
+    this.raidInventory = { ...createEmptyInventory(), ...data.raidInventory };
+    this.handInventory = { ...createEmptyInventory(), ...data.handInventory };
+    this.selectedHandItem = data.selectedHandItem;
+    this.money = data.money;
+    this.dropId = data.dropId;
+    this.facing = { ...data.facing };
+    this.gameOver = data.gameOver;
+    this.stamina = data.stamina;
+    this.equipmentDurability = { ...data.equipmentDurability };
+    this.gridLayouts = { hand: [], raidBag: [], stash: [] };
+
+    if (this.mode === 'raid') {
+      this.updateFov();
+    }
   }
 
   snapshot(): GameSnapshot {
