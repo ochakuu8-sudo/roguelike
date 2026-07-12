@@ -4,8 +4,8 @@ Use this prompt when generating character sprites, item icons, small props, equi
 
 The target style is the high-density chibi pixel-art look established in:
 
-- `public/assets/reference-character-16-cast-atlas.png`
-- `public/assets/style-items-terrain-16-test-atlas.png`
+- `public/assets/prototypes/reference-character-16-cast-atlas.png`
+- `public/assets/prototypes/style-items-terrain-16-test-atlas.png`
 
 Terrain, floors, walls, and full maps should use a separate map/tile prompt.
 

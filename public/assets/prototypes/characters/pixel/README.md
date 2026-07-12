@@ -1,6 +1,6 @@
-# Production Pixel Character Assets
+# Prototype Pixel Character Assets
 
-Transparent PNG sprites generated for in-game placement.
+Transparent PNG sprite experiments. None of these pixel-art assets are currently approved for production use.
 
 | Character | File | Preview |
 | --- | --- | --- |

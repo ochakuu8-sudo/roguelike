@@ -1,9 +1,9 @@
 {
   "target": "npc",
   "mode": "single",
-  "prompt": "tomboy merchant girl redesign preserving brown bob hair, dark cap, cheerful face, dark cute roguelike chibi pixel art",
+  "prompt": "shorter younger cheeky merchant girl, lower chibi proportions, smug bratty expression, preserved brown bob hair and dark cap",
   "role": "merchant",
-  "input": "public\\assets\\character-tomboy-merchant-girl-draft.png",
+  "input": "public\\assets\\prototypes\\character-cheeky-merchant-girl-draft.png",
   "threshold": 100,
   "edge_threshold": 150,
   "duration": 200,
@@ -36,26 +36,26 @@
       ],
       "component_mode": "largest",
       "component_count": 1,
-      "selected_component_area": 354775,
+      "selected_component_area": 246747,
       "selected_component_bbox": [
-        315,
-        152,
-        925,
-        1064
+        353,
+        250,
+        855,
+        971
       ],
       "crop_bbox": [
-        307,
-        144,
-        933,
-        1072
+        345,
+        242,
+        863,
+        979
       ],
       "edge_touch": false,
       "output_size": [
-        73,
+        76,
         108
       ],
       "paste_position": [
-        27,
+        26,
         11
       ]
     }
