@@ -1,8 +1,9 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, ElementId, EnemyKind, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, ElementId, EnemyKind, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, MapRoll, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
+import { rollMapRoll, summarizeMapAffixes, TIER_LABELS } from './map-affixes';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
 import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, MAP_ITEM_KINDS, RAID_CAPACITY } from './items';
@@ -25,7 +26,9 @@ const BAREHANDED_ATTACK_POWER = 0;
 const BAREHANDED_ATTACK_ELEMENT: ElementId = 'impact';
 const COLLECTION_DROP_CHANCE = 0.05;
 const MAP_ITEM_DROP_CHANCE = 0.04;
-const MAP_ITEM_NODE_YIELD_MULTIPLIER = 1.5;
+const VAULT_GUARDIAN_DANGER_MULTIPLIER = 1.8;
+const VAULT_ELITE_GUARDIAN_DANGER_MULTIPLIER = 2.6;
+const VAULT_MAP_ITEM_CHANCE = 0.3;
 
 type RoomLike = {
   getCenter(): number[];
@@ -115,6 +118,12 @@ export class Game {
   private equipmentDurability: Partial<Record<ItemKind, number[]>> = {};
   private gridLayouts: GridInventories = { hand: [], raidBag: [], stash: [] };
   private nodeYieldMultiplier = 1;
+  private dangerBonusMultiplier = 1;
+  private dropRateMultiplier = 1;
+  private vaultRoomBonus = 0;
+  private eliteGuardianActive = false;
+  private mapItemRolls: Partial<Record<ItemKind, MapRoll[]>> = {};
+  private mapRollSeq = 0;
   private debugMode = false;
 
   constructor() {
@@ -162,15 +171,18 @@ export class Game {
       },
       collectionCount: COLLECTION_KINDS.reduce((total, item) => total + this.stash[item], 0),
       debugMode: this.debugMode,
+      mapRolls: Object.fromEntries(
+        Object.entries(this.mapItemRolls).map(([item, rolls]) => [item, (rolls ?? []).map((roll) => ({ ...roll }))]),
+      ) as Partial<Record<ItemKind, MapRoll[]>>,
     };
   }
 
   private refreshGridLayouts(): void {
     const handSource = this.mode === 'base' ? this.baseLoadout : this.handInventory;
     this.gridLayouts = {
-      hand: layoutGridInventory(handSource, this.gridLayouts.hand, this.equipmentDurability, GRID_DIMENSIONS.hand),
-      raidBag: layoutGridInventory(this.raidInventory, this.gridLayouts.raidBag, this.equipmentDurability, GRID_DIMENSIONS.raidBag),
-      stash: layoutGridInventory(this.stash, this.gridLayouts.stash, this.equipmentDurability, GRID_DIMENSIONS.stash),
+      hand: layoutGridInventory(handSource, this.gridLayouts.hand, this.equipmentDurability, this.mapItemRolls, GRID_DIMENSIONS.hand),
+      raidBag: layoutGridInventory(this.raidInventory, this.gridLayouts.raidBag, this.equipmentDurability, this.mapItemRolls, GRID_DIMENSIONS.raidBag),
+      stash: layoutGridInventory(this.stash, this.gridLayouts.stash, this.equipmentDurability, this.mapItemRolls, GRID_DIMENSIONS.stash),
     };
   }
 
@@ -209,7 +221,7 @@ export class Game {
     }
 
     if (command.type === 'startRaid') {
-      this.startRaid(command.mapId, command.useMapItem);
+      this.startRaid(command.mapId, command.mapRollId);
       return;
     }
 
@@ -364,7 +376,7 @@ export class Game {
     this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
-  private startRaid(mapId?: MapId, useMapItem = false): void {
+  private startRaid(mapId?: MapId, mapRollId?: string): void {
     if (this.mode === 'raid') {
       return;
     }
@@ -372,15 +384,24 @@ export class Game {
     const resolvedMapId = mapId ?? MAP_IDS[0];
     const mapDefinition = MAP_DEFINITIONS[resolvedMapId];
 
-    let bonusApplied = false;
-    if (useMapItem) {
+    let consumedRoll: MapRoll | undefined;
+    if (mapRollId) {
       const mapItemKind = MAP_ITEM_FOR_MAP_ID[resolvedMapId];
-      if (this.stash[mapItemKind] > 0) {
-        this.stash[mapItemKind] -= 1;
-        bonusApplied = true;
+      const rolls = this.mapItemRolls[mapItemKind] ?? [];
+      const rollIndex = rolls.findIndex((roll) => roll.id === mapRollId);
+      if (rollIndex !== -1) {
+        consumedRoll = rolls[rollIndex];
+        this.mapItemRolls[mapItemKind] = rolls.filter((_, index) => index !== rollIndex);
+        this.stash[mapItemKind] = Math.max(0, this.stash[mapItemKind] - 1);
       }
     }
-    this.nodeYieldMultiplier = bonusApplied ? MAP_ITEM_NODE_YIELD_MULTIPLIER : 1;
+
+    const bonuses = summarizeMapAffixes(consumedRoll?.affixes ?? []);
+    this.nodeYieldMultiplier = 1 + bonuses.richYieldPercent / 100;
+    this.dangerBonusMultiplier = 1 + bonuses.denseSwarmPercent / 100;
+    this.dropRateMultiplier = 1 + bonuses.fortunePercent / 100;
+    this.vaultRoomBonus = bonuses.vaultCount;
+    this.eliteGuardianActive = bonuses.eliteGuardianCount > 0;
 
     this.mode = 'raid';
     this.biome = null;
@@ -399,8 +420,8 @@ export class Game {
     this.combatEffects = [];
     this.effectId = 0;
     this.stamina = MAX_STAMINA;
-    const entryMessage = bonusApplied
-      ? `地図を使い、${mapDefinition.name}へ資源豊富な遠征に出撃した。物資を集めて脱出地点を目指そう。`
+    const entryMessage = consumedRoll
+      ? `地図(${TIER_LABELS[consumedRoll.tier]})を使い、${mapDefinition.name}への特別な遠征に出撃した。物資を集めて脱出地点を目指そう。`
       : `${mapDefinition.name}へ出撃した。物資を集めて脱出地点を目指そう。`;
     this.generateLevel(entryMessage);
   }
@@ -490,6 +511,7 @@ export class Game {
     this.populateRooms(rooms.slice(1, -1), roomBiomes);
     this.placeGatheringNodes(rooms, roomBiomes);
     this.placeBarterMerchant(rooms.slice(1, -1));
+    this.placeVaultRooms(rooms.slice(1, -1), roomBiomes);
     this.messages = [entryMessage];
     this.updateFov();
   }
@@ -506,6 +528,110 @@ export class Game {
     }
 
     this.entities.push(createStationEntity(`station-barter-${this.depth}`, 'barterMerchant', '行商人', 'm', '#7dd3fc', x, y));
+  }
+
+  private placeVaultRooms(rooms: RoomLike[], roomBiomes: Map<RoomLike, BiomeId>): void {
+    if (rooms.length === 0) {
+      return;
+    }
+
+    const shuffled = [...rooms];
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = ROT.RNG.getUniformInt(0, index);
+      [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+
+    const vaultTarget = Math.min(shuffled.length, 1 + this.vaultRoomBonus);
+    let placedCount = 0;
+
+    for (const room of shuffled) {
+      if (placedCount >= vaultTarget) {
+        break;
+      }
+
+      const spot = this.findVaultSpot(room);
+      if (!spot) {
+        continue;
+      }
+
+      const biomeId = roomBiomes.get(room) ?? 'mine';
+      const tile = this.tileAt(spot.x, spot.y);
+      tile.kind = 'locked';
+      tile.biome = biomeId;
+      this.placeGuardian(spot, biomeId);
+      placedCount += 1;
+    }
+  }
+
+  private findVaultSpot(room: RoomLike): { x: number; y: number } | undefined {
+    const [cx, cy] = roomCenter(room);
+    if (this.tileAt(cx, cy).kind === 'floor' && !this.blockingEntityAt(cx, cy)) {
+      return { x: cx, y: cy };
+    }
+
+    for (let y = room.getTop() + 1; y <= room.getBottom() - 1; y += 1) {
+      for (let x = room.getLeft() + 1; x <= room.getRight() - 1; x += 1) {
+        if (this.tileAt(x, y).kind === 'floor' && !this.blockingEntityAt(x, y)) {
+          return { x, y };
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private placeGuardian(vaultSpot: { x: number; y: number }, biomeId: BiomeId): void {
+    const biome = BIOME_DEFINITIONS[biomeId];
+    const guardEnemy = biome.enemies.at(-1) ?? biome.enemies[0];
+    if (!guardEnemy) {
+      return;
+    }
+
+    const spot = this.nearbyWalkableSpot(vaultSpot.x, vaultSpot.y);
+    if (!spot || this.blockingEntityAt(spot.x, spot.y)) {
+      return;
+    }
+
+    const definition = ENEMY_DEFINITIONS[guardEnemy];
+    const multiplier = this.eliteGuardianActive ? VAULT_ELITE_GUARDIAN_DANGER_MULTIPLIER : VAULT_GUARDIAN_DANGER_MULTIPLIER;
+    const dangerBonus = (biome.danger + this.depth - 1) * multiplier;
+
+    this.entities.push({
+      id: `guardian-${this.depth}-${++this.dropId}`,
+      kind: 'monster',
+      name: `${definition.name}(守護者)`,
+      glyph: definition.glyph,
+      color: definition.color,
+      x: spot.x,
+      y: spot.y,
+      blocks: true,
+      ai: 'hostile',
+      enemy: guardEnemy,
+      stats: scaledEnemyStats(guardEnemy, dangerBonus),
+    });
+  }
+
+  private nearbyWalkableSpot(x: number, y: number): { x: number; y: number } | undefined {
+    const offsets: Array<[number, number]> = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ];
+
+    for (const [dx, dy] of offsets) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (this.isWalkable(nx, ny) && !this.blockingEntityAt(nx, ny)) {
+        return { x: nx, y: ny };
+      }
+    }
+
+    return undefined;
   }
 
   private assignRoomBiomes(rooms: RoomLike[]): Map<RoomLike, BiomeId> {
@@ -643,7 +769,7 @@ export class Game {
           blocks: true,
           ai: 'hostile',
           enemy,
-          stats: scaledEnemyStats(enemy, biome.danger + this.depth - 1),
+          stats: scaledEnemyStats(enemy, (biome.danger + this.depth - 1) * this.dangerBonusMultiplier),
         });
       }
 
@@ -823,6 +949,9 @@ export class Game {
       }
 
       this.addLootItem(item.item);
+      if (item.mapRoll) {
+        this.mapItemRolls[item.item] = [...(this.mapItemRolls[item.item] ?? []), item.mapRoll];
+      }
       this.entities = this.entities.filter((entity) => entity.id !== item.id);
       this.pushMessage(`${ITEM_DEFINITIONS[item.item].name}を拾った。`);
       return true;
@@ -1013,6 +1142,7 @@ export class Game {
     const tile = this.tileAt(targetX, targetY);
     const tileBiome = this.biomeAt(targetX, targetY);
     const gathered = this.isGatheringTile(tile.kind);
+    const isVault = tile.kind === 'locked';
 
     if (!withTool && !gathered) {
       this.pushMessage('素手では壁を掘れない。ピッケルが必要。');
@@ -1032,9 +1162,10 @@ export class Game {
 
     if (gathered) {
       const biome = BIOME_DEFINITIONS[tileBiome];
-      const item = this.rollForCollectionItem() ?? this.rollForMapItem() ?? this.randomBiomeMaterial(tileBiome);
-      this.entities.push(createItemEntity(`node-${this.depth}-${++this.dropId}`, item, targetX, targetY));
-      this.pushMessage(`${biome.specialTileLabel}を${withTool ? '調べ' : '素手で漁り'}、${ITEM_DEFINITIONS[item].name}が落ちた。`);
+      const result = isVault ? this.rollForVaultReward(tileBiome) : this.rollGatherReward(tileBiome);
+      this.entities.push(createItemEntity(`node-${this.depth}-${++this.dropId}`, result.item, targetX, targetY, result.roll));
+      const label = isVault ? '宝物庫' : biome.specialTileLabel;
+      this.pushMessage(`${label}を${withTool ? '調べ' : '素手で漁り'}、${ITEM_DEFINITIONS[result.item].name}が落ちた。`);
     } else {
       this.pushMessage('壁を掘って通路を開けた。');
     }
@@ -1042,20 +1173,62 @@ export class Game {
     return true;
   }
 
+  private rollGatherReward(biomeId: BiomeId): { item: ItemKind; roll?: MapRoll } {
+    const collectionItem = this.rollForCollectionItem();
+    if (collectionItem) {
+      return { item: collectionItem };
+    }
+
+    const mapResult = this.rollForMapItem();
+    if (mapResult) {
+      return mapResult;
+    }
+
+    return { item: this.randomBiomeMaterial(biomeId) };
+  }
+
+  private rollForVaultReward(biomeId: BiomeId): { item: ItemKind; roll?: MapRoll } {
+    const collectionItem = this.rollForCollectionItem();
+    if (collectionItem) {
+      return { item: collectionItem };
+    }
+
+    if (ROT.RNG.getUniform() < VAULT_MAP_ITEM_CHANCE) {
+      const mapResult = this.rollForGuaranteedMapItem();
+      if (mapResult) {
+        return mapResult;
+      }
+    }
+
+    const biome = BIOME_DEFINITIONS[biomeId];
+    const pool = biome.materials.length > 0 ? biome.materials : biome.commonMaterials;
+    return { item: pool[ROT.RNG.getUniformInt(0, pool.length - 1)] };
+  }
+
   private rollForCollectionItem(): ItemKind | undefined {
-    if (COLLECTION_KINDS.length === 0 || ROT.RNG.getUniform() >= COLLECTION_DROP_CHANCE) {
+    if (COLLECTION_KINDS.length === 0 || ROT.RNG.getUniform() >= COLLECTION_DROP_CHANCE * this.dropRateMultiplier) {
       return undefined;
     }
 
     return COLLECTION_KINDS[ROT.RNG.getUniformInt(0, COLLECTION_KINDS.length - 1)];
   }
 
-  private rollForMapItem(): ItemKind | undefined {
-    if (MAP_ITEM_KINDS.length === 0 || ROT.RNG.getUniform() >= MAP_ITEM_DROP_CHANCE) {
+  private rollForMapItem(): { item: ItemKind; roll: MapRoll } | undefined {
+    if (ROT.RNG.getUniform() >= MAP_ITEM_DROP_CHANCE * this.dropRateMultiplier) {
       return undefined;
     }
 
-    return MAP_ITEM_KINDS[ROT.RNG.getUniformInt(0, MAP_ITEM_KINDS.length - 1)];
+    return this.rollForGuaranteedMapItem();
+  }
+
+  private rollForGuaranteedMapItem(): { item: ItemKind; roll: MapRoll } | undefined {
+    if (MAP_ITEM_KINDS.length === 0) {
+      return undefined;
+    }
+
+    const item = MAP_ITEM_KINDS[ROT.RNG.getUniformInt(0, MAP_ITEM_KINDS.length - 1)];
+    const roll = rollMapRoll(`map-roll-${++this.mapRollSeq}`);
+    return { item, roll };
   }
 
   private extract(): boolean {
@@ -1226,6 +1399,13 @@ export class Game {
     const definition = ITEM_DEFINITIONS[item];
     if (definition.category === 'equipment') {
       this.grantEquipmentInstances(item, amount);
+    }
+
+    if (definition.category === 'map') {
+      for (let index = 0; index < amount; index += 1) {
+        const roll = rollMapRoll(`map-roll-${++this.mapRollSeq}`);
+        this.mapItemRolls[item] = [...(this.mapItemRolls[item] ?? []), roll];
+      }
     }
 
     if (this.mode === 'raid') {
@@ -1619,14 +1799,14 @@ export class Game {
         return;
       }
 
-      const layout = layoutGridInventory(this.baseLoadout, this.gridLayouts.hand, this.equipmentDurability, GRID_DIMENSIONS.hand);
+      const layout = layoutGridInventory(this.baseLoadout, this.gridLayouts.hand, this.equipmentDurability, this.mapItemRolls, GRID_DIMENSIONS.hand);
       if (!canFitAdditionalUnit(this.baseLoadout, layout, item, GRID_DIMENSIONS.hand)) {
         return;
       }
 
       this.stash[item] -= 1;
       this.baseLoadout[item] += 1;
-      this.gridLayouts.hand = layoutGridInventory(this.baseLoadout, layout, this.equipmentDurability, GRID_DIMENSIONS.hand);
+      this.gridLayouts.hand = layoutGridInventory(this.baseLoadout, layout, this.equipmentDurability, this.mapItemRolls, GRID_DIMENSIONS.hand);
     });
   }
 
@@ -1727,7 +1907,7 @@ const roomCenter = (room: RoomLike): [number, number] => {
   return [x, y];
 };
 
-const createItemEntity = (id: string, item: ItemKind, x: number, y: number): Entity => {
+const createItemEntity = (id: string, item: ItemKind, x: number, y: number, mapRoll?: MapRoll): Entity => {
   const definition = ITEM_DEFINITIONS[item];
   return {
     id,
@@ -1739,6 +1919,7 @@ const createItemEntity = (id: string, item: ItemKind, x: number, y: number): Ent
     y,
     blocks: false,
     item,
+    mapRoll,
   };
 };
 

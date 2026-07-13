@@ -20,7 +20,7 @@ export type Command =
   | { type: 'placeItem'; item: ItemKind; location: InventoryLocation; x: number; y: number }
   | { type: 'appraiseCollection' }
   | { type: 'descend' }
-  | { type: 'startRaid'; mapId: MapId; useMapItem?: boolean }
+  | { type: 'startRaid'; mapId: MapId; mapRollId?: string }
   | { type: 'sellItem'; item: ItemKind }
   | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
@@ -151,6 +151,11 @@ export type Inventory = Record<ItemKind, number>;
 export type GameMode = 'base' | 'raid';
 export type InventoryLocation = 'hand' | 'stash' | 'raidBag';
 
+export type MapAffixId = 'richYield' | 'denseSwarm' | 'fortune' | 'vaultSealed' | 'eliteGuardian';
+export type MapAffix = { id: MapAffixId; magnitude: number };
+export type MapTier = 'normal' | 'magic' | 'rare';
+export type MapRoll = { id: string; tier: MapTier; affixes: MapAffix[] };
+
 export type Entity = {
   id: string;
   kind: EntityKind;
@@ -165,6 +170,7 @@ export type Entity = {
   item?: ItemKind;
   enemy?: EnemyKind;
   station?: StationKind;
+  mapRoll?: MapRoll;
 };
 
 export type CombatEffect = {
@@ -200,6 +206,7 @@ export type PlacedItem = {
   height: number;
   durability?: number;
   maxDurability?: number;
+  mapRollId?: string;
 };
 
 export type GridInventories = {
@@ -228,4 +235,5 @@ export type GameSnapshot = {
   grids: GridInventories;
   collectionCount: number;
   debugMode: boolean;
+  mapRolls: Partial<Record<ItemKind, MapRoll[]>>;
 };

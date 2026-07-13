@@ -1,7 +1,8 @@
-import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
+import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, MapRoll, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
-import { canFitAdditionalUnit, GRID_DIMENSIONS, overlaps } from '../game/grid-inventory';
+import { canFitAdditionalUnit, GRID_DIMENSIONS, isStackable, overlaps } from '../game/grid-inventory';
 import { ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID } from '../game/items';
+import { describeAffix, TIER_LABELS } from '../game/map-affixes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 import { SPRITE_SHAPES, spriteKeyForItem } from './canvas-renderer';
@@ -30,7 +31,7 @@ type BasePlanningRoots = {
   stashRoot: HTMLElement;
   recipeRoot: HTMLElement;
   moneyRoot: HTMLElement;
-  onStartRaid: (mapId: MapId, useMapItem?: boolean) => void;
+  onStartRaid: (mapId: MapId, mapRollId?: string) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
   onAppraiseCollection: () => void;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
@@ -46,6 +47,7 @@ type ContextAction = {
 type InventoryDragState = {
   item: ItemKind;
   from: InventoryLocation;
+  mapRollId?: string;
   startX: number;
   startY: number;
   ghost: HTMLElement;
@@ -59,9 +61,9 @@ const DRAG_MOVE_THRESHOLD = 12;
 const TOUCH_DRAG_GHOST_OFFSET = -18;
 
 let inventoryDragState: InventoryDragState | null = null;
-let inspectItemHandler: ((item: ItemKind, location: InventoryLocation) => void) | undefined;
+let inspectItemHandler: ((item: ItemKind, location: InventoryLocation, mapRollId?: string) => void) | undefined;
 
-export const setInventoryInspectHandler = (handler: (item: ItemKind, location: InventoryLocation) => void) => {
+export const setInventoryInspectHandler = (handler: (item: ItemKind, location: InventoryLocation, mapRollId?: string) => void) => {
   inspectItemHandler = handler;
 };
 
@@ -145,7 +147,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 
 export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
   roots.moneyRoot.textContent = `${snapshot.money}G`;
-  roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, snapshot.stash, roots.onStartRaid)));
+  roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, snapshot.mapRolls, roots.onStartRaid)));
   roots.stashRoot.replaceChildren(
     ...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection),
     inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
@@ -229,7 +231,7 @@ const staminaBar = (stamina: number, maxStamina: number) => {
   return root;
 };
 
-const mapCard = (mapId: MapId, stash: Inventory, onStartRaid: (mapId: MapId, useMapItem?: boolean) => void) => {
+const mapCard = (mapId: MapId, mapRolls: Partial<Record<ItemKind, MapRoll[]>>, onStartRaid: (mapId: MapId, mapRollId?: string) => void) => {
   const map = MAP_DEFINITIONS[mapId];
   const biomes = map.biomes.map((biomeId) => BIOME_DEFINITIONS[biomeId]);
   const maxDanger = Math.max(...biomes.map((biome) => biome.danger));
@@ -265,18 +267,47 @@ const mapCard = (mapId: MapId, stash: Inventory, onStartRaid: (mapId: MapId, use
   card.append(heading, meta, terrain, materials, button);
 
   const mapItemKind = MAP_ITEM_FOR_MAP_ID[mapId];
-  const mapItemCount = stash[mapItemKind];
-  if (mapItemCount > 0) {
-    const mapButton = document.createElement('button');
-    mapButton.type = 'button';
-    mapButton.className = 'map-item-button';
-    mapButton.textContent = `${emojiForItem(mapItemKind)} 地図で出撃(採取ポイント+50%) x${mapItemCount}`;
-    mapButton.title = ITEM_DEFINITIONS[mapItemKind].description;
-    mapButton.addEventListener('click', () => onStartRaid(mapId, true));
-    card.append(mapButton);
-  }
+  const rolls = mapRolls[mapItemKind] ?? [];
+  rolls.forEach((roll) => {
+    card.append(mapRollCard(mapItemKind, roll, () => onStartRaid(mapId, roll.id)));
+  });
 
   return card;
+};
+
+const mapRollCard = (mapItemKind: ItemKind, roll: MapRoll, onUse: () => void) => {
+  const rollCard = document.createElement('div');
+  rollCard.className = `map-roll-card map-roll-tier-${roll.tier}`;
+
+  const header = document.createElement('div');
+  header.className = 'map-roll-header';
+
+  const glyph = document.createElement('span');
+  glyph.className = 'map-roll-glyph';
+  glyph.textContent = emojiForItem(mapItemKind);
+
+  const tier = document.createElement('span');
+  tier.className = 'map-roll-tier-badge';
+  tier.textContent = TIER_LABELS[roll.tier];
+
+  header.append(glyph, tier);
+
+  const affixList = document.createElement('ul');
+  affixList.className = 'map-roll-affixes';
+  roll.affixes.forEach((affix) => {
+    const item = document.createElement('li');
+    item.textContent = describeAffix(affix);
+    affixList.append(item);
+  });
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'map-item-button';
+  button.textContent = 'この地図で出撃';
+  button.addEventListener('click', onUse);
+
+  rollCard.append(header, affixList, button);
+  return rollCard;
 };
 
 const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe: (recipe: RecipeId) => void) => {
@@ -489,7 +520,8 @@ const inventoryGridElement = (
   }
 
   placed.forEach((entry) => {
-    grid.append(inventorySlot(entry, inventory[entry.item] ?? 0, location, onMoveItem, onPlaceItem));
+    const count = isStackable(entry.item) ? inventory[entry.item] ?? 0 : 1;
+    grid.append(inventorySlot(entry, count, location, onMoveItem, onPlaceItem));
   });
 
   return grid;
@@ -515,7 +547,7 @@ const inventorySlot = (
   slot.title = isUnidentified
     ? '未鑑定のコレクションアイテム。鑑定士に見せるまで正体が分からない。'
     : `${definition.name} x${count}: ${definition.description}`;
-  bindInventoryDrag(slot, entry.item, location, onMoveItem, onPlaceItem);
+  bindInventoryDrag(slot, entry.item, location, entry.mapRollId, onMoveItem, onPlaceItem);
 
   const glyph = document.createElement('span');
   glyph.className = 'inventory-slot-glyph';
@@ -550,6 +582,7 @@ const bindInventoryDrag = (
   slot: HTMLElement,
   itemKind: ItemKind,
   location: InventoryLocation,
+  mapRollId: string | undefined,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
@@ -569,6 +602,7 @@ const bindInventoryDrag = (
     inventoryDragState = {
       item: itemKind,
       from: location,
+      mapRollId,
       startX: x,
       startY: y,
       ghost,
@@ -749,7 +783,7 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   }
 
   if (distance < DRAG_MOVE_THRESHOLD) {
-    inspectItemHandler?.(state.item, state.from);
+    inspectItemHandler?.(state.item, state.from, state.mapRollId);
     return;
   }
 

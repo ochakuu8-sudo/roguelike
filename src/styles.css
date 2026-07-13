@@ -296,6 +296,82 @@ h2 {
   background: rgba(16, 60, 79, 0.6);
 }
 
+.map-roll-card {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(122, 146, 158, 0.34);
+  border-radius: 8px;
+  background: rgba(9, 15, 19, 0.5);
+  padding: 8px;
+}
+
+.map-roll-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-roll-glyph {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.map-roll-tier-badge {
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.map-roll-tier-normal .map-roll-tier-badge,
+.map-roll-tier-badge-normal {
+  border: 1px solid rgba(203, 213, 225, 0.5);
+  background: rgba(203, 213, 225, 0.12);
+  color: #e2e8f0;
+}
+
+.map-roll-tier-magic .map-roll-tier-badge,
+.map-roll-tier-badge-magic {
+  border: 1px solid rgba(96, 165, 250, 0.6);
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+}
+
+.map-roll-tier-rare .map-roll-tier-badge,
+.map-roll-tier-badge-rare {
+  border: 1px solid rgba(250, 204, 21, 0.6);
+  background: rgba(161, 98, 7, 0.2);
+  color: #fde68a;
+}
+
+.map-roll-card.map-roll-tier-magic {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.map-roll-card.map-roll-tier-rare {
+  border-color: rgba(250, 204, 21, 0.55);
+}
+
+.map-roll-affixes {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.72rem;
+  color: #dbeafe;
+}
+
+.map-roll-affixes li {
+  border-left: 2px solid rgba(56, 189, 248, 0.5);
+  padding-left: 6px;
+}
+
+p.map-roll-tier-badge {
+  display: inline-block;
+  margin: 0;
+}
+
 .biome-materials {
   display: flex;
   flex-wrap: wrap;

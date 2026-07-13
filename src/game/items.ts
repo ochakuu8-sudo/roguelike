@@ -129,7 +129,7 @@ const upgrade = (name: string, description: string, value: number): ItemDefiniti
 
 const mapItem = (name: string, destinationName: string, value: number): ItemDefinition => ({
   name,
-  description: `${destinationName}への遠征地図。出撃画面でこれを使うと、その遠征中に見つかる採取ポイントが通常より多くなる。`,
+  description: `${destinationName}への遠征地図。1枚ごとにランク(通常/上質/希少)と固有の特性がランダムに刻まれている。倉庫でタップすると詳細を確認できる。`,
   category: 'map',
   glyph: '#',
   color: '#38bdf8',

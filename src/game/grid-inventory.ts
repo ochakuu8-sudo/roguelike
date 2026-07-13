@@ -1,4 +1,4 @@
-import type { Inventory, InventoryLocation, ItemKind, PlacedItem } from '../engine/types';
+import type { Inventory, InventoryLocation, ItemKind, MapRoll, PlacedItem } from '../engine/types';
 import { ITEM_DEFINITIONS } from './items';
 
 export type GridDimensions = { cols: number; rows: number };
@@ -9,9 +9,9 @@ export const GRID_DIMENSIONS: Record<InventoryLocation, GridDimensions> = {
   stash: { cols: 6, rows: 10 },
 };
 
-const isStackable = (item: ItemKind): boolean => {
+export const isStackable = (item: ItemKind): boolean => {
   const category = ITEM_DEFINITIONS[item].category;
-  return category === 'material' || category === 'consumable' || category === 'upgrade' || category === 'map';
+  return category === 'material' || category === 'consumable' || category === 'upgrade';
 };
 
 export const overlaps = (a: PlacedItem, x: number, y: number, width: number, height: number) =>
@@ -42,6 +42,7 @@ export const layoutGridInventory = (
   inventory: Inventory,
   previous: PlacedItem[],
   durability: Partial<Record<ItemKind, number[]>>,
+  mapRolls: Partial<Record<ItemKind, MapRoll[]>>,
   dimensions: GridDimensions,
 ): PlacedItem[] => {
   const next: PlacedItem[] = [];
@@ -58,20 +59,22 @@ export const layoutGridInventory = (
     const instanceCount = stackable ? 1 : count;
     const existingForItem = previous.filter((entry) => entry.item === item);
     const durabilityUnits = durability[item] ?? [];
+    const rollsForItem = definition.category === 'map' ? (mapRolls[item] ?? []) : undefined;
 
     for (let index = 0; index < instanceCount; index += 1) {
       const kept = existingForItem[index];
       const canKeep = kept && !next.some((entry) => overlaps(entry, kept.x, kept.y, width, height));
       const durabilityValue = definition.maxDurability !== undefined ? durabilityUnits[index] : undefined;
+      const mapRollId = rollsForItem?.[index]?.id;
 
       if (canKeep && kept) {
-        next.push({ item, x: kept.x, y: kept.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability });
+        next.push({ item, x: kept.x, y: kept.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability, mapRollId });
         continue;
       }
 
       const spot = findFreeSpot(next, width, height, dimensions);
       if (spot) {
-        next.push({ item, x: spot.x, y: spot.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability });
+        next.push({ item, x: spot.x, y: spot.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability, mapRollId });
       }
     }
   });

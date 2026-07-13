@@ -170,9 +170,9 @@ const openBasePlanning = () => {
   refresh();
 };
 
-const startRaid = (mapId: MapId, useMapItem?: boolean) => {
+const startRaid = (mapId: MapId, mapRollId?: string) => {
   document.body.classList.remove('show-base-planning');
-  game.dispatch({ type: 'startRaid', mapId, useMapItem });
+  game.dispatch({ type: 'startRaid', mapId, mapRollId });
   refresh();
 };
 
@@ -276,13 +276,18 @@ restartConfirmButton.addEventListener('click', () => {
   refresh();
 });
 
-setInventoryInspectHandler((item) => {
-  showItemInfo(item, {
-    dialog: itemInfoDialog,
-    glyphRoot: itemInfoGlyphRoot,
-    titleRoot: itemInfoTitleRoot,
-    bodyRoot: itemInfoBodyRoot,
-  });
+setInventoryInspectHandler((item, _location, mapRollId) => {
+  const mapRoll = mapRollId ? game.snapshot().mapRolls[item]?.find((roll) => roll.id === mapRollId) : undefined;
+  showItemInfo(
+    item,
+    {
+      dialog: itemInfoDialog,
+      glyphRoot: itemInfoGlyphRoot,
+      titleRoot: itemInfoTitleRoot,
+      bodyRoot: itemInfoBodyRoot,
+    },
+    mapRoll,
+  );
 });
 
 bindInput({
