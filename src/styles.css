@@ -499,7 +499,7 @@ h2 {
   top: max(64px, calc(env(safe-area-inset-top) + 58px));
   right: max(10px, env(safe-area-inset-right));
   display: grid;
-  grid-template-columns: 34px minmax(88px, 118px) 34px;
+  grid-template-columns: 42px minmax(88px, 118px) 42px;
   gap: 5px;
   align-items: stretch;
   pointer-events: auto;
@@ -1324,7 +1324,7 @@ button.inventory-slot:hover {
   .equipment-switcher {
     top: max(56px, calc(env(safe-area-inset-top) + 52px));
     right: max(8px, env(safe-area-inset-right));
-    grid-template-columns: 30px minmax(78px, 104px) 30px;
+    grid-template-columns: 36px minmax(78px, 104px) 36px;
     gap: 4px;
   }
 
@@ -1454,7 +1454,7 @@ button.inventory-slot:hover {
   .equipment-switcher {
     top: max(64px, calc(env(safe-area-inset-top) + 58px));
     right: max(10px, env(safe-area-inset-right));
-    grid-template-columns: 28px minmax(76px, 82px) 28px;
+    grid-template-columns: 42px minmax(76px, 82px) 42px;
     gap: 4px;
   }
 
