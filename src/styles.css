@@ -1097,6 +1097,55 @@ button.inventory-slot:hover {
   color: #9fb0ba;
 }
 
+.compendium-debug-button {
+  grid-column: 1 / -1;
+  min-height: 34px;
+  border-color: rgba(250, 204, 21, 0.5);
+  background: rgba(64, 51, 10, 0.5);
+  color: #fef3c7;
+  font-weight: 800;
+}
+
+.compendium-debug-button:hover {
+  border-color: rgba(250, 204, 21, 0.85);
+  background: rgba(84, 67, 12, 0.6);
+}
+
+#debug-mode-button.is-active {
+  border-color: rgba(250, 204, 21, 0.85);
+  background: rgba(64, 51, 10, 0.6);
+  color: #fef3c7;
+}
+
+.debug-spawn-banner {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92%, 480px);
+  padding: 8px 12px;
+  border: 1px solid rgba(250, 204, 21, 0.6);
+  border-radius: 8px;
+  background: rgba(28, 22, 8, 0.88);
+  color: #fef3c7;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.debug-spawn-banner button {
+  min-height: 30px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.debug-spawn-banner[hidden] {
+  display: none;
+}
+
 .compendium-details dd {
   margin: 0;
   min-width: 0;

@@ -1,7 +1,8 @@
 import './styles.css';
 import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
-import type { Command, Entity, GameSnapshot, MapId } from './engine/types';
+import type { Command, EnemyKind, Entity, GameSnapshot, ItemKind, MapId } from './engine/types';
+import { ENEMY_DEFINITIONS } from './game/enemies';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
 import { updateBasePlanning, updateHud } from './ui/hud';
@@ -25,6 +26,10 @@ const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-
 const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
 const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
 const compendiumListRoot = document.querySelector<HTMLElement>('#compendium-list');
+const debugModeButton = document.querySelector<HTMLButtonElement>('#debug-mode-button');
+const debugSpawnBanner = document.querySelector<HTMLElement>('#debug-spawn-banner');
+const debugSpawnBannerText = document.querySelector<HTMLElement>('#debug-spawn-banner-text');
+const debugSpawnCancelButton = document.querySelector<HTMLButtonElement>('#debug-spawn-cancel-button');
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog');
 const itemDialog = document.querySelector<HTMLDialogElement>('#item-dialog');
 const baseBiomeRoot = document.querySelector<HTMLElement>('#base-biomes');
@@ -53,6 +58,10 @@ if (
   !compendiumDialog ||
   !compendiumTabsRoot ||
   !compendiumListRoot ||
+  !debugModeButton ||
+  !debugSpawnBanner ||
+  !debugSpawnBannerText ||
+  !debugSpawnCancelButton ||
   !helpDialog ||
   !itemDialog ||
   !baseBiomeRoot ||
@@ -66,6 +75,43 @@ if (
 
 const game = new Game();
 const renderer = new CanvasRenderer(canvas);
+
+let pendingSpawnEnemy: EnemyKind | null = null;
+
+const updateDebugSpawnBanner = () => {
+  if (pendingSpawnEnemy) {
+    debugSpawnBannerText.textContent = `${ENEMY_DEFINITIONS[pendingSpawnEnemy].name}を配置する場所をクリックしてください。`;
+    debugSpawnBanner.hidden = false;
+  } else {
+    debugSpawnBanner.hidden = true;
+  }
+};
+
+const cancelDebugSpawn = () => {
+  pendingSpawnEnemy = null;
+  updateDebugSpawnBanner();
+};
+
+const armDebugSpawn = (enemy: EnemyKind) => {
+  pendingSpawnEnemy = enemy;
+  compendiumDialog.close();
+  updateDebugSpawnBanner();
+};
+
+const giveDebugItem = (item: ItemKind) => {
+  game.dispatch({ type: 'debugGiveItem', item });
+  refresh();
+};
+
+const renderCompendium = (snapshot: GameSnapshot) => {
+  updateCompendium({
+    tabsRoot: compendiumTabsRoot,
+    listRoot: compendiumListRoot,
+    debugMode: snapshot.debugMode,
+    onDebugSpawnEnemy: armDebugSpawn,
+    onDebugGiveItem: giveDebugItem,
+  });
+};
 
 const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
 
@@ -110,6 +156,13 @@ const refresh = () => {
     document.body.classList.remove('show-base-planning');
   }
   basePlanningButton.hidden = snapshot.mode !== 'base';
+  debugModeButton.classList.toggle('is-active', snapshot.debugMode);
+  if (!snapshot.debugMode && pendingSpawnEnemy) {
+    cancelDebugSpawn();
+  }
+  if (compendiumDialog.open) {
+    renderCompendium(snapshot);
+  }
   renderer.render(snapshot);
   updateHud(snapshot, {
     statusRoot,
@@ -174,14 +227,28 @@ basePlanningCloseButton.addEventListener('click', () => {
 });
 
 compendiumButton.addEventListener('click', () => {
-  updateCompendium({ tabsRoot: compendiumTabsRoot, listRoot: compendiumListRoot });
+  renderCompendium(game.snapshot());
   compendiumDialog.showModal();
 });
+
+debugModeButton.addEventListener('click', () => {
+  game.dispatch({ type: 'toggleDebugMode' });
+  refresh();
+});
+
+debugSpawnCancelButton.addEventListener('click', cancelDebugSpawn);
 
 bindInput({
   root: document,
   canvas,
   getSnapshot: () => game.snapshot(),
+  getPendingDebugSpawn: () => pendingSpawnEnemy,
+  onDebugSpawnAt: (enemy, x, y) => {
+    pendingSpawnEnemy = null;
+    updateDebugSpawnBanner();
+    game.dispatch({ type: 'debugSpawnEnemy', enemy, x, y });
+    refresh();
+  },
   onCommand: (command) => {
     if (command.type === 'help') {
       helpDialog.showModal();
@@ -202,6 +269,12 @@ bindInput({
     game.dispatch(command);
     refresh();
   },
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && pendingSpawnEnemy) {
+    cancelDebugSpawn();
+  }
 });
 
 window.addEventListener('resize', refresh);

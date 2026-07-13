@@ -1,10 +1,12 @@
-import type { Command, GameSnapshot } from '../engine/types';
+import type { Command, EnemyKind, GameSnapshot } from '../engine/types';
 
 type BindInputOptions = {
   root: Document;
   canvas: HTMLCanvasElement;
   getSnapshot: () => GameSnapshot;
   onCommand: (command: Command) => void;
+  getPendingDebugSpawn?: () => EnemyKind | null;
+  onDebugSpawnAt?: (enemy: EnemyKind, x: number, y: number) => void;
 };
 
 const KEY_COMMANDS = new Map<string, Command>([
@@ -39,6 +41,7 @@ const KEY_COMMANDS = new Map<string, Command>([
   [']', { type: 'nextHandItem' }],
   ['r', { type: 'restart' }],
   ['?', { type: 'help' }],
+  ['`', { type: 'toggleDebugMode' }],
   ['h', { type: 'face', dx: -1, dy: 0 }],
   ['j', { type: 'face', dx: 0, dy: 1 }],
   ['k', { type: 'face', dx: 0, dy: -1 }],
@@ -49,7 +52,7 @@ const KEY_COMMANDS = new Map<string, Command>([
   ['n', { type: 'face', dx: 1, dy: 1 }],
 ]);
 
-export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOptions) => {
+export const bindInput = ({ root, canvas, getSnapshot, onCommand, getPendingDebugSpawn, onDebugSpawnAt }: BindInputOptions) => {
   root.addEventListener('keydown', (event) => {
     const command = KEY_COMMANDS.get(event.key) ?? KEY_COMMANDS.get(event.code);
 
@@ -92,10 +95,6 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
 
   canvas.addEventListener('click', (event) => {
     const snapshot = getSnapshot();
-    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
-    if (!player) {
-      return;
-    }
 
     const rect = canvas.getBoundingClientRect();
     const cell = Math.floor(Math.min(rect.width / snapshot.width, rect.height / snapshot.height));
@@ -107,6 +106,17 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand }: BindInputOpt
     const y = Math.floor((event.clientY - rect.top - offsetY) / cell);
 
     if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
+      return;
+    }
+
+    const pendingSpawn = getPendingDebugSpawn?.();
+    if (pendingSpawn) {
+      onDebugSpawnAt?.(pendingSpawn, x, y);
+      return;
+    }
+
+    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+    if (!player) {
       return;
     }
 

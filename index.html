@@ -17,6 +17,7 @@
         <div class="topbar-actions">
           <button class="text-button" id="base-planning-button" type="button">出撃</button>
           <button class="text-button" id="compendium-button" type="button">図鑑</button>
+          <button class="text-button" id="debug-mode-button" type="button" title="デバッグモード切り替え">デバッグ</button>
           <button class="icon-button" data-command="help" title="ヘルプ">?</button>
           <button class="text-button" data-command="restart">リセット</button>
         </div>
@@ -34,6 +35,10 @@
           >
             拠点に戻る
           </button>
+          <div id="debug-spawn-banner" class="debug-spawn-banner" hidden>
+            <span id="debug-spawn-banner-text"></span>
+            <button type="button" id="debug-spawn-cancel-button" class="text-button">キャンセル</button>
+          </div>
         </section>
 
         <section class="base-screen" aria-label="拠点作戦画面">

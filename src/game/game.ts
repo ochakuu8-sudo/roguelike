@@ -1,6 +1,6 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, ElementId, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, ElementId, EnemyKind, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
@@ -112,6 +112,7 @@ export class Game {
   private stamina = MAX_STAMINA;
   private equipmentDurability: Partial<Record<ItemKind, number[]>> = {};
   private gridLayouts: GridInventories = { hand: [], raidBag: [], stash: [] };
+  private debugMode = false;
 
   constructor() {
     this.restart();
@@ -157,6 +158,7 @@ export class Game {
         stash: this.gridLayouts.stash.map((entry) => ({ ...entry })),
       },
       collectionCount: COLLECTION_KINDS.reduce((total, item) => total + this.stash[item], 0),
+      debugMode: this.debugMode,
     };
   }
 
@@ -179,6 +181,22 @@ export class Game {
       if (this.gameOver) {
         this.finalizeDeath();
       }
+      return;
+    }
+
+    if (command.type === 'toggleDebugMode') {
+      this.debugMode = !this.debugMode;
+      this.pushMessage(this.debugMode ? 'デバッグモードを有効にした。' : 'デバッグモードを無効にした。');
+      return;
+    }
+
+    if (command.type === 'debugGiveItem') {
+      this.debugGiveItem(command.item, command.amount ?? 1);
+      return;
+    }
+
+    if (command.type === 'debugSpawnEnemy') {
+      this.debugSpawnEnemy(command.enemy, command.x, command.y);
       return;
     }
 
@@ -1168,6 +1186,59 @@ export class Game {
 
     entry.x = clampedX;
     entry.y = clampedY;
+  }
+
+  private debugGiveItem(item: ItemKind, amount: number): void {
+    if (!this.debugMode) {
+      this.pushMessage('デバッグモードが無効なので入手できない。');
+      return;
+    }
+
+    if (amount <= 0) {
+      return;
+    }
+
+    const definition = ITEM_DEFINITIONS[item];
+    if (definition.category === 'equipment') {
+      this.grantEquipmentInstances(item, amount);
+    }
+
+    if (this.mode === 'raid') {
+      this.addLootItem(item, amount);
+    } else {
+      this.addItem(item, amount);
+    }
+
+    this.pushMessage(`[デバッグ] ${definition.name}をx${amount}入手した。`);
+  }
+
+  private debugSpawnEnemy(enemy: EnemyKind, x: number, y: number): void {
+    if (!this.debugMode) {
+      this.pushMessage('デバッグモードが無効なので配置できない。');
+      return;
+    }
+
+    if (!this.inBounds(x, y) || !this.isWalkable(x, y) || this.blockingEntityAt(x, y)) {
+      this.pushMessage('そこには配置できない。');
+      return;
+    }
+
+    const definition = ENEMY_DEFINITIONS[enemy];
+    const dangerBonus = Math.max(0, this.depth - 1);
+    this.entities.push({
+      id: `debug-monster-${++this.dropId}`,
+      kind: 'monster',
+      name: definition.name,
+      glyph: definition.glyph,
+      color: definition.color,
+      x,
+      y,
+      blocks: true,
+      ai: 'hostile',
+      enemy,
+      stats: scaledEnemyStats(enemy, dangerBonus),
+    });
+    this.pushMessage(`[デバッグ] ${definition.name}を配置した。`);
   }
 
   private sellAllMaterials(): void {

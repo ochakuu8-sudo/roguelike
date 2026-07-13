@@ -25,7 +25,10 @@ export type Command =
   | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
   | { type: 'acknowledgeDeath' }
-  | { type: 'help' };
+  | { type: 'help' }
+  | { type: 'toggleDebugMode' }
+  | { type: 'debugGiveItem'; item: ItemKind; amount?: number }
+  | { type: 'debugSpawnEnemy'; enemy: EnemyKind; x: number; y: number };
 
 export type TileKind = 'wall' | 'floor' | 'stairs' | 'ore' | 'forage' | 'crate' | 'device' | 'locked';
 
@@ -220,4 +223,5 @@ export type GameSnapshot = {
   mapId: MapId | null;
   grids: GridInventories;
   collectionCount: number;
+  debugMode: boolean;
 };

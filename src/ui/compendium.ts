@@ -5,6 +5,9 @@ import { SPRITE_SHAPES, renderSpriteIcon, type SpriteKey, spriteKeyForEnemy, spr
 type CompendiumRoots = {
   tabsRoot: HTMLElement;
   listRoot: HTMLElement;
+  debugMode: boolean;
+  onDebugSpawnEnemy: (enemy: EnemyKind) => void;
+  onDebugGiveItem: (item: ItemKind) => void;
 };
 
 type CompendiumTab = 'enemies' | 'items' | 'recipes' | 'sprites';
@@ -33,7 +36,7 @@ const STATION_SPRITE_ENTRIES: Array<{ id: StationKind; name: string }> = [
 
 let activeTab: CompendiumTab = 'enemies';
 
-export const updateCompendium = ({ tabsRoot, listRoot }: CompendiumRoots) => {
+export const updateCompendium = ({ tabsRoot, listRoot, debugMode, onDebugSpawnEnemy, onDebugGiveItem }: CompendiumRoots) => {
   tabsRoot.replaceChildren(
     ...Object.entries(TAB_LABELS).map(([tab, label]) => {
       const button = document.createElement('button');
@@ -42,19 +45,19 @@ export const updateCompendium = ({ tabsRoot, listRoot }: CompendiumRoots) => {
       button.textContent = label;
       button.addEventListener('click', () => {
         activeTab = tab as CompendiumTab;
-        updateCompendium({ tabsRoot, listRoot });
+        updateCompendium({ tabsRoot, listRoot, debugMode, onDebugSpawnEnemy, onDebugGiveItem });
       });
       return button;
     }),
   );
 
   if (activeTab === 'enemies') {
-    listRoot.replaceChildren(...ENEMY_ENTRIES.map(enemyCard));
+    listRoot.replaceChildren(...ENEMY_ENTRIES.map((entry) => enemyCard(entry, debugMode, onDebugSpawnEnemy)));
     return;
   }
 
   if (activeTab === 'items') {
-    listRoot.replaceChildren(...ITEM_ENTRIES.map(itemCard));
+    listRoot.replaceChildren(...ITEM_ENTRIES.map((entry) => itemCard(entry, debugMode, onDebugGiveItem)));
     return;
   }
 
@@ -66,7 +69,7 @@ export const updateCompendium = ({ tabsRoot, listRoot }: CompendiumRoots) => {
   listRoot.replaceChildren(...spriteAtlasEntries().map(spriteAtlasCard));
 };
 
-const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number]) => {
+const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number], debugMode: boolean, onDebugSpawnEnemy: (enemy: EnemyKind) => void) => {
   const card = baseCard(entry.name, entry.description, spriteKeyForEnemy(entry.id as EnemyKind));
   card.append(
     detailGrid([
@@ -81,10 +84,15 @@ const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number]) => {
       ['ドロップ', entry.drop],
     ]),
   );
+
+  if (debugMode) {
+    card.append(debugButton('この敵をスポーン', () => onDebugSpawnEnemy(entry.id as EnemyKind)));
+  }
+
   return card;
 };
 
-const itemCard = (entry: (typeof ITEM_ENTRIES)[number]) => {
+const itemCard = (entry: (typeof ITEM_ENTRIES)[number], debugMode: boolean, onDebugGiveItem: (item: ItemKind) => void) => {
   const card = baseCard(entry.name, entry.description, spriteKeyForItem(entry.id as ItemKind));
   const details: Array<[string, string]> = [['分類', entry.category]];
   if (entry.attackInfo) {
@@ -101,7 +109,21 @@ const itemCard = (entry: (typeof ITEM_ENTRIES)[number]) => {
     ['レア度', entry.rarity],
   );
   card.append(detailGrid(details));
+
+  if (debugMode) {
+    card.append(debugButton('このアイテムを入手', () => onDebugGiveItem(entry.id as ItemKind)));
+  }
+
   return card;
+};
+
+const debugButton = (label: string, onClick: () => void) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'compendium-debug-button';
+  button.textContent = label;
+  button.addEventListener('click', onClick);
+  return button;
 };
 
 const recipeCard = (entry: (typeof RECIPE_ENTRIES)[number]) => {
