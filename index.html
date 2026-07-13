@@ -76,9 +76,9 @@
 
         <aside class="side-panel">
           <section class="equipment-switcher" aria-label="手持ちインベントリ">
-            <button data-command="previousHandItem" type="button" aria-label="前の手持ち">◀</button>
+            <button data-command="previousHandItem" type="button" class="switcher-nav" aria-label="前の手持ち"></button>
             <div id="hand-slot" class="hand-slot" aria-live="polite"></div>
-            <button data-command="nextHandItem" type="button" aria-label="次の手持ち">▶</button>
+            <button data-command="nextHandItem" type="button" class="switcher-nav" aria-label="次の手持ち"></button>
           </section>
 
           <section class="panel-block status-block">
@@ -132,6 +132,17 @@
       </main>
     </div>
 
+    <dialog id="restart-confirm-dialog" class="confirm-dialog">
+      <form method="dialog">
+        <h2>本当にリセットしますか？</h2>
+        <p>拠点の倉庫や所持金、探索の進行状況がすべて失われます。この操作は取り消せません。</p>
+        <div class="confirm-dialog-actions">
+          <button type="button" class="text-button" id="restart-cancel-button">キャンセル</button>
+          <button type="button" class="text-button confirm-dialog-danger" id="restart-confirm-button">リセットする</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="help-dialog" class="help-dialog">
       <form method="dialog">
         <h2>ローグライク試作版</h2>
@@ -151,6 +162,17 @@
       </form>
     </dialog>
 
+    <dialog id="item-info-dialog" class="item-info-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <span id="item-info-glyph" class="item-info-glyph" aria-hidden="true"></span>
+          <h2 id="item-info-title">アイテム情報</h2>
+          <button class="icon-button">×</button>
+        </div>
+        <div id="item-info-body" class="item-info-body"></div>
+      </form>
+    </dialog>
+
     <dialog id="compendium-dialog" class="compendium-dialog">
       <form method="dialog">
         <div class="dialog-heading">
@@ -158,6 +180,7 @@
           <button class="icon-button">×</button>
         </div>
         <div id="compendium-tabs" class="compendium-tabs" aria-label="図鑑カテゴリ"></div>
+        <input type="search" id="compendium-search" class="compendium-search" placeholder="名前で検索..." aria-label="図鑑を検索" />
         <div id="compendium-list" class="compendium-list"></div>
       </form>
     </dialog>

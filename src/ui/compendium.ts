@@ -5,6 +5,7 @@ import { SPRITE_SHAPES, renderSpriteIcon, type SpriteKey, spriteKeyForEnemy, spr
 type CompendiumRoots = {
   tabsRoot: HTMLElement;
   listRoot: HTMLElement;
+  searchRoot: HTMLInputElement;
   debugMode: boolean;
   onDebugSpawnEnemy: (enemy: EnemyKind) => void;
   onDebugGiveItem: (item: ItemKind) => void;
@@ -36,7 +37,17 @@ const STATION_SPRITE_ENTRIES: Array<{ id: StationKind; name: string }> = [
 
 let activeTab: CompendiumTab = 'enemies';
 
-export const updateCompendium = ({ tabsRoot, listRoot, debugMode, onDebugSpawnEnemy, onDebugGiveItem }: CompendiumRoots) => {
+const matchesQuery = (query: string, ...fields: string[]) =>
+  query.length === 0 || fields.some((field) => field.toLowerCase().includes(query));
+
+const emptyStateNode = () => {
+  const empty = document.createElement('p');
+  empty.className = 'compendium-empty';
+  empty.textContent = '該当する項目がありません。';
+  return empty;
+};
+
+export const updateCompendium = ({ tabsRoot, listRoot, searchRoot, debugMode, onDebugSpawnEnemy, onDebugGiveItem }: CompendiumRoots) => {
   tabsRoot.replaceChildren(
     ...Object.entries(TAB_LABELS).map(([tab, label]) => {
       const button = document.createElement('button');
@@ -45,28 +56,40 @@ export const updateCompendium = ({ tabsRoot, listRoot, debugMode, onDebugSpawnEn
       button.textContent = label;
       button.addEventListener('click', () => {
         activeTab = tab as CompendiumTab;
-        updateCompendium({ tabsRoot, listRoot, debugMode, onDebugSpawnEnemy, onDebugGiveItem });
+        updateCompendium({ tabsRoot, listRoot, searchRoot, debugMode, onDebugSpawnEnemy, onDebugGiveItem });
       });
       return button;
     }),
   );
 
+  const query = searchRoot.value.trim().toLowerCase();
+
   if (activeTab === 'enemies') {
-    listRoot.replaceChildren(...ENEMY_ENTRIES.map((entry) => enemyCard(entry, debugMode, onDebugSpawnEnemy)));
+    const cards = ENEMY_ENTRIES.filter((entry) => matchesQuery(query, entry.name, entry.description)).map((entry) =>
+      enemyCard(entry, debugMode, onDebugSpawnEnemy),
+    );
+    listRoot.replaceChildren(...(cards.length > 0 ? cards : [emptyStateNode()]));
     return;
   }
 
   if (activeTab === 'items') {
-    listRoot.replaceChildren(...ITEM_ENTRIES.map((entry) => itemCard(entry, debugMode, onDebugGiveItem)));
+    const cards = ITEM_ENTRIES.filter((entry) => matchesQuery(query, entry.name, entry.description)).map((entry) =>
+      itemCard(entry, debugMode, onDebugGiveItem),
+    );
+    listRoot.replaceChildren(...(cards.length > 0 ? cards : [emptyStateNode()]));
     return;
   }
 
   if (activeTab === 'recipes') {
-    listRoot.replaceChildren(...RECIPE_ENTRIES.map(recipeCard));
+    const cards = RECIPE_ENTRIES.filter((entry) => matchesQuery(query, entry.name, entry.description)).map(recipeCard);
+    listRoot.replaceChildren(...(cards.length > 0 ? cards : [emptyStateNode()]));
     return;
   }
 
-  listRoot.replaceChildren(...spriteAtlasEntries().map(spriteAtlasCard));
+  const spriteCards = spriteAtlasEntries()
+    .filter((entry) => matchesQuery(query, entry.name, entry.group))
+    .map(spriteAtlasCard);
+  listRoot.replaceChildren(...(spriteCards.length > 0 ? spriteCards : [emptyStateNode()]));
 };
 
 const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number], debugMode: boolean, onDebugSpawnEnemy: (enemy: EnemyKind) => void) => {

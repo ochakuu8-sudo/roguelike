@@ -59,6 +59,11 @@ const DRAG_MOVE_THRESHOLD = 12;
 const TOUCH_DRAG_GHOST_OFFSET = -18;
 
 let inventoryDragState: InventoryDragState | null = null;
+let inspectItemHandler: ((item: ItemKind, location: InventoryLocation) => void) | undefined;
+
+export const setInventoryInspectHandler = (handler: (item: ItemKind, location: InventoryLocation) => void) => {
+  inspectItemHandler = handler;
+};
 
 document.addEventListener('pointermove', (event) => {
   if (inventoryDragState) {
@@ -318,11 +323,32 @@ const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe:
   return card;
 };
 
+const switcherButtonContent = (arrow: string, item?: ItemKind) => {
+  const fragment = document.createDocumentFragment();
+  const arrowEl = document.createElement('span');
+  arrowEl.className = 'switcher-arrow';
+  arrowEl.textContent = arrow;
+  fragment.append(arrowEl);
+
+  if (item) {
+    const icon = document.createElement('span');
+    icon.className = 'switcher-icon';
+    icon.textContent = emojiForItem(item);
+    fragment.append(icon);
+  }
+
+  return fragment;
+};
+
 const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
   if (snapshot.mode === 'base') {
     const cellsUsed = gridCellsUsed(snapshot.grids.hand);
     roots.previousHandButton.disabled = true;
     roots.nextHandButton.disabled = true;
+    roots.previousHandButton.replaceChildren(switcherButtonContent('◀'));
+    roots.nextHandButton.replaceChildren(switcherButtonContent('▶'));
+    roots.previousHandButton.setAttribute('aria-label', '前の手持ち');
+    roots.nextHandButton.setAttribute('aria-label', '次の手持ち');
     roots.handSlotRoot.classList.remove('is-empty');
     roots.handSlotRoot.replaceChildren(slotText('手持ち予定', `${cellsUsed}/${gridCellCount('hand')}マス 次の出撃で持ち込み`));
     return;
@@ -331,9 +357,25 @@ const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
   const handItems = ITEM_KINDS.filter((item) => snapshot.player.handInventory[item] > 0);
   const selected = snapshot.player.selectedHandItem;
   const selectedCount = selected ? snapshot.player.handInventory[selected] : 0;
+  const canCycle = handItems.length > 1;
 
-  roots.previousHandButton.disabled = handItems.length <= 1;
-  roots.nextHandButton.disabled = handItems.length <= 1;
+  roots.previousHandButton.disabled = !canCycle;
+  roots.nextHandButton.disabled = !canCycle;
+
+  if (canCycle) {
+    const currentIndex = selected ? handItems.indexOf(selected) : -1;
+    const prevItem = handItems[(currentIndex - 1 + handItems.length) % handItems.length];
+    const nextItem = handItems[(currentIndex + 1 + handItems.length) % handItems.length];
+    roots.previousHandButton.replaceChildren(switcherButtonContent('◀', prevItem));
+    roots.nextHandButton.replaceChildren(switcherButtonContent('▶', nextItem));
+    roots.previousHandButton.setAttribute('aria-label', `前の手持ち: ${ITEM_DEFINITIONS[prevItem].name}`);
+    roots.nextHandButton.setAttribute('aria-label', `次の手持ち: ${ITEM_DEFINITIONS[nextItem].name}`);
+  } else {
+    roots.previousHandButton.replaceChildren(switcherButtonContent('◀'));
+    roots.nextHandButton.replaceChildren(switcherButtonContent('▶'));
+    roots.previousHandButton.setAttribute('aria-label', '前の手持ち');
+    roots.nextHandButton.setAttribute('aria-label', '次の手持ち');
+  }
 
   if (!selected || selectedCount <= 0) {
     roots.handSlotRoot.classList.add('is-empty');
@@ -342,6 +384,10 @@ const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
   }
 
   const definition = ITEM_DEFINITIONS[selected];
+  const glyph = document.createElement('span');
+  glyph.className = 'hand-slot-glyph';
+  glyph.textContent = emojiForItem(selected);
+
   const name = document.createElement('strong');
   name.textContent = definition.name;
 
@@ -352,7 +398,7 @@ const updateHandSwitcher = (snapshot: GameSnapshot, roots: HudRoots) => {
   detail.textContent = definition.category === 'consumable' ? '使用できる道具' : '手持ち装備';
 
   roots.handSlotRoot.classList.remove('is-empty');
-  roots.handSlotRoot.replaceChildren(name, count, detail);
+  roots.handSlotRoot.replaceChildren(glyph, name, count, detail);
 };
 
 const slotText = (labelText: string, detailText: string) => {
@@ -685,7 +731,12 @@ const endInventoryDrag = (commit: boolean, x = 0, y = 0) => {
   });
   clearInventoryDropPreview();
 
-  if (!commit || distance < DRAG_MOVE_THRESHOLD) {
+  if (!commit) {
+    return;
+  }
+
+  if (distance < DRAG_MOVE_THRESHOLD) {
+    inspectItemHandler?.(state.item, state.from);
     return;
   }
 

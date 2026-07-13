@@ -521,11 +521,31 @@ h2 {
   cursor: default;
 }
 
+.switcher-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.switcher-arrow {
+  font-size: 0.6rem;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.switcher-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .hand-slot {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   align-content: center;
+  align-items: center;
   gap: 2px 6px;
   min-width: 0;
   min-height: 42px;
@@ -537,7 +557,17 @@ h2 {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
+.hand-slot .hand-slot-glyph {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  font-size: 1.5rem;
+  line-height: 1;
+  text-align: center;
+}
+
 .hand-slot strong {
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   overflow: hidden;
   font-size: 0.78rem;
@@ -547,14 +577,17 @@ h2 {
   white-space: nowrap;
 }
 
-.hand-slot span {
+.hand-slot > span:not(.hand-slot-glyph) {
+  grid-column: 3;
+  grid-row: 1;
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.05;
 }
 
 .hand-slot small {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
+  grid-row: 2;
   min-width: 0;
   overflow: hidden;
   color: #a8bbc6;
@@ -568,6 +601,11 @@ h2 {
 .hand-slot.is-empty {
   grid-template-columns: minmax(0, 1fr);
   opacity: 0.78;
+}
+
+.hand-slot.is-empty strong,
+.hand-slot.is-empty small {
+  grid-column: 1;
 }
 
 .status-block {
@@ -957,6 +995,7 @@ button.inventory-slot:hover {
 
 .help-dialog,
 .item-dialog,
+.item-info-dialog,
 .compendium-dialog {
   width: min(480px, calc(100% - 28px));
   border: 1px solid #43515a;
@@ -968,20 +1007,107 @@ button.inventory-slot:hover {
 
 .help-dialog::backdrop,
 .item-dialog::backdrop,
+.item-info-dialog::backdrop,
 .compendium-dialog::backdrop {
   background: rgba(0, 0, 0, 0.62);
 }
 
 .help-dialog form,
 .item-dialog form,
+.item-info-dialog form,
 .compendium-dialog form {
   display: grid;
   gap: 10px;
   padding: 20px;
 }
 
+.item-info-glyph {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.item-info-dialog .dialog-heading h2 {
+  flex: 1;
+}
+
+.confirm-dialog {
+  width: min(380px, calc(100% - 28px));
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 8px;
+  background: #141b1f;
+  color: #edf2f7;
+  padding: 0;
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.confirm-dialog form {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.confirm-dialog h2 {
+  margin-bottom: 0;
+  color: #fecaca;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: #c8d3da;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-dialog-danger {
+  border-color: rgba(248, 113, 113, 0.6);
+  background: rgba(64, 16, 16, 0.6);
+  color: #fecaca;
+}
+
+.confirm-dialog-danger:hover {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: rgba(84, 20, 20, 0.7);
+}
+
 .compendium-dialog {
   width: min(720px, calc(100% - 28px));
+}
+
+.compendium-search {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(122, 146, 158, 0.38);
+  border-radius: 8px;
+  background: rgba(9, 15, 19, 0.6);
+  color: #edf2f7;
+  padding: 0 12px;
+  font-size: 0.84rem;
+}
+
+.compendium-search::placeholder {
+  color: #7a929e;
+}
+
+.compendium-search:focus {
+  outline: none;
+  border-color: rgba(125, 211, 252, 0.7);
+}
+
+.compendium-empty {
+  grid-column: 1 / -1;
+  color: #9fb0ba;
+  font-size: 0.84rem;
+  text-align: center;
+  padding: 24px 0;
 }
 
 .help-dialog p {

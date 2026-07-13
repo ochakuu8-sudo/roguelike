@@ -1,4 +1,4 @@
-import { indexAt } from '../engine/grid';
+import { chebyshev, indexAt } from '../engine/grid';
 import type { BiomeId, CombatEffect, EnemyKind, Entity, GameSnapshot, ItemKind, StationKind, Tile } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
 
@@ -80,9 +80,15 @@ export const SPRITE_SHAPES = {
   drone: '👁️',
   guardian: '🐉',
   potion: '🧪',
+  potionHi: '⚗️',
+  pill: '💊',
+  bandage: '🩹',
+  vialPoison: '🧫',
+  smoke: '🌫️',
   scroll: '📜',
   bomb: '💣',
   blade: '🔪',
+  brokenBlade: '⚔️',
   sword: '🗡️',
   bow: '🏹',
   pickaxe: '⛏️',
@@ -93,7 +99,21 @@ export const SPRITE_SHAPES = {
   hazmatSuit: '☣️',
   material: '🪵',
   ore: '🪨',
+  copperNugget: '🥉',
+  sulfurDot: '🟡',
+  shell: '🐚',
   herb: '🌿',
+  mushroom: '🍄',
+  spore: '🫧',
+  water: '💧',
+  leatherGoods: '🟤',
+  clothGoods: '👕',
+  glassGem: '🔷',
+  medal: '🏅',
+  floppy: '💾',
+  meat: '🍖',
+  key: '🗝️',
+  mapIcon: '🗺️',
   bone: '🦴',
   gear: '⚙️',
   bottle: '🧴',
@@ -141,11 +161,11 @@ const STATION_SPRITES: Record<StationKind, SpriteKey> = {
 
 const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
   potion: 'potion',
-  hiPotion: 'potion',
-  antidote: 'bottle',
-  bandage: 'scroll',
-  poisonVial: 'bottle',
-  smokeBomb: 'bomb',
+  hiPotion: 'potionHi',
+  antidote: 'pill',
+  bandage: 'bandage',
+  poisonVial: 'vialPoison',
+  smokeBomb: 'smoke',
   explosive: 'bomb',
   throwingKnife: 'blade',
   sword: 'sword',
@@ -158,29 +178,29 @@ const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
   leatherArmor: 'armor',
   hazmatSuit: 'hazmatSuit',
   ironOre: 'ore',
-  copperOre: 'ore',
-  sulfur: 'ore',
+  copperOre: 'copperNugget',
+  sulfur: 'sulfurDot',
   oldGear: 'gear',
-  hardShell: 'beetle',
+  hardShell: 'shell',
   herb: 'herb',
-  blueMushroom: 'herb',
-  poisonSpore: 'herb',
-  cleanWater: 'bottle',
+  blueMushroom: 'mushroom',
+  poisonSpore: 'spore',
+  cleanWater: 'water',
   slimeGel: 'slime',
   boneShard: 'bone',
-  sturdyLeather: 'scroll',
-  tornCloth: 'scroll',
-  brokenBlade: 'blade',
-  crestFragment: 'coin',
-  glassShard: 'ore',
+  sturdyLeather: 'leatherGoods',
+  tornCloth: 'clothGoods',
+  brokenBlade: 'brokenBlade',
+  crestFragment: 'medal',
+  glassShard: 'glassGem',
   chemicalBottle: 'bottle',
   arcaneCore: 'core',
-  dataRecord: 'stationCompendium',
-  mutantMeat: 'failed',
+  dataRecord: 'floppy',
+  mutantMeat: 'meat',
   wood: 'material',
   oldCoin: 'coin',
-  keyBundle: 'gear',
-  mapFragment: 'scroll',
+  keyBundle: 'key',
+  mapFragment: 'mapIcon',
   swordUpgrade1: 'upgrade',
   swordUpgrade2: 'upgrade',
   bowUpgrade1: 'upgrade',
@@ -252,9 +272,14 @@ export class CanvasRenderer {
     this.context.fillRect(0, 0, displayWidth, displayHeight);
 
     this.drawTiles(snapshot, camera);
+    this.drawStationHighlights(snapshot, camera, now);
     this.drawEntities(snapshot, camera, combatEffects);
     this.drawFacing(snapshot, camera);
     this.drawCombatEffects(combatEffects, camera);
+
+    if (snapshot.mode === 'raid') {
+      this.drawMinimap(snapshot);
+    }
 
     if (snapshot.gameOver && combatEffects.length === 0) {
       this.drawOverlay(displayWidth, displayHeight, '倒れた', '「拠点に戻る」を押すと帰還する。探索中の荷物は失われる。');
@@ -355,6 +380,34 @@ export class CanvasRenderer {
         this.drawSprite('stairs', left, top, cellSize, tile.visible ? 1 : 0.45);
       }
     });
+  }
+
+  private drawStationHighlights(snapshot: GameSnapshot, camera: Camera, now: number): void {
+    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+    if (!player) {
+      return;
+    }
+
+    const { cellSize, offsetX, offsetY } = camera;
+    const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+
+    snapshot.entities
+      .filter((entity) => entity.kind === 'station' && chebyshev(entity, player) <= 1)
+      .forEach((station) => {
+        const left = offsetX + station.x * cellSize;
+        const top = offsetY + station.y * cellSize;
+        if (!isInViewport(left, top, cellSize, camera)) {
+          return;
+        }
+
+        this.context.save();
+        this.context.globalAlpha = 0.3 + 0.25 * pulse;
+        this.context.fillStyle = '#7dd3fc';
+        this.context.beginPath();
+        this.context.arc(left + cellSize / 2, top + cellSize / 2, cellSize * 0.62, 0, Math.PI * 2);
+        this.context.fill();
+        this.context.restore();
+      });
   }
 
   private drawEntities(snapshot: GameSnapshot, camera: Camera, combatEffects: ActiveCombatEffect[]): void {
@@ -657,6 +710,59 @@ export class CanvasRenderer {
     this.context.restore();
   }
 
+  private drawMinimap(snapshot: GameSnapshot): void {
+    // Placed in the left-side gap below the HP/stamina bars and above the
+    // message log, since the top and right edges are already claimed by
+    // the equipment switcher and inventory HUD panels.
+    const boxWidth = 150;
+    const boxHeight = 96;
+    const left = 12;
+    const top = 150;
+    const padding = 6;
+    const ctx = this.context;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 10, 14, 0.72)';
+    ctx.fillRect(left, top, boxWidth, boxHeight);
+    ctx.strokeStyle = 'rgba(122, 146, 158, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left + 0.5, top + 0.5, boxWidth - 1, boxHeight - 1);
+
+    const innerWidth = boxWidth - padding * 2;
+    const innerHeight = boxHeight - padding * 2;
+    const scale = Math.min(innerWidth / snapshot.width, innerHeight / snapshot.height);
+    const mapPixelWidth = snapshot.width * scale;
+    const mapPixelHeight = snapshot.height * scale;
+    const originX = left + padding + (innerWidth - mapPixelWidth) / 2;
+    const originY = top + padding + (innerHeight - mapPixelHeight) / 2;
+
+    ctx.beginPath();
+    ctx.rect(left, top, boxWidth, boxHeight);
+    ctx.clip();
+
+    const tileSize = Math.max(1, scale);
+    snapshot.tiles.forEach((tile, index) => {
+      if (!tile.explored) {
+        return;
+      }
+
+      const x = index % snapshot.width;
+      const y = Math.floor(index / snapshot.width);
+      ctx.fillStyle = minimapTileColor(tile);
+      ctx.fillRect(originX + x * scale, originY + y * scale, tileSize, tileSize);
+    });
+
+    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+    if (player) {
+      ctx.fillStyle = '#7dd3fc';
+      ctx.beginPath();
+      ctx.arc(originX + (player.x + 0.5) * scale, originY + (player.y + 0.5) * scale, Math.max(2, scale * 0.9), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
   private drawOverlay(width: number, height: number, title: string, subtitle: string): void {
     this.context.fillStyle = 'rgba(5, 8, 10, 0.72)';
     this.context.fillRect(0, 0, width, height);
@@ -709,6 +815,19 @@ const tileColor = (tile: Tile, snapshot: GameSnapshot) => {
   }
 
   return TILE_COLORS[tile.kind];
+};
+
+const minimapTileColor = (tile: Tile) => {
+  if (tile.kind === 'stairs') {
+    return '#4ade80';
+  }
+  if (tile.kind === 'wall') {
+    return 'rgba(122, 146, 158, 0.35)';
+  }
+  if (isGatheringTile(tile.kind)) {
+    return 'rgba(96, 165, 250, 0.65)';
+  }
+  return 'rgba(203, 213, 225, 0.55)';
 };
 
 const gatheringAccent = (kind: Tile['kind']) => {

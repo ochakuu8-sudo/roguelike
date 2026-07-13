@@ -5,7 +5,8 @@ import type { Command, EnemyKind, Entity, GameSnapshot, ItemKind, MapId } from '
 import { ENEMY_DEFINITIONS } from './game/enemies';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
-import { updateBasePlanning, updateHud } from './ui/hud';
+import { updateBasePlanning, updateHud, setInventoryInspectHandler } from './ui/hud';
+import { showItemInfo } from './ui/item-info';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
 const statusRoot = document.querySelector<HTMLElement>('#status');
@@ -26,12 +27,20 @@ const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-
 const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
 const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
 const compendiumListRoot = document.querySelector<HTMLElement>('#compendium-list');
+const compendiumSearchRoot = document.querySelector<HTMLInputElement>('#compendium-search');
 const debugModeButton = document.querySelector<HTMLButtonElement>('#debug-mode-button');
 const debugSpawnBanner = document.querySelector<HTMLElement>('#debug-spawn-banner');
 const debugSpawnBannerText = document.querySelector<HTMLElement>('#debug-spawn-banner-text');
 const debugSpawnCancelButton = document.querySelector<HTMLButtonElement>('#debug-spawn-cancel-button');
 const helpDialog = document.querySelector<HTMLDialogElement>('#help-dialog');
+const restartConfirmDialog = document.querySelector<HTMLDialogElement>('#restart-confirm-dialog');
+const restartCancelButton = document.querySelector<HTMLButtonElement>('#restart-cancel-button');
+const restartConfirmButton = document.querySelector<HTMLButtonElement>('#restart-confirm-button');
 const itemDialog = document.querySelector<HTMLDialogElement>('#item-dialog');
+const itemInfoDialog = document.querySelector<HTMLDialogElement>('#item-info-dialog');
+const itemInfoGlyphRoot = document.querySelector<HTMLElement>('#item-info-glyph');
+const itemInfoTitleRoot = document.querySelector<HTMLElement>('#item-info-title');
+const itemInfoBodyRoot = document.querySelector<HTMLElement>('#item-info-body');
 const baseBiomeRoot = document.querySelector<HTMLElement>('#base-biomes');
 const baseStashRoot = document.querySelector<HTMLElement>('#base-stash');
 const baseRecipeRoot = document.querySelector<HTMLElement>('#base-recipes');
@@ -58,12 +67,20 @@ if (
   !compendiumDialog ||
   !compendiumTabsRoot ||
   !compendiumListRoot ||
+  !compendiumSearchRoot ||
   !debugModeButton ||
   !debugSpawnBanner ||
   !debugSpawnBannerText ||
   !debugSpawnCancelButton ||
   !helpDialog ||
+  !restartConfirmDialog ||
+  !restartCancelButton ||
+  !restartConfirmButton ||
   !itemDialog ||
+  !itemInfoDialog ||
+  !itemInfoGlyphRoot ||
+  !itemInfoTitleRoot ||
+  !itemInfoBodyRoot ||
   !baseBiomeRoot ||
   !baseStashRoot ||
   !baseRecipeRoot ||
@@ -107,11 +124,22 @@ const renderCompendium = (snapshot: GameSnapshot) => {
   updateCompendium({
     tabsRoot: compendiumTabsRoot,
     listRoot: compendiumListRoot,
+    searchRoot: compendiumSearchRoot,
     debugMode: snapshot.debugMode,
     onDebugSpawnEnemy: armDebugSpawn,
     onDebugGiveItem: giveDebugItem,
   });
 };
+
+compendiumSearchRoot.addEventListener('input', () => {
+  renderCompendium(game.snapshot());
+});
+
+compendiumSearchRoot.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+  }
+});
 
 const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
 
@@ -238,6 +266,25 @@ debugModeButton.addEventListener('click', () => {
 
 debugSpawnCancelButton.addEventListener('click', cancelDebugSpawn);
 
+restartCancelButton.addEventListener('click', () => {
+  restartConfirmDialog.close();
+});
+
+restartConfirmButton.addEventListener('click', () => {
+  restartConfirmDialog.close();
+  game.dispatch({ type: 'restart' });
+  refresh();
+});
+
+setInventoryInspectHandler((item) => {
+  showItemInfo(item, {
+    dialog: itemInfoDialog,
+    glyphRoot: itemInfoGlyphRoot,
+    titleRoot: itemInfoTitleRoot,
+    bodyRoot: itemInfoBodyRoot,
+  });
+});
+
 bindInput({
   root: document,
   canvas,
@@ -252,6 +299,11 @@ bindInput({
   onCommand: (command) => {
     if (command.type === 'help') {
       helpDialog.showModal();
+      return;
+    }
+
+    if (command.type === 'restart') {
+      restartConfirmDialog.showModal();
       return;
     }
 
