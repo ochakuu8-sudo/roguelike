@@ -11,7 +11,7 @@ export const GRID_DIMENSIONS: Record<InventoryLocation, GridDimensions> = {
 
 const isStackable = (item: ItemKind): boolean => {
   const category = ITEM_DEFINITIONS[item].category;
-  return category === 'material' || category === 'consumable' || category === 'upgrade';
+  return category === 'material' || category === 'consumable' || category === 'upgrade' || category === 'map';
 };
 
 export const overlaps = (a: PlacedItem, x: number, y: number, width: number, height: number) =>

@@ -20,7 +20,7 @@ export type Command =
   | { type: 'placeItem'; item: ItemKind; location: InventoryLocation; x: number; y: number }
   | { type: 'appraiseCollection' }
   | { type: 'descend' }
-  | { type: 'startRaid'; mapId: MapId }
+  | { type: 'startRaid'; mapId: MapId; useMapItem?: boolean }
   | { type: 'sellItem'; item: ItemKind }
   | { type: 'craftItem'; recipe: RecipeId }
   | { type: 'restart' }
@@ -116,7 +116,11 @@ export type ItemKind =
   | 'armorUpgrade2'
   | 'ancientRelic'
   | 'gildedIdol'
-  | 'strangeGem';
+  | 'strangeGem'
+  | 'mapBorderTunnels'
+  | 'mapFrontline'
+  | 'mapBlightWoods'
+  | 'mapSealedVault';
 export type RecipeId =
   | 'sword'
   | 'bow'

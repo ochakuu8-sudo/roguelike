@@ -88,7 +88,9 @@ export const ITEM_ENTRIES: ItemEntry[] = ITEM_KINDS.map((id) => {
             ? '強化'
             : item.category === 'collection'
               ? 'コレクション'
-              : '素材',
+              : item.category === 'map'
+                ? '地図'
+                : '素材',
     size: item.size,
     value: item.value,
     sources: item.sources.map((biome) => BIOME_DEFINITIONS[biome].name).join(' / ') || '拠点',

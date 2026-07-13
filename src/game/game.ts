@@ -5,7 +5,7 @@ import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
-import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, RAID_CAPACITY } from './items';
+import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, MAP_ITEM_KINDS, RAID_CAPACITY } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
 
 const MAP_WIDTH = 96;
@@ -24,6 +24,8 @@ const STAMINA_COST_BAREHANDED_ATTACK = 6;
 const BAREHANDED_ATTACK_POWER = 0;
 const BAREHANDED_ATTACK_ELEMENT: ElementId = 'impact';
 const COLLECTION_DROP_CHANCE = 0.05;
+const MAP_ITEM_DROP_CHANCE = 0.04;
+const MAP_ITEM_NODE_YIELD_MULTIPLIER = 1.5;
 
 type RoomLike = {
   getCenter(): number[];
@@ -112,6 +114,7 @@ export class Game {
   private stamina = MAX_STAMINA;
   private equipmentDurability: Partial<Record<ItemKind, number[]>> = {};
   private gridLayouts: GridInventories = { hand: [], raidBag: [], stash: [] };
+  private nodeYieldMultiplier = 1;
   private debugMode = false;
 
   constructor() {
@@ -206,7 +209,7 @@ export class Game {
     }
 
     if (command.type === 'startRaid') {
-      this.startRaid(command.mapId);
+      this.startRaid(command.mapId, command.useMapItem);
       return;
     }
 
@@ -361,13 +364,23 @@ export class Game {
     this.createBase('拠点に戻った。施設の隣で調べると利用できる。');
   }
 
-  private startRaid(mapId?: MapId): void {
+  private startRaid(mapId?: MapId, useMapItem = false): void {
     if (this.mode === 'raid') {
       return;
     }
 
     const resolvedMapId = mapId ?? MAP_IDS[0];
     const mapDefinition = MAP_DEFINITIONS[resolvedMapId];
+
+    let bonusApplied = false;
+    if (useMapItem) {
+      const mapItemKind = MAP_ITEM_FOR_MAP_ID[resolvedMapId];
+      if (this.stash[mapItemKind] > 0) {
+        this.stash[mapItemKind] -= 1;
+        bonusApplied = true;
+      }
+    }
+    this.nodeYieldMultiplier = bonusApplied ? MAP_ITEM_NODE_YIELD_MULTIPLIER : 1;
 
     this.mode = 'raid';
     this.biome = null;
@@ -386,7 +399,10 @@ export class Game {
     this.combatEffects = [];
     this.effectId = 0;
     this.stamina = MAX_STAMINA;
-    this.generateLevel(`${mapDefinition.name}へ出撃した。物資を集めて脱出地点を目指そう。`);
+    const entryMessage = bonusApplied
+      ? `地図を使い、${mapDefinition.name}へ資源豊富な遠征に出撃した。物資を集めて脱出地点を目指そう。`
+      : `${mapDefinition.name}へ出撃した。物資を集めて脱出地点を目指そう。`;
+    this.generateLevel(entryMessage);
   }
 
   private createBase(entryMessage: string): void {
@@ -666,7 +682,8 @@ export class Game {
       const profile = BIOME_MAP_PROFILES[biomeId];
       const candidates = candidatesByBiome.get(biomeId) ?? [];
       let placed = 0;
-      const targetCount = Math.max(3, Math.ceil((roomCounts.get(biomeId) ?? 0) * 1.4) + biome.danger + profile.nodeBonus);
+      const baseTargetCount = Math.max(3, Math.ceil((roomCounts.get(biomeId) ?? 0) * 1.4) + biome.danger + profile.nodeBonus);
+      const targetCount = Math.ceil(baseTargetCount * this.nodeYieldMultiplier);
 
       while (placed < targetCount && candidates.length > 0) {
         const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
@@ -1015,7 +1032,7 @@ export class Game {
 
     if (gathered) {
       const biome = BIOME_DEFINITIONS[tileBiome];
-      const item = this.rollForCollectionItem() ?? this.randomBiomeMaterial(tileBiome);
+      const item = this.rollForCollectionItem() ?? this.rollForMapItem() ?? this.randomBiomeMaterial(tileBiome);
       this.entities.push(createItemEntity(`node-${this.depth}-${++this.dropId}`, item, targetX, targetY));
       this.pushMessage(`${biome.specialTileLabel}を${withTool ? '調べ' : '素手で漁り'}、${ITEM_DEFINITIONS[item].name}が落ちた。`);
     } else {
@@ -1031,6 +1048,14 @@ export class Game {
     }
 
     return COLLECTION_KINDS[ROT.RNG.getUniformInt(0, COLLECTION_KINDS.length - 1)];
+  }
+
+  private rollForMapItem(): ItemKind | undefined {
+    if (MAP_ITEM_KINDS.length === 0 || ROT.RNG.getUniform() >= MAP_ITEM_DROP_CHANCE) {
+      return undefined;
+    }
+
+    return MAP_ITEM_KINDS[ROT.RNG.getUniformInt(0, MAP_ITEM_KINDS.length - 1)];
   }
 
   private extract(): boolean {

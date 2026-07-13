@@ -284,6 +284,18 @@ h2 {
   font-weight: 900;
 }
 
+.map-item-button {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(12, 46, 61, 0.5);
+  color: #bae6fd;
+  font-size: 0.74rem;
+}
+
+.map-item-button:hover {
+  border-color: rgba(56, 189, 248, 0.85);
+  background: rgba(16, 60, 79, 0.6);
+}
+
 .biome-materials {
   display: flex;
   flex-wrap: wrap;

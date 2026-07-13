@@ -1,6 +1,6 @@
-import type { BiomeId, ElementId, Inventory, ItemKind, RecipeId } from '../engine/types';
+import type { BiomeId, ElementId, Inventory, ItemKind, MapId, RecipeId } from '../engine/types';
 
-export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade' | 'collection';
+export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade' | 'collection' | 'map';
 export type ItemRarity = 'common' | 'uncommon' | 'rare';
 export type GridSize = { width: number; height: number };
 
@@ -124,6 +124,21 @@ const upgrade = (name: string, description: string, value: number): ItemDefiniti
   sources: [],
   obtain: '拠点クラフト',
   rarity: 'rare',
+  usedIn: [],
+});
+
+const mapItem = (name: string, destinationName: string, value: number): ItemDefinition => ({
+  name,
+  description: `${destinationName}への遠征地図。出撃画面でこれを使うと、その遠征中に見つかる採取ポイントが通常より多くなる。`,
+  category: 'map',
+  glyph: '#',
+  color: '#38bdf8',
+  value,
+  size: 1,
+  gridSize: DEFAULT_GRID_SIZE,
+  sources: [],
+  obtain: '採取ポイントで低確率入手',
+  rarity: 'uncommon',
   usedIn: [],
 });
 
@@ -391,13 +406,25 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
   ancientRelic: collection('古びた遺物', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 220, '#d6c39a'),
   gildedIdol: collection('金めっきの偶像', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 340, '#facc15'),
   strangeGem: collection('不思議な宝石', '価値不明のコレクションアイテム。鑑定士に見せるまで正体が分からない。', 180, '#c4b5fd'),
+  mapBorderTunnels: mapItem('国境の坑道の地図', '国境の坑道', 110),
+  mapFrontline: mapItem('崩れた前線の地図', '崩れた前線', 150),
+  mapBlightWoods: mapItem('黄昏の毒林の地図', '黄昏の毒林', 190),
+  mapSealedVault: mapItem('封鎖された深部要塞の地図', '封鎖された深部要塞', 240),
 };
 
 export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
 export const MATERIAL_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'material');
 export const COLLECTION_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'collection');
+export const MAP_ITEM_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'map');
 export const ARMOR_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].resistance !== undefined);
 export const RAID_CAPACITY = 12;
+
+export const MAP_ITEM_FOR_MAP_ID: Record<MapId, ItemKind> = {
+  borderTunnels: 'mapBorderTunnels',
+  frontline: 'mapFrontline',
+  blightWoods: 'mapBlightWoods',
+  sealedVault: 'mapSealedVault',
+};
 
 export const createEmptyInventory = (): Inventory =>
   ITEM_KINDS.reduce((inventory, item) => {

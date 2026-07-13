@@ -1,7 +1,7 @@
 import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, overlaps } from '../game/grid-inventory';
-import { ITEM_DEFINITIONS, ITEM_KINDS } from '../game/items';
+import { ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID } from '../game/items';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 import { SPRITE_SHAPES, spriteKeyForItem } from './canvas-renderer';
@@ -30,7 +30,7 @@ type BasePlanningRoots = {
   stashRoot: HTMLElement;
   recipeRoot: HTMLElement;
   moneyRoot: HTMLElement;
-  onStartRaid: (mapId: MapId) => void;
+  onStartRaid: (mapId: MapId, useMapItem?: boolean) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
   onAppraiseCollection: () => void;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
@@ -145,7 +145,7 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
 
 export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
   roots.moneyRoot.textContent = `${snapshot.money}G`;
-  roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, roots.onStartRaid)));
+  roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, snapshot.stash, roots.onStartRaid)));
   roots.stashRoot.replaceChildren(
     ...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection),
     inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
@@ -229,7 +229,7 @@ const staminaBar = (stamina: number, maxStamina: number) => {
   return root;
 };
 
-const mapCard = (mapId: MapId, onStartRaid: (mapId: MapId) => void) => {
+const mapCard = (mapId: MapId, stash: Inventory, onStartRaid: (mapId: MapId, useMapItem?: boolean) => void) => {
   const map = MAP_DEFINITIONS[mapId];
   const biomes = map.biomes.map((biomeId) => BIOME_DEFINITIONS[biomeId]);
   const maxDanger = Math.max(...biomes.map((biome) => biome.danger));
@@ -263,6 +263,19 @@ const mapCard = (mapId: MapId, onStartRaid: (mapId: MapId) => void) => {
   button.addEventListener('click', () => onStartRaid(mapId));
 
   card.append(heading, meta, terrain, materials, button);
+
+  const mapItemKind = MAP_ITEM_FOR_MAP_ID[mapId];
+  const mapItemCount = stash[mapItemKind];
+  if (mapItemCount > 0) {
+    const mapButton = document.createElement('button');
+    mapButton.type = 'button';
+    mapButton.className = 'map-item-button';
+    mapButton.textContent = `${emojiForItem(mapItemKind)} 地図で出撃(採取ポイント+50%) x${mapItemCount}`;
+    mapButton.title = ITEM_DEFINITIONS[mapItemKind].description;
+    mapButton.addEventListener('click', () => onStartRaid(mapId, true));
+    card.append(mapButton);
+  }
+
   return card;
 };
 

@@ -170,9 +170,9 @@ const openBasePlanning = () => {
   refresh();
 };
 
-const startRaid = (mapId: MapId) => {
+const startRaid = (mapId: MapId, useMapItem?: boolean) => {
   document.body.classList.remove('show-base-planning');
-  game.dispatch({ type: 'startRaid', mapId });
+  game.dispatch({ type: 'startRaid', mapId, useMapItem });
   refresh();
 };
 

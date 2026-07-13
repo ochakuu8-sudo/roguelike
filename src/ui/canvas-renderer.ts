@@ -114,6 +114,7 @@ export const SPRITE_SHAPES = {
   meat: '🍖',
   key: '🗝️',
   mapIcon: '🗺️',
+  compass: '🧭',
   bone: '🦴',
   gear: '⚙️',
   bottle: '🧴',
@@ -212,6 +213,10 @@ const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
   ancientRelic: 'collectionItem',
   gildedIdol: 'collectionItem',
   strangeGem: 'collectionItem',
+  mapBorderTunnels: 'compass',
+  mapFrontline: 'compass',
+  mapBlightWoods: 'compass',
+  mapSealedVault: 'compass',
 };
 
 export const spriteKeyForEnemy = (enemy: EnemyKind): SpriteKey => ENEMY_SPRITES[enemy];
