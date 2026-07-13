@@ -1,4 +1,5 @@
 import type { Command, EnemyKind, GameSnapshot } from '../engine/types';
+import { screenToTile } from './canvas-renderer';
 
 type BindInputOptions = {
   root: Document;
@@ -95,19 +96,12 @@ export const bindInput = ({ root, canvas, getSnapshot, onCommand, getPendingDebu
 
   canvas.addEventListener('click', (event) => {
     const snapshot = getSnapshot();
-
-    const rect = canvas.getBoundingClientRect();
-    const cell = Math.floor(Math.min(rect.width / snapshot.width, rect.height / snapshot.height));
-    const boardWidth = cell * snapshot.width;
-    const boardHeight = cell * snapshot.height;
-    const offsetX = (rect.width - boardWidth) / 2;
-    const offsetY = (rect.height - boardHeight) / 2;
-    const x = Math.floor((event.clientX - rect.left - offsetX) / cell);
-    const y = Math.floor((event.clientY - rect.top - offsetY) / cell);
-
-    if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
+    const tile = screenToTile(canvas, snapshot, event.clientX, event.clientY);
+    if (!tile) {
       return;
     }
+
+    const { x, y } = tile;
 
     const pendingSpawn = getPendingDebugSpawn?.();
     if (pendingSpawn) {

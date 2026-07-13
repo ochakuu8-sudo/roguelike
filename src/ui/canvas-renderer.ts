@@ -25,6 +25,39 @@ type Camera = {
   displayHeight: number;
 };
 
+const MIN_DISPLAY_WIDTH = 320;
+const MIN_DISPLAY_HEIGHT = 260;
+
+const computeCamera = (snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera => {
+  const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
+  const cellSize = FIXED_CELL_SIZE;
+  const focusX = player?.x ?? Math.floor(snapshot.width / 2);
+  const focusY = player?.y ?? Math.floor(snapshot.height / 2);
+  const offsetX = Math.floor(displayWidth / 2 - (focusX + 0.5) * cellSize);
+  const offsetY = Math.floor(displayHeight / 2 - (focusY + 0.5) * cellSize);
+
+  return { cellSize, offsetX, offsetY, displayWidth, displayHeight };
+};
+
+/**
+ * Inverts a click/tap point into a tile coordinate, using the exact same
+ * camera math as rendering so hit-testing lines up with what's on screen.
+ */
+export const screenToTile = (canvas: HTMLCanvasElement, snapshot: GameSnapshot, clientX: number, clientY: number): { x: number; y: number } | undefined => {
+  const rect = canvas.getBoundingClientRect();
+  const displayWidth = Math.max(MIN_DISPLAY_WIDTH, rect.width);
+  const displayHeight = Math.max(MIN_DISPLAY_HEIGHT, rect.height);
+  const camera = computeCamera(snapshot, displayWidth, displayHeight);
+  const x = Math.floor((clientX - rect.left - camera.offsetX) / camera.cellSize);
+  const y = Math.floor((clientY - rect.top - camera.offsetY) / camera.cellSize);
+
+  if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
+    return undefined;
+  }
+
+  return { x, y };
+};
+
 type ActiveCombatEffect = CombatEffect & {
   progress: number;
 };
@@ -206,13 +239,13 @@ export class CanvasRenderer {
   private renderFrame(snapshot: GameSnapshot, now: number): void {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const displayWidth = Math.max(320, rect.width);
-    const displayHeight = Math.max(260, rect.height);
+    const displayWidth = Math.max(MIN_DISPLAY_WIDTH, rect.width);
+    const displayHeight = Math.max(MIN_DISPLAY_HEIGHT, rect.height);
     this.canvas.width = Math.floor(displayWidth * dpr);
     this.canvas.height = Math.floor(displayHeight * dpr);
     this.context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const camera = this.createCamera(snapshot, displayWidth, displayHeight);
+    const camera = computeCamera(snapshot, displayWidth, displayHeight);
     const combatEffects = this.activeCombatEffects(snapshot, now);
 
     this.context.fillStyle = '#0e1113';
@@ -300,17 +333,6 @@ export class CanvasRenderer {
 
   private hasActiveEffects(now: number): boolean {
     return [...this.effectStartTimes.values()].some((start) => now <= start + COMBAT_EFFECT_DURATION);
-  }
-
-  private createCamera(snapshot: GameSnapshot, displayWidth: number, displayHeight: number): Camera {
-    const player = snapshot.entities.find((entity) => entity.id === snapshot.playerId);
-    const cellSize = FIXED_CELL_SIZE;
-    const focusX = player?.x ?? Math.floor(snapshot.width / 2);
-    const focusY = player?.y ?? Math.floor(snapshot.height / 2);
-    const offsetX = Math.floor(displayWidth / 2 - (focusX + 0.5) * cellSize);
-    const offsetY = Math.floor(displayHeight / 2 - (focusY + 0.5) * cellSize);
-
-    return { cellSize, offsetX, offsetY, displayWidth, displayHeight };
   }
 
   private drawTiles(snapshot: GameSnapshot, camera: Camera): void {
