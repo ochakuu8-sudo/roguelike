@@ -1762,10 +1762,10 @@ const elementMultiplier = (element: ElementId | undefined, weakness?: ElementId,
     return 1;
   }
   if (element === weakness) {
-    return 1.5;
+    return 2;
   }
   if (element === resistance) {
-    return 0.6;
+    return 0.5;
   }
   return 1;
 };
