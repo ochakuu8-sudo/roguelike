@@ -6,8 +6,8 @@ import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { rollMapRoll, summarizeMapAffixes, TIER_LABELS } from './map-affixes';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
-import { ARMOR_KINDS, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, MAP_ITEM_KINDS, RAID_CAPACITY } from './items';
-import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById } from './recipes';
+import { ARMOR_KINDS, buyPriceFor, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, MAP_ITEM_KINDS, RAID_CAPACITY, SHOP_ITEM_KINDS } from './items';
+import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById, STARTER_RECIPE_IDS } from './recipes';
 
 const MAP_WIDTH = 96;
 const MAP_HEIGHT = 60;
@@ -125,6 +125,7 @@ export class Game {
   private mapItemRolls: Partial<Record<ItemKind, MapRoll[]>> = {};
   private mapRollSeq = 0;
   private debugMode = false;
+  private unlockedRecipes: Set<RecipeId> = new Set(STARTER_RECIPE_IDS);
 
   constructor() {
     this.restart();
@@ -174,6 +175,7 @@ export class Game {
       mapRolls: Object.fromEntries(
         Object.entries(this.mapItemRolls).map(([item, rolls]) => [item, (rolls ?? []).map((roll) => ({ ...roll }))]),
       ) as Partial<Record<ItemKind, MapRoll[]>>,
+      unlockedRecipes: [...this.unlockedRecipes],
     };
   }
 
@@ -232,6 +234,16 @@ export class Game {
 
     if (command.type === 'craftItem') {
       this.craftItem(command.recipe);
+      return;
+    }
+
+    if (command.type === 'buyItem') {
+      this.buyItem(command.item);
+      return;
+    }
+
+    if (command.type === 'unlockRecipe') {
+      this.unlockRecipe(command.recipe);
       return;
     }
 
@@ -367,6 +379,7 @@ export class Game {
     this.handInventory = createEmptyInventory();
     this.selectedHandItem = null;
     this.money = 0;
+    this.unlockedRecipes = new Set(STARTER_RECIPE_IDS);
     this.dropId = 0;
     this.facing = { x: 0, y: 1 };
     this.gameOver = false;
@@ -458,11 +471,12 @@ export class Game {
       createStationEntity('station-raid-gate', 'raidGate', '出撃ゲート', '>', '#6ee7b7', 17, 6),
       createStationEntity('station-stash', 'stash', '倉庫', 'C', '#fbbf24', 8, 11),
       createStationEntity('station-craft', 'craft', 'クラフト台', 'T', '#93c5fd', 26, 11),
+      createStationEntity('station-shop', 'shop', '道具屋', 'B', '#fb923c', 17, 11),
       createStationEntity('station-market', 'market', '商人娘の換金所', '$', '#fcd34d', 8, 17),
       createStationEntity('station-compendium', 'compendium', '図鑑端末', '?', '#c4b5fd', 26, 17),
       createStationEntity('station-appraiser', 'appraiser', '鑑定士', '?', '#d6c39a', 17, 20),
     ];
-    this.messages = [entryMessage, '出撃ゲート、倉庫、クラフト台、換金所、図鑑端末、鑑定士がある。'];
+    this.messages = [entryMessage, '出撃ゲート、倉庫、クラフト台、道具屋、換金所、図鑑端末、鑑定士がある。'];
   }
 
   private generateLevel(entryMessage: string): void {
@@ -901,6 +915,9 @@ export class Game {
       case 'market':
         this.sellAllMaterials();
         return;
+      case 'shop':
+        this.pushMessage('道具屋の品揃えは出撃画面のショップ欄で確認できる。');
+        return;
       case 'compendium':
         this.pushMessage('図鑑は右上の図鑑ボタンから確認できる。');
         return;
@@ -1296,17 +1313,76 @@ export class Game {
       return;
     }
 
+    if (!this.unlockedRecipes.has(recipeId)) {
+      this.pushMessage(`${formatStack(recipe.result)}のレシピは未解放。先に${recipe.unlockCost}Gで解放する必要がある。`);
+      return;
+    }
+
     if (!hasIngredients(this.stash, recipe)) {
       this.pushMessage(`${formatStack(recipe.result)}の素材が足りない。`);
       return;
     }
 
+    if (this.money < recipe.commissionFee) {
+      this.pushMessage(`${formatStack(recipe.result)}の依頼料${recipe.commissionFee}Gが足りない。今は${this.money}G。`);
+      return;
+    }
+
     consumeIngredients(this.stash, recipe);
+    this.money -= recipe.commissionFee;
     addRecipeResult(this.stash, recipe);
     if (ITEM_DEFINITIONS[recipe.result.item].category === 'equipment') {
       this.grantEquipmentInstances(recipe.result.item, recipe.result.amount);
     }
-    this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
+    this.pushMessage(`${formatStack(recipe.result)}を職人に依頼料${recipe.commissionFee}Gで作ってもらった。`);
+  }
+
+  private unlockRecipe(recipeId: RecipeId): void {
+    if (this.mode !== 'base') {
+      this.pushMessage('レシピ解放は拠点でのみ行える。');
+      return;
+    }
+
+    if (this.unlockedRecipes.has(recipeId)) {
+      this.pushMessage('そのレシピはすでに解放している。');
+      return;
+    }
+
+    const recipe = recipeById(recipeId);
+    if (!recipe) {
+      return;
+    }
+
+    if (this.money < recipe.unlockCost) {
+      this.pushMessage(`${formatStack(recipe.result)}のレシピ解放には${recipe.unlockCost}G必要。今は${this.money}G。`);
+      return;
+    }
+
+    this.money -= recipe.unlockCost;
+    this.unlockedRecipes.add(recipeId);
+    this.pushMessage(`${formatStack(recipe.result)}のレシピを${recipe.unlockCost}Gで解放した。`);
+  }
+
+  private buyItem(item: ItemKind): void {
+    if (this.mode !== 'base') {
+      this.pushMessage('買い物は拠点でのみ行える。');
+      return;
+    }
+
+    if (!SHOP_ITEM_KINDS.includes(item)) {
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}は道具屋に置いていない。`);
+      return;
+    }
+
+    const price = buyPriceFor(item);
+    if (this.money < price) {
+      this.pushMessage(`${ITEM_DEFINITIONS[item].name}を買うには${price}G必要。今は${this.money}G。`);
+      return;
+    }
+
+    this.money -= price;
+    this.stash[item] += 1;
+    this.pushMessage(`道具屋で${ITEM_DEFINITIONS[item].name}を${price}Gで購入した。`);
   }
 
   private moveItem(item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number): void {

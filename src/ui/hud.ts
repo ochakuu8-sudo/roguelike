@@ -1,7 +1,7 @@
 import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, MapRoll, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, isStackable, overlaps } from '../game/grid-inventory';
-import { ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID } from '../game/items';
+import { buyPriceFor, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, SHOP_ITEM_KINDS } from '../game/items';
 import { describeAffix, TIER_LABELS } from '../game/map-affixes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
 import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
@@ -30,9 +30,12 @@ type BasePlanningRoots = {
   biomeRoot: HTMLElement;
   stashRoot: HTMLElement;
   recipeRoot: HTMLElement;
+  shopRoot: HTMLElement;
   moneyRoot: HTMLElement;
   onStartRaid: (mapId: MapId, mapRollId?: string) => void;
   onCraftRecipe: (recipe: RecipeId) => void;
+  onUnlockRecipe: (recipe: RecipeId) => void;
+  onBuyItem: (item: ItemKind) => void;
   onAppraiseCollection: () => void;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
@@ -153,7 +156,13 @@ export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRo
     inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
     inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, roots.onMoveItem, roots.onPlaceItem),
   );
-  roots.recipeRoot.replaceChildren(...CRAFTING_RECIPES.map((recipe) => recipePlanCard(snapshot.stash, recipe.id, roots.onCraftRecipe)));
+  const unlockedRecipes = new Set(snapshot.unlockedRecipes);
+  roots.recipeRoot.replaceChildren(
+    ...CRAFTING_RECIPES.map((recipe) =>
+      recipePlanCard(snapshot.stash, snapshot.money, recipe.id, unlockedRecipes, roots.onCraftRecipe, roots.onUnlockRecipe),
+    ),
+  );
+  roots.shopRoot.replaceChildren(...SHOP_ITEM_KINDS.map((item) => shopCard(item, snapshot.money, roots.onBuyItem)));
 };
 
 const collectionSummaryCard = (collectionCount: number, onAppraiseCollection: () => void) => {
@@ -310,24 +319,36 @@ const mapRollCard = (mapItemKind: ItemKind, roll: MapRoll, onUse: () => void) =>
   return rollCard;
 };
 
-const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe: (recipe: RecipeId) => void) => {
+const recipePlanCard = (
+  inventory: Inventory,
+  money: number,
+  recipeId: RecipeId,
+  unlockedRecipes: Set<RecipeId>,
+  onCraftRecipe: (recipe: RecipeId) => void,
+  onUnlockRecipe: (recipe: RecipeId) => void,
+) => {
   const recipe = CRAFTING_RECIPES.find((candidate) => candidate.id === recipeId);
   if (!recipe) {
     return document.createElement('article');
   }
 
-  const complete = hasIngredients(inventory, recipe);
+  const unlocked = unlockedRecipes.has(recipeId);
+  const canAffordFee = money >= recipe.commissionFee;
+  const complete = unlocked && hasIngredients(inventory, recipe) && canAffordFee;
   const missing = missingIngredients(inventory, recipe);
   const suggestions = suggestedBiomesForRecipe(inventory, recipe);
   const card = document.createElement('article');
   card.className = complete ? 'recipe-plan-card is-ready' : 'recipe-plan-card';
+  if (!unlocked) {
+    card.classList.add('is-locked');
+  }
 
   const header = document.createElement('div');
   header.className = 'recipe-plan-header';
   const title = document.createElement('h3');
   title.textContent = ITEM_DEFINITIONS[recipe.result.item].name;
   const tag = document.createElement('span');
-  tag.textContent = complete ? '作れる' : '不足';
+  tag.textContent = !unlocked ? '未解放' : complete ? '作れる' : '不足';
   header.append(title, tag);
 
   const description = document.createElement('p');
@@ -352,18 +373,60 @@ const recipePlanCard = (inventory: Inventory, recipeId: RecipeId, onCraftRecipe:
   const footer = document.createElement('div');
   footer.className = 'recipe-plan-footer';
   const target = document.createElement('small');
-  target.textContent =
-    missing.length === 0
-      ? `${recipe.facility}で作成可能`
-      : `次の候補: ${suggestions.map(biomeName).join(' / ') || recipe.targetBiomes.map(biomeName).join(' / ')}`;
   const button = document.createElement('button');
   button.type = 'button';
-  button.textContent = '作る';
-  button.disabled = !complete;
-  button.addEventListener('click', () => onCraftRecipe(recipe.id));
-  footer.append(target, button);
 
+  if (!unlocked) {
+    target.textContent = `依頼料${recipe.commissionFee}G / 解放費用${recipe.unlockCost}G`;
+    button.textContent = `${recipe.unlockCost}Gで解放`;
+    button.disabled = money < recipe.unlockCost;
+    button.addEventListener('click', () => onUnlockRecipe(recipe.id));
+  } else {
+    target.textContent =
+      missing.length > 0
+        ? `次の候補: ${suggestions.map(biomeName).join(' / ') || recipe.targetBiomes.map(biomeName).join(' / ')}`
+        : !canAffordFee
+          ? `依頼料${recipe.commissionFee}Gが足りない`
+          : `${recipe.facility}で依頼料${recipe.commissionFee}Gで作成可能`;
+    button.textContent = `依頼する (${recipe.commissionFee}G)`;
+    button.disabled = !complete;
+    button.addEventListener('click', () => onCraftRecipe(recipe.id));
+  }
+
+  footer.append(target, button);
   card.append(header, description, ingredients, footer);
+  return card;
+};
+
+const shopCard = (item: ItemKind, money: number, onBuyItem: (item: ItemKind) => void) => {
+  const definition = ITEM_DEFINITIONS[item];
+  const price = buyPriceFor(item);
+  const affordable = money >= price;
+
+  const card = document.createElement('article');
+  card.className = affordable ? 'shop-card is-affordable' : 'shop-card';
+
+  const glyph = document.createElement('span');
+  glyph.className = 'shop-card-glyph';
+  glyph.textContent = emojiForItem(item);
+
+  const body = document.createElement('div');
+  const name = document.createElement('strong');
+  name.textContent = definition.name;
+  const detail = document.createElement('small');
+  detail.textContent = definition.description;
+  body.append(name, detail);
+
+  const price_ = document.createElement('b');
+  price_.textContent = `${price}G`;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '購入';
+  button.disabled = !affordable;
+  button.addEventListener('click', () => onBuyItem(item));
+
+  card.append(glyph, body, price_, button);
   return card;
 };
 
@@ -1065,6 +1128,8 @@ const stationHint = (station: Entity, stash: Inventory) => {
     }
     case 'market':
       return hasSellableMaterial(stash) ? '商人娘の換金所で素材をまとめて売る。' : '商人娘の換金所を調べる。売れる素材はない。';
+    case 'shop':
+      return '道具屋を調べる。品揃えは出撃画面のショップ欄で確認できる。';
     case 'compendium':
       return '図鑑端末を調べると図鑑の案内を表示する。';
     case 'appraiser':

@@ -220,18 +220,30 @@ h2 {
 
 .craft-panel {
   grid-column: 3;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 2;
 }
 
-.biome-list,
-.recipe-plan-list {
+.shop-panel {
+  grid-column: 3;
+  grid-row: 3;
+}
+
+.biome-list {
   display: grid;
   gap: 8px;
   max-height: 100%;
   overflow: auto;
 }
 
-.stash-list {
+.recipe-plan-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(65dvh, 620px);
+  overflow: auto;
+}
+
+.stash-list,
+.shop-list {
   display: grid;
   gap: 8px;
   max-height: min(60dvh, 460px);
@@ -448,6 +460,67 @@ p.map-roll-tier-badge {
   font-weight: 900;
 }
 
+.shop-list {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.shop-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  min-width: 0;
+  border: 1px solid rgba(122, 146, 158, 0.34);
+  border-radius: 8px;
+  background: rgba(9, 15, 19, 0.62);
+}
+
+.shop-card.is-affordable {
+  border-color: rgba(251, 146, 60, 0.5);
+}
+
+.shop-card-glyph {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.shop-card strong,
+.shop-card small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop-card strong {
+  font-size: 0.76rem;
+}
+
+.shop-card small {
+  color: #9fb0ba;
+  font-size: 0.62rem;
+}
+
+.shop-card b {
+  color: #fdba74;
+  font-size: 0.76rem;
+}
+
+.shop-card button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
 .recipe-plan-card {
   display: grid;
   gap: 8px;
@@ -456,6 +529,16 @@ p.map-roll-tier-badge {
 
 .recipe-plan-card.is-ready {
   border-color: rgba(74, 222, 128, 0.58);
+}
+
+.recipe-plan-card.is-locked {
+  opacity: 0.75;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.recipe-plan-card.is-locked .recipe-plan-header span {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
 }
 
 .recipe-plan-header,
@@ -1575,6 +1658,7 @@ button.inventory-slot:hover {
   .biome-panel,
   .stash-panel,
   .craft-panel,
+  .shop-panel,
   .base-log-panel {
     grid-column: auto;
     grid-row: auto;

@@ -419,6 +419,12 @@ export const MAP_ITEM_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item]
 export const ARMOR_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].resistance !== undefined);
 export const RAID_CAPACITY = 12;
 
+// 道具屋で買える消耗品と、その値上がり幅。素材は探索でしか手に入らないままにして、
+// 換金した金で「時間を金で買う」選択肢を作る。
+export const SHOP_ITEM_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'consumable');
+export const SHOP_BUY_MARKUP = 1.8;
+export const buyPriceFor = (item: ItemKind) => Math.ceil(ITEM_DEFINITIONS[item].value * SHOP_BUY_MARKUP);
+
 export const MAP_ITEM_FOR_MAP_ID: Record<MapId, ItemKind> = {
   borderTunnels: 'mapBorderTunnels',
   frontline: 'mapFrontline',

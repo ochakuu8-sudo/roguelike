@@ -23,6 +23,8 @@ export type Command =
   | { type: 'startRaid'; mapId: MapId; mapRollId?: string }
   | { type: 'sellItem'; item: ItemKind }
   | { type: 'craftItem'; recipe: RecipeId }
+  | { type: 'buyItem'; item: ItemKind }
+  | { type: 'unlockRecipe'; recipe: RecipeId }
   | { type: 'restart' }
   | { type: 'acknowledgeDeath' }
   | { type: 'help' }
@@ -48,7 +50,7 @@ export type ActorStats = {
 };
 
 export type EntityKind = 'player' | 'monster' | 'item' | 'station';
-export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'compendium' | 'appraiser' | 'barterMerchant';
+export type StationKind = 'raidGate' | 'stash' | 'craft' | 'market' | 'shop' | 'compendium' | 'appraiser' | 'barterMerchant';
 export type BiomeId = 'mine' | 'forest' | 'fortress' | 'lab';
 export type MapId = 'borderTunnels' | 'frontline' | 'blightWoods' | 'sealedVault';
 export type EnemyKind =
@@ -236,4 +238,5 @@ export type GameSnapshot = {
   collectionCount: number;
   debugMode: boolean;
   mapRolls: Partial<Record<ItemKind, MapRoll[]>>;
+  unlockedRecipes: RecipeId[];
 };

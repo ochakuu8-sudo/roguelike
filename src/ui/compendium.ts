@@ -31,6 +31,7 @@ const STATION_SPRITE_ENTRIES: Array<{ id: StationKind; name: string }> = [
   { id: 'raidGate', name: '出撃ゲート' },
   { id: 'stash', name: '倉庫' },
   { id: 'craft', name: 'クラフト台' },
+  { id: 'shop', name: '道具屋' },
   { id: 'market', name: '換金所' },
   { id: 'compendium', name: '図鑑端末' },
 ];
@@ -157,6 +158,8 @@ const recipeCard = (entry: (typeof RECIPE_ENTRIES)[number]) => {
       ['素材', entry.ingredients.join(' / ')],
       ['完成品', entry.result],
       ['狙う行き先', entry.target],
+      ['依頼料', `${entry.commissionFee}G`],
+      ['解放費用', entry.unlockCost > 0 ? `${entry.unlockCost}G` : '最初から解放済み'],
     ]),
   );
   return card;

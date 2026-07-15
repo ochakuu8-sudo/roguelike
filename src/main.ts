@@ -44,6 +44,7 @@ const itemInfoBodyRoot = document.querySelector<HTMLElement>('#item-info-body');
 const baseBiomeRoot = document.querySelector<HTMLElement>('#base-biomes');
 const baseStashRoot = document.querySelector<HTMLElement>('#base-stash');
 const baseRecipeRoot = document.querySelector<HTMLElement>('#base-recipes');
+const baseShopRoot = document.querySelector<HTMLElement>('#base-shop');
 const baseMoneyRoot = document.querySelector<HTMLElement>('#base-money');
 const baseLogRoot = document.querySelector<HTMLOListElement>('#base-message-log');
 
@@ -84,6 +85,7 @@ if (
   !baseBiomeRoot ||
   !baseStashRoot ||
   !baseRecipeRoot ||
+  !baseShopRoot ||
   !baseMoneyRoot ||
   !baseLogRoot
 ) {
@@ -218,6 +220,7 @@ const refresh = () => {
     biomeRoot: baseBiomeRoot,
     stashRoot: baseStashRoot,
     recipeRoot: baseRecipeRoot,
+    shopRoot: baseShopRoot,
     moneyRoot: baseMoneyRoot,
     onStartRaid: startRaid,
     onAppraiseCollection: () => {
@@ -226,6 +229,14 @@ const refresh = () => {
     },
     onCraftRecipe: (recipe) => {
       game.dispatch({ type: 'craftItem', recipe });
+      refresh();
+    },
+    onUnlockRecipe: (recipe) => {
+      game.dispatch({ type: 'unlockRecipe', recipe });
+      refresh();
+    },
+    onBuyItem: (item) => {
+      game.dispatch({ type: 'buyItem', item });
       refresh();
     },
     onMoveItem: (item, from, to, x, y) => {
