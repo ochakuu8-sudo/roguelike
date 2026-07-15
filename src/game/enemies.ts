@@ -46,7 +46,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
   },
   tunnelGnoll: {
     name: '坑道ノール',
-    description: '廃坑の強めの敵。古い歯車を持つことがある。金属装備が電撃を通しやすい。',
+    description: '廃坑の強めの敵。古い歯車を持つことがある。頑丈な金属装備は貫通を防ぐが、重い一撃には耐えきれない。',
     glyph: 'G',
     color: '#f0a95b',
     stats: { hp: 20, maxHp: 20, attack: 8, defense: 2, speed: 8 },
@@ -55,7 +55,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     minDanger: 1,
     weight: 16,
     attackElement: 'impact',
-    weakness: 'shock',
+    weakness: 'impact',
     resistance: 'pierce',
   },
   sporeBat: {
@@ -155,7 +155,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
   },
   observerDrone: {
     name: '浮遊観測機',
-    description: '遠距離から接近してくる索敵系の敵。装甲は打撃を防ぐが、電子機器なので電撃に弱い。',
+    description: '遠距離から接近してくる索敵系の敵。電子機器なので電撃に弱いが、機械の体に毒は効かない。',
     glyph: 'o',
     color: '#a5b4fc',
     stats: { hp: 14, maxHp: 14, attack: 7, defense: 1, speed: 14 },
@@ -165,11 +165,11 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 22,
     attackElement: 'shock',
     weakness: 'shock',
-    resistance: 'impact',
+    resistance: 'poison',
   },
   arcaneGuardian: {
     name: '魔導炉の番人',
-    description: '高価値素材の守護敵。倒すか避けるかの判断が重要。魔力の壁が電撃を防ぐが、貫通には弱い。',
+    description: '高価値素材の守護敵。倒すか避けるかの判断が重要。重厚な鎧が殴打を防ぐが、隙間を貫く一撃には弱い。',
     glyph: 'A',
     color: '#f0abfc',
     stats: { hp: 28, maxHp: 28, attack: 11, defense: 3, speed: 8 },
@@ -179,7 +179,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 10,
     attackElement: 'shock',
     weakness: 'pierce',
-    resistance: 'shock',
+    resistance: 'impact',
   },
 };
 

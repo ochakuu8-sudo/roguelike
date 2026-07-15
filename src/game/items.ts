@@ -419,9 +419,16 @@ export const MAP_ITEM_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item]
 export const ARMOR_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].resistance !== undefined);
 export const RAID_CAPACITY = 12;
 
-// 道具屋で買える消耗品と、その値上がり幅。素材は探索でしか手に入らないままにして、
-// 換金した金で「時間を金で買う」選択肢を作る。
-export const SHOP_ITEM_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'consumable');
+// 属性ごとに1本ずつ、道具屋で素材なし・お金だけで買える初期武器。
+// クラフト経路(素材+レシピ解放)とは別の、もう一つの入手手段として並行して存在する。
+export const SHOP_WEAPON_KINDS: ItemKind[] = ['sword', 'axe', 'dagger', 'sparkCrossbow'];
+
+// 道具屋で買える消耗品+上の初期武器と、その値上がり幅。素材そのものは探索でしか手に入らない
+// ままにして、換金した金で「時間を金で買う」選択肢を作る。
+export const SHOP_ITEM_KINDS = [
+  ...ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'consumable'),
+  ...SHOP_WEAPON_KINDS,
+];
 export const SHOP_BUY_MARKUP = 1.8;
 export const buyPriceFor = (item: ItemKind) => Math.ceil(ITEM_DEFINITIONS[item].value * SHOP_BUY_MARKUP);
 

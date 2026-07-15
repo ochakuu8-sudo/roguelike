@@ -51,7 +51,6 @@ export type RecipeEntry = {
   result: string;
   facility: string;
   target: string;
-  commissionFee: number;
   unlockCost: number;
 };
 
@@ -115,6 +114,5 @@ export const RECIPE_ENTRIES: RecipeEntry[] = CRAFTING_RECIPES.map((recipe) => ({
   result: formatStack(recipe.result),
   facility: recipe.facility,
   target: recipe.targetBiomes.map((biome) => BIOME_DEFINITIONS[biome].name).join(' / ') || '拠点',
-  commissionFee: recipe.commissionFee,
   unlockCost: recipe.unlockCost,
 }));

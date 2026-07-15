@@ -158,7 +158,6 @@ const recipeCard = (entry: (typeof RECIPE_ENTRIES)[number]) => {
       ['素材', entry.ingredients.join(' / ')],
       ['完成品', entry.result],
       ['狙う行き先', entry.target],
-      ['依頼料', `${entry.commissionFee}G`],
       ['解放費用', entry.unlockCost > 0 ? `${entry.unlockCost}G` : '最初から解放済み'],
     ]),
   );

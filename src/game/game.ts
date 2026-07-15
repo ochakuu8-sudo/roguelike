@@ -1323,18 +1323,12 @@ export class Game {
       return;
     }
 
-    if (this.money < recipe.commissionFee) {
-      this.pushMessage(`${formatStack(recipe.result)}の依頼料${recipe.commissionFee}Gが足りない。今は${this.money}G。`);
-      return;
-    }
-
     consumeIngredients(this.stash, recipe);
-    this.money -= recipe.commissionFee;
     addRecipeResult(this.stash, recipe);
     if (ITEM_DEFINITIONS[recipe.result.item].category === 'equipment') {
       this.grantEquipmentInstances(recipe.result.item, recipe.result.amount);
     }
-    this.pushMessage(`${formatStack(recipe.result)}を職人に依頼料${recipe.commissionFee}Gで作ってもらった。`);
+    this.pushMessage(`${formatStack(recipe.result)}をクラフトした。`);
   }
 
   private unlockRecipe(recipeId: RecipeId): void {
@@ -1382,6 +1376,9 @@ export class Game {
 
     this.money -= price;
     this.stash[item] += 1;
+    if (ITEM_DEFINITIONS[item].category === 'equipment') {
+      this.grantEquipmentInstances(item, 1);
+    }
     this.pushMessage(`道具屋で${ITEM_DEFINITIONS[item].name}を${price}Gで購入した。`);
   }
 

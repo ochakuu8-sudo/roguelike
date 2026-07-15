@@ -333,8 +333,7 @@ const recipePlanCard = (
   }
 
   const unlocked = unlockedRecipes.has(recipeId);
-  const canAffordFee = money >= recipe.commissionFee;
-  const complete = unlocked && hasIngredients(inventory, recipe) && canAffordFee;
+  const complete = unlocked && hasIngredients(inventory, recipe);
   const missing = missingIngredients(inventory, recipe);
   const suggestions = suggestedBiomesForRecipe(inventory, recipe);
   const card = document.createElement('article');
@@ -377,7 +376,7 @@ const recipePlanCard = (
   button.type = 'button';
 
   if (!unlocked) {
-    target.textContent = `依頼料${recipe.commissionFee}G / 解放費用${recipe.unlockCost}G`;
+    target.textContent = `解放費用${recipe.unlockCost}G`;
     button.textContent = `${recipe.unlockCost}Gで解放`;
     button.disabled = money < recipe.unlockCost;
     button.addEventListener('click', () => onUnlockRecipe(recipe.id));
@@ -385,10 +384,8 @@ const recipePlanCard = (
     target.textContent =
       missing.length > 0
         ? `次の候補: ${suggestions.map(biomeName).join(' / ') || recipe.targetBiomes.map(biomeName).join(' / ')}`
-        : !canAffordFee
-          ? `依頼料${recipe.commissionFee}Gが足りない`
-          : `${recipe.facility}で依頼料${recipe.commissionFee}Gで作成可能`;
-    button.textContent = `依頼する (${recipe.commissionFee}G)`;
+        : `${recipe.facility}で作成可能`;
+    button.textContent = '作る';
     button.disabled = !complete;
     button.addEventListener('click', () => onCraftRecipe(recipe.id));
   }
