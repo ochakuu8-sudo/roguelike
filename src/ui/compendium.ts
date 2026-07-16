@@ -94,9 +94,9 @@ export const updateCompendium = ({ tabsRoot, listRoot, searchRoot, debugMode, on
 };
 
 const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number], debugMode: boolean, onDebugSpawnEnemy: (enemy: EnemyKind) => void) => {
-  const card = baseCard(entry.name, entry.description, spriteKeyForEnemy(entry.id as EnemyKind));
+  const card = compactCard(entry.name, entry.description, spriteKeyForEnemy(entry.id as EnemyKind));
   card.append(
-    detailGrid([
+    detailChips([
       ['HP', String(entry.stats.hp)],
       ['攻撃', String(entry.stats.attack)],
       ['防御', String(entry.stats.defense)],
@@ -117,7 +117,7 @@ const enemyCard = (entry: (typeof ENEMY_ENTRIES)[number], debugMode: boolean, on
 };
 
 const itemCard = (entry: (typeof ITEM_ENTRIES)[number], debugMode: boolean, onDebugGiveItem: (item: ItemKind) => void) => {
-  const card = baseCard(entry.name, entry.description, spriteKeyForItem(entry.id as ItemKind));
+  const card = compactCard(entry.name, entry.description, spriteKeyForItem(entry.id as ItemKind));
   const details: Array<[string, string]> = [['分類', entry.category]];
   if (entry.attackInfo) {
     details.push(['攻撃', entry.attackInfo]);
@@ -132,7 +132,7 @@ const itemCard = (entry: (typeof ITEM_ENTRIES)[number], debugMode: boolean, onDe
     ['入手方法', entry.obtain],
     ['レア度', entry.rarity],
   );
-  card.append(detailGrid(details));
+  card.append(detailChips(details));
 
   if (debugMode) {
     card.append(debugButton('このアイテムを入手', () => onDebugGiveItem(entry.id as ItemKind)));
@@ -151,9 +151,9 @@ const debugButton = (label: string, onClick: () => void) => {
 };
 
 const recipeCard = (entry: (typeof RECIPE_ENTRIES)[number]) => {
-  const card = baseCard(entry.name, entry.description, spriteKeyForItem(entry.resultItem));
+  const card = compactCard(entry.name, entry.description, spriteKeyForItem(entry.resultItem));
   card.append(
-    detailGrid([
+    detailChips([
       ['設備', entry.facility],
       ['素材', entry.ingredients.join(' / ')],
       ['完成品', entry.result],
@@ -164,11 +164,24 @@ const recipeCard = (entry: (typeof RECIPE_ENTRIES)[number]) => {
   return card;
 };
 
+// The sprites tab exists specifically to browse the pixel-accurate sprite atlas,
+// so it keeps the canvas preview instead of the compact emoji glyph the other tabs use.
 const spriteAtlasCard = (entry: SpriteAtlasEntry) => {
-  const card = baseCard(entry.name, entry.group, entry.sprite);
-  card.classList.add('compendium-sprite-card');
+  const card = document.createElement('article');
+  card.className = 'compendium-card compendium-card-with-sprite compendium-sprite-card';
+  card.append(spritePreview(entry.sprite, entry.name));
+
+  const content = document.createElement('div');
+  content.className = 'compendium-card-content';
+  const heading = document.createElement('h3');
+  heading.textContent = entry.name;
+  const body = document.createElement('p');
+  body.textContent = entry.group;
+  content.append(heading, body);
+  card.append(content);
+
   card.append(
-    detailGrid([
+    detailChips([
       ['分類', entry.group],
       ['ID', entry.id],
       ['スプライト', entry.sprite],
@@ -177,13 +190,13 @@ const spriteAtlasCard = (entry: SpriteAtlasEntry) => {
   return card;
 };
 
-const baseCard = (title: string, description: string, sprite?: SpriteKey) => {
+const compactCard = (title: string, description: string, sprite: SpriteKey) => {
   const card = document.createElement('article');
-  card.className = sprite ? 'compendium-card compendium-card-with-sprite' : 'compendium-card';
+  card.className = 'compendium-card';
 
-  if (sprite) {
-    card.append(spritePreview(sprite, title));
-  }
+  const glyph = document.createElement('span');
+  glyph.className = 'compendium-card-glyph';
+  glyph.textContent = SPRITE_SHAPES[sprite];
 
   const content = document.createElement('div');
   content.className = 'compendium-card-content';
@@ -195,7 +208,7 @@ const baseCard = (title: string, description: string, sprite?: SpriteKey) => {
   body.textContent = description;
 
   content.append(heading, body);
-  card.append(content);
+  card.append(glyph, content);
   return card;
 };
 
@@ -267,19 +280,20 @@ const spriteAtlasEntries = (): SpriteAtlasEntry[] => {
   return [...entries, ...fallbackEntries];
 };
 
-const detailGrid = (details: Array<[string, string]>) => {
-  const grid = document.createElement('dl');
-  grid.className = 'compendium-details';
+const detailChips = (details: Array<[string, string]>) => {
+  const list = document.createElement('div');
+  list.className = 'compendium-details';
 
   details.forEach(([label, value]) => {
-    const term = document.createElement('dt');
+    const chip = document.createElement('span');
+    chip.className = 'compendium-detail-chip';
+
+    const term = document.createElement('b');
     term.textContent = label;
 
-    const detail = document.createElement('dd');
-    detail.textContent = value;
-
-    grid.append(term, detail);
+    chip.append(term, `: ${value}`);
+    list.append(chip);
   });
 
-  return grid;
+  return list;
 };

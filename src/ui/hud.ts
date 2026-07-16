@@ -4,7 +4,7 @@ import { canFitAdditionalUnit, GRID_DIMENSIONS, isStackable, overlaps } from '..
 import { buyPriceFor, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, SHOP_ITEM_KINDS } from '../game/items';
 import { describeAffix, TIER_LABELS } from '../game/map-affixes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
-import { CRAFTING_RECIPES, formatStack, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
+import { CRAFTING_RECIPES, hasIngredients, missingIngredients, suggestedBiomesForRecipe } from '../game/recipes';
 import { SPRITE_SHAPES, spriteKeyForItem } from './canvas-renderer';
 
 const emojiForItem = (item: ItemKind) => SPRITE_SHAPES[spriteKeyForItem(item)];
@@ -1097,25 +1097,17 @@ const stationForInteraction = (snapshot: GameSnapshot, player: Entity) => {
 const stationHint = (station: Entity, stash: Inventory) => {
   switch (station.station) {
     case 'raidGate':
-      return '出撃ゲートを調べると最初のマップへ出撃する。行き先を選ぶには上の「出撃」ボタンから作戦画面を開こう。';
+      return '出撃ゲートを調べると行き先を選ぶ画面が開く。';
     case 'stash':
-      return '倉庫を調べると中身と所持金をログに表示する。';
-    case 'craft': {
-      const recipe = CRAFTING_RECIPES[0];
-      if (!recipe) {
-        return 'クラフト台を調べる。';
-      }
-      if (hasIngredients(stash, recipe)) {
-        return `クラフト台で${formatStack(recipe.result)}を作る。`;
-      }
-      return `クラフト台を調べる。素材不足: ${recipe.ingredients.map(formatStack).join(' / ')}。`;
-    }
+      return '倉庫を調べると保管中の素材を見る画面が開く。';
+    case 'craft':
+      return 'クラフト台を調べるとレシピ一覧が開く。';
     case 'market':
       return hasSellableMaterial(stash) ? '商人娘の換金所で素材をまとめて売る。' : '商人娘の換金所を調べる。売れる素材はない。';
     case 'shop':
-      return '道具屋を調べる。品揃えは出撃画面のショップ欄で確認できる。';
+      return '道具屋を調べると購入できる品一覧が開く。';
     case 'compendium':
-      return '図鑑端末を調べると図鑑の案内を表示する。';
+      return '図鑑端末を調べると図鑑が開く。';
     case 'appraiser':
       return '鑑定士にコレクションアイテムを見せて鑑定し、その場で買い取ってもらう。';
     case 'barterMerchant':
