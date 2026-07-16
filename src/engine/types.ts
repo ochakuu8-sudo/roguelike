@@ -239,4 +239,6 @@ export type GameSnapshot = {
   debugMode: boolean;
   mapRolls: Partial<Record<ItemKind, MapRoll[]>>;
   unlockedRecipes: RecipeId[];
+  /** The station the player would interact with right now (base mode only), for UI dialog routing. */
+  nearbyStation: StationKind | null;
 };

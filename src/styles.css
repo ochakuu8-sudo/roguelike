@@ -132,100 +132,31 @@ h2 {
   min-height: 0;
 }
 
-.base-screen {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: none;
-  overflow: auto;
-  background:
-    linear-gradient(rgba(8, 11, 13, 0.72), rgba(8, 11, 13, 0.82)),
-    #101417;
-  padding: max(78px, calc(env(safe-area-inset-top) + 70px)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-}
-
-.show-base-planning .base-screen {
-  display: block;
-}
-
-.base-layout {
+.topbar-money {
   display: grid;
-  grid-template-columns: minmax(190px, 0.72fr) minmax(300px, 1fr) minmax(340px, 1.22fr);
-  grid-template-rows: auto minmax(140px, 1fr) minmax(110px, 0.6fr);
-  gap: 10px;
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
-.base-summary,
-.base-panel {
-  min-width: 0;
-  min-height: 0;
+  gap: 2px;
+  padding: 6px 14px;
   border: 1px solid rgba(122, 146, 158, 0.34);
   border-radius: 8px;
   background: rgba(14, 21, 25, 0.78);
-  padding: 12px;
+  text-align: center;
 }
 
-.base-summary {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.base-summary p {
-  margin-bottom: 12px;
-  color: #c8d3da;
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-
-.base-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-#base-planning-close {
-  width: 100%;
-}
-
-.base-money {
-  display: grid;
-  gap: 4px;
-}
-
-.base-money span {
+.topbar-money span {
   color: #9fb0ba;
-  font-size: 0.76rem;
+  font-size: 0.66rem;
 }
 
-.base-money strong {
-  font-size: 1.35rem;
+.topbar-money strong {
+  font-size: 1.1rem;
+  color: #fcd34d;
 }
 
-.stash-panel {
-  grid-column: 2;
-  grid-row: 2 / span 2;
-}
-
-.base-log-panel {
-  grid-column: 1;
-  grid-row: 2 / span 2;
-}
-
-.biome-panel {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.craft-panel {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-}
-
-.shop-panel {
-  grid-column: 3;
-  grid-row: 3;
+.station-dialog-blurb {
+  margin: 0;
+  color: #c8d3da;
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .biome-list {
@@ -1167,7 +1098,8 @@ button.inventory-slot:hover {
 .help-dialog,
 .item-dialog,
 .item-info-dialog,
-.compendium-dialog {
+.compendium-dialog,
+.station-dialog {
   width: min(480px, calc(100% - 28px));
   border: 1px solid #43515a;
   border-radius: 8px;
@@ -1179,17 +1111,29 @@ button.inventory-slot:hover {
 .help-dialog::backdrop,
 .item-dialog::backdrop,
 .item-info-dialog::backdrop,
-.compendium-dialog::backdrop {
+.compendium-dialog::backdrop,
+.station-dialog::backdrop {
   background: rgba(0, 0, 0, 0.62);
 }
 
 .help-dialog form,
 .item-dialog form,
 .item-info-dialog form,
-.compendium-dialog form {
+.compendium-dialog form,
+.station-dialog form {
   display: grid;
   gap: 10px;
   padding: 20px;
+}
+
+.raid-dialog,
+.craft-dialog {
+  width: min(720px, calc(100% - 28px));
+}
+
+.shop-dialog,
+.stash-dialog {
+  width: min(600px, calc(100% - 28px));
 }
 
 .item-info-glyph {
@@ -1576,27 +1520,6 @@ button.inventory-slot:hover {
     font-size: 0.66rem;
   }
 
-  .base-screen {
-    padding-top: max(58px, calc(env(safe-area-inset-top) + 54px));
-    overflow: hidden;
-  }
-
-  .base-layout {
-    grid-template-columns: minmax(180px, 0.85fr) minmax(140px, 0.55fr) minmax(230px, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px;
-    height: calc(100dvh - max(58px, calc(env(safe-area-inset-top) + 54px)) - max(10px, env(safe-area-inset-bottom)));
-  }
-
-  .base-summary,
-  .base-panel {
-    padding: 9px;
-    overflow: auto;
-  }
-
-  .base-summary p {
-    display: none;
-  }
 }
 
 @media (orientation: landscape) and (max-height: 540px) and (max-width: 760px) {
@@ -1650,17 +1573,4 @@ button.inventory-slot:hover {
     width: min(42vw, 156px);
   }
 
-  .base-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .base-summary,
-  .biome-panel,
-  .stash-panel,
-  .craft-panel,
-  .shop-panel,
-  .base-log-panel {
-    grid-column: auto;
-    grid-row: auto;
-  }
 }

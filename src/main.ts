@@ -1,11 +1,11 @@
 import './styles.css';
 import { Game } from './game/game';
 import { CanvasRenderer } from './ui/canvas-renderer';
-import type { Command, EnemyKind, Entity, GameSnapshot, ItemKind, MapId } from './engine/types';
+import type { EnemyKind, GameSnapshot, ItemKind, MapId, StationKind } from './engine/types';
 import { ENEMY_DEFINITIONS } from './game/enemies';
 import { updateCompendium } from './ui/compendium';
 import { bindInput } from './ui/input';
-import { updateBasePlanning, updateHud, setInventoryInspectHandler } from './ui/hud';
+import { updateCraftDialog, updateHud, updateRaidDialog, updateShopDialog, updateStashDialog, updateTopbarMoney, setInventoryInspectHandler } from './ui/hud';
 import { showItemInfo } from './ui/item-info';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
@@ -21,8 +21,17 @@ const pickupButton = document.querySelector<HTMLButtonElement>('[data-command="p
 const interactButton = document.querySelector<HTMLButtonElement>('[data-command="interact"]');
 const heldActionButton = document.querySelector<HTMLButtonElement>('[data-command="useHeldItem"]');
 const returnToBaseButton = document.querySelector<HTMLButtonElement>('#return-to-base-button');
-const basePlanningButton = document.querySelector<HTMLButtonElement>('#base-planning-button');
-const basePlanningCloseButton = document.querySelector<HTMLButtonElement>('#base-planning-close');
+const topbarMoneyBlock = document.querySelector<HTMLElement>('#topbar-money-block');
+const topbarMoneyRoot = document.querySelector<HTMLElement>('#topbar-money');
+const raidDialogButton = document.querySelector<HTMLButtonElement>('#raid-dialog-button');
+const raidDialog = document.querySelector<HTMLDialogElement>('#raid-dialog');
+const raidBiomeRoot = document.querySelector<HTMLElement>('#raid-biomes');
+const stashDialog = document.querySelector<HTMLDialogElement>('#stash-dialog');
+const stashDialogBody = document.querySelector<HTMLElement>('#stash-dialog-body');
+const craftDialog = document.querySelector<HTMLDialogElement>('#craft-dialog');
+const craftRecipeRoot = document.querySelector<HTMLElement>('#craft-recipes');
+const shopDialog = document.querySelector<HTMLDialogElement>('#shop-dialog');
+const shopItemsRoot = document.querySelector<HTMLElement>('#shop-items');
 const compendiumButton = document.querySelector<HTMLButtonElement>('#compendium-button');
 const compendiumDialog = document.querySelector<HTMLDialogElement>('#compendium-dialog');
 const compendiumTabsRoot = document.querySelector<HTMLElement>('#compendium-tabs');
@@ -41,13 +50,6 @@ const itemInfoDialog = document.querySelector<HTMLDialogElement>('#item-info-dia
 const itemInfoGlyphRoot = document.querySelector<HTMLElement>('#item-info-glyph');
 const itemInfoTitleRoot = document.querySelector<HTMLElement>('#item-info-title');
 const itemInfoBodyRoot = document.querySelector<HTMLElement>('#item-info-body');
-const baseBiomeRoot = document.querySelector<HTMLElement>('#base-biomes');
-const baseStashRoot = document.querySelector<HTMLElement>('#base-stash');
-const baseRecipeRoot = document.querySelector<HTMLElement>('#base-recipes');
-const baseShopRoot = document.querySelector<HTMLElement>('#base-shop');
-const baseMoneyRoot = document.querySelector<HTMLElement>('#base-money');
-const baseLogRoot = document.querySelector<HTMLOListElement>('#base-message-log');
-
 if (
   !canvas ||
   !statusRoot ||
@@ -62,8 +64,17 @@ if (
   !interactButton ||
   !heldActionButton ||
   !returnToBaseButton ||
-  !basePlanningButton ||
-  !basePlanningCloseButton ||
+  !topbarMoneyBlock ||
+  !topbarMoneyRoot ||
+  !raidDialogButton ||
+  !raidDialog ||
+  !raidBiomeRoot ||
+  !stashDialog ||
+  !stashDialogBody ||
+  !craftDialog ||
+  !craftRecipeRoot ||
+  !shopDialog ||
+  !shopItemsRoot ||
   !compendiumButton ||
   !compendiumDialog ||
   !compendiumTabsRoot ||
@@ -81,13 +92,7 @@ if (
   !itemInfoDialog ||
   !itemInfoGlyphRoot ||
   !itemInfoTitleRoot ||
-  !itemInfoBodyRoot ||
-  !baseBiomeRoot ||
-  !baseStashRoot ||
-  !baseRecipeRoot ||
-  !baseShopRoot ||
-  !baseMoneyRoot ||
-  !baseLogRoot
+  !itemInfoBodyRoot
 ) {
   throw new Error('Missing app root elements.');
 }
@@ -143,37 +148,8 @@ compendiumSearchRoot.addEventListener('keydown', (event) => {
   }
 });
 
-const playerEntity = (snapshot: GameSnapshot) => snapshot.entities.find((entity) => entity.id === snapshot.playerId);
-
-const stationInFront = (snapshot: GameSnapshot, player: Entity) =>
-  snapshot.entities.find(
-    (entity) =>
-      entity.kind === 'station' &&
-      entity.x === player.x + snapshot.player.facing.x &&
-      entity.y === player.y + snapshot.player.facing.y,
-  );
-
-const shouldOpenBasePlanningFromGate = (command: Command) => {
-  if (command.type !== 'interact') {
-    return false;
-  }
-
-  const snapshot = game.snapshot();
-  const player = playerEntity(snapshot);
-  if (snapshot.mode !== 'base' || !player) {
-    return false;
-  }
-
-  return stationInFront(snapshot, player)?.station === 'raidGate';
-};
-
-const openBasePlanning = () => {
-  document.body.classList.add('show-base-planning');
-  refresh();
-};
-
 const startRaid = (mapId: MapId, mapRollId?: string) => {
-  document.body.classList.remove('show-base-planning');
+  raidDialog.close();
   game.dispatch({ type: 'startRaid', mapId, mapRollId });
   refresh();
 };
@@ -182,10 +158,15 @@ const refresh = () => {
   const snapshot = game.snapshot();
   document.body.classList.toggle('is-base', snapshot.mode === 'base');
   document.body.classList.toggle('is-dead', snapshot.gameOver);
+  topbarMoneyBlock.hidden = snapshot.mode !== 'base';
+  raidDialogButton.hidden = snapshot.mode !== 'base';
   if (snapshot.mode !== 'base') {
-    document.body.classList.remove('show-base-planning');
+    raidDialog.close();
+    stashDialog.close();
+    craftDialog.close();
+    shopDialog.close();
   }
-  basePlanningButton.hidden = snapshot.mode !== 'base';
+  updateTopbarMoney(snapshot, topbarMoneyRoot);
   debugModeButton.classList.toggle('is-active', snapshot.debugMode);
   if (!snapshot.debugMode && pendingSpawnEnemy) {
     cancelDebugSpawn();
@@ -216,29 +197,12 @@ const refresh = () => {
       refresh();
     },
   });
-  updateBasePlanning(snapshot, {
-    biomeRoot: baseBiomeRoot,
-    stashRoot: baseStashRoot,
-    recipeRoot: baseRecipeRoot,
-    shopRoot: baseShopRoot,
-    moneyRoot: baseMoneyRoot,
+  updateRaidDialog(snapshot, {
+    biomeRoot: raidBiomeRoot,
     onStartRaid: startRaid,
-    onAppraiseCollection: () => {
-      game.dispatch({ type: 'appraiseCollection' });
-      refresh();
-    },
-    onCraftRecipe: (recipe) => {
-      game.dispatch({ type: 'craftItem', recipe });
-      refresh();
-    },
-    onUnlockRecipe: (recipe) => {
-      game.dispatch({ type: 'unlockRecipe', recipe });
-      refresh();
-    },
-    onBuyItem: (item) => {
-      game.dispatch({ type: 'buyItem', item });
-      refresh();
-    },
+  });
+  updateStashDialog(snapshot, {
+    bodyRoot: stashDialogBody,
     onMoveItem: (item, from, to, x, y) => {
       game.dispatch({ type: 'moveItem', item, from, to, x, y });
       refresh();
@@ -248,21 +212,51 @@ const refresh = () => {
       refresh();
     },
   });
-  baseLogRoot.replaceChildren(
-    ...snapshot.messages.map((message) => {
-      const item = document.createElement('li');
-      item.textContent = message;
-      return item;
-    }),
-  );
-  baseLogRoot.scrollTop = baseLogRoot.scrollHeight;
+  updateCraftDialog(snapshot, {
+    recipeRoot: craftRecipeRoot,
+    onCraftRecipe: (recipe) => {
+      game.dispatch({ type: 'craftItem', recipe });
+      refresh();
+    },
+    onUnlockRecipe: (recipe) => {
+      game.dispatch({ type: 'unlockRecipe', recipe });
+      refresh();
+    },
+  });
+  updateShopDialog(snapshot, {
+    shopRoot: shopItemsRoot,
+    onBuyItem: (item) => {
+      game.dispatch({ type: 'buyItem', item });
+      refresh();
+    },
+  });
 };
 
-basePlanningButton.textContent = '出撃';
-basePlanningButton.addEventListener('click', openBasePlanning);
+const STATION_DIALOGS: Partial<Record<StationKind, HTMLDialogElement>> = {
+  raidGate: raidDialog,
+  stash: stashDialog,
+  craft: craftDialog,
+  shop: shopDialog,
+};
 
-basePlanningCloseButton.addEventListener('click', () => {
-  document.body.classList.remove('show-base-planning');
+const openStationDialog = (station: StationKind): boolean => {
+  if (station === 'compendium') {
+    renderCompendium(game.snapshot());
+    compendiumDialog.showModal();
+    return true;
+  }
+
+  const dialog = STATION_DIALOGS[station];
+  if (!dialog) {
+    return false;
+  }
+
+  dialog.showModal();
+  return true;
+};
+
+raidDialogButton.addEventListener('click', () => {
+  openStationDialog('raidGate');
 });
 
 compendiumButton.addEventListener('click', () => {
@@ -329,9 +323,11 @@ bindInput({
       return;
     }
 
-    if (shouldOpenBasePlanningFromGate(command)) {
-      openBasePlanning();
-      return;
+    if (command.type === 'interact') {
+      const snapshot = game.snapshot();
+      if (snapshot.mode === 'base' && snapshot.nearbyStation && openStationDialog(snapshot.nearbyStation)) {
+        return;
+      }
     }
 
     game.dispatch(command);

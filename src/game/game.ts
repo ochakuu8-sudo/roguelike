@@ -11,8 +11,8 @@ import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recip
 
 const MAP_WIDTH = 96;
 const MAP_HEIGHT = 60;
-const BASE_WIDTH = 34;
-const BASE_HEIGHT = 24;
+const BASE_WIDTH = 15;
+const BASE_HEIGHT = 11;
 const FOV_RADIUS = 13;
 const PLAYER_ID = 'player';
 const BASE_LOADOUT_ITEMS: ItemKind[] = ['potion', 'sword', 'bow', 'pickaxe'];
@@ -176,6 +176,7 @@ export class Game {
         Object.entries(this.mapItemRolls).map(([item, rolls]) => [item, (rolls ?? []).map((roll) => ({ ...roll }))]),
       ) as Partial<Record<ItemKind, MapRoll[]>>,
       unlockedRecipes: [...this.unlockedRecipes],
+      nearbyStation: this.mode === 'base' ? this.stationForInteraction()?.station ?? null : null,
     };
   }
 
@@ -463,18 +464,18 @@ export class Game {
         name: '探索者',
         glyph: '@',
         color: '#e8f6ff',
-        x: 17,
-        y: 14,
+        x: 7,
+        y: 5,
         blocks: true,
         stats: { hp: 24, maxHp: 24, attack: 6, defense: 1, speed: 10 },
       },
-      createStationEntity('station-raid-gate', 'raidGate', '出撃ゲート', '>', '#6ee7b7', 17, 6),
-      createStationEntity('station-stash', 'stash', '倉庫', 'C', '#fbbf24', 8, 11),
-      createStationEntity('station-craft', 'craft', 'クラフト台', 'T', '#93c5fd', 26, 11),
-      createStationEntity('station-shop', 'shop', '道具屋', 'B', '#fb923c', 17, 11),
-      createStationEntity('station-market', 'market', '商人娘の換金所', '$', '#fcd34d', 8, 17),
-      createStationEntity('station-compendium', 'compendium', '図鑑端末', '?', '#c4b5fd', 26, 17),
-      createStationEntity('station-appraiser', 'appraiser', '鑑定士', '?', '#d6c39a', 17, 20),
+      createStationEntity('station-raid-gate', 'raidGate', '出撃ゲート', '>', '#6ee7b7', 7, 2),
+      createStationEntity('station-compendium', 'compendium', '図鑑端末', '?', '#c4b5fd', 10, 3),
+      createStationEntity('station-craft', 'craft', 'クラフト台', 'T', '#93c5fd', 11, 5),
+      createStationEntity('station-market', 'market', '商人娘の換金所', '$', '#fcd34d', 10, 7),
+      createStationEntity('station-appraiser', 'appraiser', '鑑定士', '?', '#d6c39a', 7, 8),
+      createStationEntity('station-shop', 'shop', '道具屋', 'B', '#fb923c', 4, 7),
+      createStationEntity('station-stash', 'stash', '倉庫', 'C', '#fbbf24', 3, 5),
     ];
     this.messages = [entryMessage, '出撃ゲート、倉庫、クラフト台、道具屋、換金所、図鑑端末、鑑定士がある。'];
   }
@@ -910,13 +911,13 @@ export class Game {
         this.pushMessage(this.stashSummary());
         return;
       case 'craft':
-        this.craftItem('potion');
+        this.pushMessage('クラフト台を調べた。');
         return;
       case 'market':
         this.sellAllMaterials();
         return;
       case 'shop':
-        this.pushMessage('道具屋の品揃えは出撃画面のショップ欄で確認できる。');
+        this.pushMessage('道具屋を調べた。');
         return;
       case 'compendium':
         this.pushMessage('図鑑は右上の図鑑ボタンから確認できる。');

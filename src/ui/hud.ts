@@ -26,19 +26,26 @@ type HudRoots = {
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
 };
 
-type BasePlanningRoots = {
+type RaidDialogRoots = {
   biomeRoot: HTMLElement;
-  stashRoot: HTMLElement;
-  recipeRoot: HTMLElement;
-  shopRoot: HTMLElement;
-  moneyRoot: HTMLElement;
   onStartRaid: (mapId: MapId, mapRollId?: string) => void;
-  onCraftRecipe: (recipe: RecipeId) => void;
-  onUnlockRecipe: (recipe: RecipeId) => void;
-  onBuyItem: (item: ItemKind) => void;
-  onAppraiseCollection: () => void;
+};
+
+type StashDialogRoots = {
+  bodyRoot: HTMLElement;
   onMoveItem: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void;
   onPlaceItem: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void;
+};
+
+type CraftDialogRoots = {
+  recipeRoot: HTMLElement;
+  onCraftRecipe: (recipe: RecipeId) => void;
+  onUnlockRecipe: (recipe: RecipeId) => void;
+};
+
+type ShopDialogRoots = {
+  shopRoot: HTMLElement;
+  onBuyItem: (item: ItemKind) => void;
 };
 
 type ContextAction = {
@@ -148,52 +155,32 @@ export const updateHud = (snapshot: GameSnapshot, roots: HudRoots) => {
   updateActionControls(snapshot, roots);
 };
 
-export const updateBasePlanning = (snapshot: GameSnapshot, roots: BasePlanningRoots) => {
-  roots.moneyRoot.textContent = `${snapshot.money}G`;
+export const updateTopbarMoney = (snapshot: GameSnapshot, moneyRoot: HTMLElement) => {
+  moneyRoot.textContent = `${snapshot.money}G`;
+};
+
+export const updateRaidDialog = (snapshot: GameSnapshot, roots: RaidDialogRoots) => {
   roots.biomeRoot.replaceChildren(...MAP_IDS.map((mapId) => mapCard(mapId, snapshot.mapRolls, roots.onStartRaid)));
-  roots.stashRoot.replaceChildren(
-    ...collectionSummaryCard(snapshot.collectionCount, roots.onAppraiseCollection),
-    inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。'),
+};
+
+export const updateStashDialog = (snapshot: GameSnapshot, roots: StashDialogRoots) => {
+  roots.bodyRoot.replaceChildren(
+    inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。未鑑定のアイテムは鑑定士へ。'),
     inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, roots.onMoveItem, roots.onPlaceItem),
   );
+};
+
+export const updateCraftDialog = (snapshot: GameSnapshot, roots: CraftDialogRoots) => {
   const unlockedRecipes = new Set(snapshot.unlockedRecipes);
   roots.recipeRoot.replaceChildren(
     ...CRAFTING_RECIPES.map((recipe) =>
       recipePlanCard(snapshot.stash, snapshot.money, recipe.id, unlockedRecipes, roots.onCraftRecipe, roots.onUnlockRecipe),
     ),
   );
-  roots.shopRoot.replaceChildren(...SHOP_ITEM_KINDS.map((item) => shopCard(item, snapshot.money, roots.onBuyItem)));
 };
 
-const collectionSummaryCard = (collectionCount: number, onAppraiseCollection: () => void) => {
-  if (collectionCount <= 0) {
-    return [];
-  }
-
-  const card = document.createElement('article');
-  card.className = 'stash-card stash-card-collection';
-
-  const glyph = document.createElement('span');
-  glyph.className = 'stash-card-glyph';
-  glyph.textContent = '?';
-
-  const body = document.createElement('div');
-  const name = document.createElement('strong');
-  name.textContent = '未鑑定のコレクションアイテム';
-  const detail = document.createElement('small');
-  detail.textContent = '鑑定士に見せると正体が分かり、その場で買い取ってもらえる。';
-  body.append(name, detail);
-
-  const count = document.createElement('b');
-  count.textContent = `x${collectionCount}`;
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = '鑑定して売る';
-  button.addEventListener('click', onAppraiseCollection);
-
-  card.append(glyph, body, count, button);
-  return [card];
+export const updateShopDialog = (snapshot: GameSnapshot, roots: ShopDialogRoots) => {
+  roots.shopRoot.replaceChildren(...SHOP_ITEM_KINDS.map((item) => shopCard(item, snapshot.money, roots.onBuyItem)));
 };
 
 const hpBar = (hp: number, maxHp: number) => {

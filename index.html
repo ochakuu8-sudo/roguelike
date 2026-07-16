@@ -14,8 +14,12 @@
           <p class="eyebrow">試作版</p>
           <h1>ローグライク</h1>
         </div>
+        <div class="topbar-money" id="topbar-money-block" hidden>
+          <span>所持金</span>
+          <strong id="topbar-money">0G</strong>
+        </div>
         <div class="topbar-actions">
-          <button class="text-button" id="base-planning-button" type="button">出撃</button>
+          <button class="text-button" id="raid-dialog-button" type="button">出撃</button>
           <button class="text-button" id="compendium-button" type="button">図鑑</button>
           <button class="text-button" id="debug-mode-button" type="button" title="デバッグモード切り替え">デバッグ</button>
           <button class="icon-button" data-command="help" title="ヘルプ">?</button>
@@ -38,43 +42,6 @@
           <div id="debug-spawn-banner" class="debug-spawn-banner" hidden>
             <span id="debug-spawn-banner-text"></span>
             <button type="button" id="debug-spawn-cancel-button" class="text-button">キャンセル</button>
-          </div>
-        </section>
-
-        <section class="base-screen" aria-label="拠点作戦画面">
-          <div class="base-layout">
-            <section class="base-summary">
-              <div>
-                <p class="eyebrow">拠点</p>
-                <h2>次の探索を決める</h2>
-              </div>
-              <p>素材を集めてクラフトしつつ、余った素材は売って稼ぎ、稼いだGでレシピ解放や道具屋での買い物をまかないます。</p>
-              <div class="base-money">
-                <span>所持金</span>
-                <strong id="base-money">0G</strong>
-              </div>
-              <button class="text-button" id="base-planning-close" type="button">閉じる</button>
-            </section>
-            <section class="base-panel biome-panel">
-              <h2>探索先</h2>
-              <div id="base-biomes" class="biome-list"></div>
-            </section>
-            <section class="base-panel stash-panel">
-              <h2>倉庫</h2>
-              <div id="base-stash" class="stash-list"></div>
-            </section>
-            <section class="base-panel craft-panel">
-              <h2>クラフト / 目標</h2>
-              <div id="base-recipes" class="recipe-plan-list"></div>
-            </section>
-            <section class="base-panel shop-panel">
-              <h2>道具屋</h2>
-              <div id="base-shop" class="shop-list"></div>
-            </section>
-            <section class="base-panel base-log-panel">
-              <h2>ログ</h2>
-              <ol id="base-message-log" class="message-log"></ol>
-            </section>
           </div>
         </section>
 
@@ -186,6 +153,50 @@
         <div id="compendium-tabs" class="compendium-tabs" aria-label="図鑑カテゴリ"></div>
         <input type="search" id="compendium-search" class="compendium-search" placeholder="名前で検索..." aria-label="図鑑を検索" />
         <div id="compendium-list" class="compendium-list"></div>
+      </form>
+    </dialog>
+
+    <dialog id="raid-dialog" class="station-dialog raid-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <h2>出撃ゲート</h2>
+          <button class="icon-button">×</button>
+        </div>
+        <p class="station-dialog-blurb">行き先を選んで出撃する。</p>
+        <div id="raid-biomes" class="biome-list"></div>
+      </form>
+    </dialog>
+
+    <dialog id="stash-dialog" class="station-dialog stash-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <h2>倉庫</h2>
+          <button class="icon-button">×</button>
+        </div>
+        <p class="station-dialog-blurb">持ち帰った物資の保管場所。ドラッグで自由に並べ替えられる。</p>
+        <div id="stash-dialog-body"></div>
+      </form>
+    </dialog>
+
+    <dialog id="craft-dialog" class="station-dialog craft-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <h2>クラフト台</h2>
+          <button class="icon-button">×</button>
+        </div>
+        <p class="station-dialog-blurb">素材からアイテムを作る。上位レシピは解放にGが必要。</p>
+        <div id="craft-recipes" class="recipe-plan-list"></div>
+      </form>
+    </dialog>
+
+    <dialog id="shop-dialog" class="station-dialog shop-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <h2>道具屋</h2>
+          <button class="icon-button">×</button>
+        </div>
+        <p class="station-dialog-blurb">素材不要、Gだけで消耗品と属性ごとの初期武器を買える。</p>
+        <div id="shop-items" class="shop-list"></div>
       </form>
     </dialog>
 
