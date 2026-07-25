@@ -1549,20 +1549,9 @@ export class Game {
         return;
       }
 
-      if (monster.attackTelegraph) {
-        this.resolveTelegraphedAttack(monster, this.player());
-        return;
-      }
-
-      if (monster.staggerTurns && monster.staggerTurns > 0) {
-        monster.staggerTurns -= 1;
-        return;
-      }
-
       const distance = chebyshev(monster, player);
-      if (distance <= 1) {
-        monster.attackTelegraph = true;
-        this.pushMessage(`${monster.name}が攻撃の構えを見せた！`);
+      if (monster.attackTelegraph || (monster.staggerTurns ?? 0) > 0 || distance <= 1) {
+        this.resolveMonsterAttackDecision(monster, player);
         return;
       }
 
@@ -1573,6 +1562,30 @@ export class Game {
 
       this.stepToward(monster, player);
     });
+  }
+
+  /**
+   * A monster's action whenever it's engaged with the player at melee range:
+   * resolve an already-committed attack, count down a whiff's recovery stagger,
+   * or (only otherwise) commit to a new telegraphed attack. A monster never
+   * lands a hit without having telegraphed it on a prior turn first, whether
+   * it initiated the engagement itself or the player attacked into it.
+   */
+  private resolveMonsterAttackDecision(monster: Entity, player: Entity): void {
+    if (monster.attackTelegraph) {
+      this.resolveTelegraphedAttack(monster, player);
+      return;
+    }
+
+    if (monster.staggerTurns && monster.staggerTurns > 0) {
+      monster.staggerTurns -= 1;
+      return;
+    }
+
+    if (chebyshev(monster, player) <= 1) {
+      monster.attackTelegraph = true;
+      this.pushMessage(`${monster.name}が攻撃の構えを見せた！`);
+    }
   }
 
   /**
@@ -1629,7 +1642,6 @@ export class Game {
   }
 
   private resolveMeleeExchange(player: Entity, monster: Entity, playerAttackBonus: number, playerAttackElement: ElementId): void {
-    monster.attackTelegraph = false;
     const actors = [player, monster].sort(compareActionOrder);
 
     actors.forEach((actor) => {
@@ -1645,7 +1657,7 @@ export class Game {
       if (actor.id === player.id) {
         this.attack(actor, target, playerAttackBonus, playerAttackElement);
       } else {
-        this.attack(actor, target);
+        this.resolveMonsterAttackDecision(actor, target);
       }
     });
   }
