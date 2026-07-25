@@ -1561,6 +1561,10 @@ export class Game {
       }
 
       this.stepToward(monster, player);
+
+      if (chebyshev(monster, player) <= 1) {
+        this.resolveMonsterAttackDecision(monster, player);
+      }
     });
   }
 
