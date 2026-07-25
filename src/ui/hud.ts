@@ -220,7 +220,7 @@ const staminaBar = (stamina: number, maxStamina: number) => {
   fill.style.width = `${maxStamina > 0 ? Math.round((stamina / maxStamina) * 100) : 0}%`;
 
   const value = document.createElement('strong');
-  value.textContent = `${stamina}/${maxStamina}`;
+  value.textContent = `${Math.floor(stamina)}/${maxStamina}`;
 
   track.append(fill);
   root.append(label, track, value);
