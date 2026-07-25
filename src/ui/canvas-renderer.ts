@@ -633,13 +633,17 @@ export class CanvasRenderer {
     const sprite = spriteFor(entity);
     const shadowHeight = Math.max(1, Math.floor(cellSize * 0.12));
 
+    const isStaggered = entity.kind === 'monster' && (entity.staggerTurns ?? 0) > 0;
+
     this.context.fillStyle = 'rgba(0, 0, 0, 0.32)';
     this.context.fillRect(left + cellSize * 0.22, top + cellSize * 0.78, cellSize * 0.56, shadowHeight);
-    this.drawSprite(sprite, left, top, cellSize, 1);
+    this.drawSprite(sprite, left, top, cellSize, isStaggered ? 0.55 : 1);
     if (entity.kind === 'monster') {
       this.drawEnemyHealthBar(entity, left, top, cellSize);
       if (entity.attackTelegraph) {
         this.drawTelegraphMark(left, top, cellSize);
+      } else if (isStaggered) {
+        this.drawStaggerMark(left, top, cellSize);
       }
     }
 
@@ -771,6 +775,19 @@ export class CanvasRenderer {
     ctx.strokeText('!', x, y);
     ctx.fillStyle = '#fde047';
     ctx.fillText('!', x, y);
+    ctx.restore();
+  }
+
+  private drawStaggerMark(left: number, top: number, cellSize: number): void {
+    const ctx = this.context;
+    const x = left + cellSize * 0.5;
+    const y = top - cellSize * 0.14;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${Math.max(9, Math.floor(cellSize * 0.44))}px ${EMOJI_FONT}`;
+    ctx.fillText('💫', x, y);
     ctx.restore();
   }
 
