@@ -17,6 +17,12 @@ const FIXED_CELL_SIZE = 24;
 const COMBAT_EFFECT_DURATION = 520;
 const COMBAT_EFFECT_STAGGER = COMBAT_EFFECT_DURATION;
 
+const TELEGRAPH_RANGE_OFFSETS: Array<[number, number]> = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0], [1, 0],
+  [-1, 1], [0, 1], [1, 1],
+];
+
 type Camera = {
   cellSize: number;
   offsetX: number;
@@ -280,6 +286,7 @@ export class CanvasRenderer {
 
     this.drawTiles(snapshot, camera);
     this.drawStationHighlights(snapshot, camera, now);
+    this.drawEnemyTelegraphs(snapshot, camera, now);
     this.drawEntities(snapshot, camera, combatEffects);
     this.drawFacing(snapshot, camera);
     this.drawCombatEffects(combatEffects, camera);
@@ -414,6 +421,36 @@ export class CanvasRenderer {
         this.context.arc(left + cellSize / 2, top + cellSize / 2, cellSize * 0.62, 0, Math.PI * 2);
         this.context.fill();
         this.context.restore();
+      });
+  }
+
+  private drawEnemyTelegraphs(snapshot: GameSnapshot, camera: Camera, now: number): void {
+    const { cellSize, offsetX, offsetY } = camera;
+    const pulse = 0.5 + 0.5 * Math.sin(now / 180);
+
+    snapshot.entities
+      .filter((entity) => entity.kind === 'monster' && entity.attackTelegraph)
+      .forEach((monster) => {
+        TELEGRAPH_RANGE_OFFSETS.forEach(([dx, dy]) => {
+          const x = monster.x + dx;
+          const y = monster.y + dy;
+          if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
+            return;
+          }
+
+          const tile = snapshot.tiles[indexAt(x, y, snapshot.width)];
+          const left = offsetX + x * cellSize;
+          const top = offsetY + y * cellSize;
+          if (!tile.visible || !isInViewport(left, top, cellSize, camera)) {
+            return;
+          }
+
+          this.context.save();
+          this.context.globalAlpha = 0.22 + 0.18 * pulse;
+          this.context.fillStyle = '#fb7185';
+          this.context.fillRect(left, top, cellSize, cellSize);
+          this.context.restore();
+        });
       });
   }
 
@@ -601,6 +638,9 @@ export class CanvasRenderer {
     this.drawSprite(sprite, left, top, cellSize, 1);
     if (entity.kind === 'monster') {
       this.drawEnemyHealthBar(entity, left, top, cellSize);
+      if (entity.attackTelegraph) {
+        this.drawTelegraphMark(left, top, cellSize);
+      }
     }
 
     if (hitEffect) {
@@ -715,6 +755,23 @@ export class CanvasRenderer {
     this.context.fillStyle = ratio > 0.45 ? '#fbbf24' : '#fb7185';
     this.context.fillRect(x, y, Math.max(1, Math.floor(width * ratio)), height);
     this.context.restore();
+  }
+
+  private drawTelegraphMark(left: number, top: number, cellSize: number): void {
+    const ctx = this.context;
+    const x = left + cellSize * 0.5;
+    const y = top - cellSize * 0.14;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${Math.max(9, Math.floor(cellSize * 0.46))}px system-ui, sans-serif`;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(2, 8, 12, 0.85)';
+    ctx.strokeText('!', x, y);
+    ctx.fillStyle = '#fde047';
+    ctx.fillText('!', x, y);
+    ctx.restore();
   }
 
   private drawMinimap(snapshot: GameSnapshot): void {

@@ -173,6 +173,10 @@ export type Entity = {
   enemy?: EnemyKind;
   station?: StationKind;
   mapRoll?: MapRoll;
+  /** True while the monster has committed to attack next turn; shows an attack telegraph in the UI. */
+  attackTelegraph?: boolean;
+  /** Turns of post-miss hitstun remaining, during which the monster cannot act. */
+  staggerTurns?: number;
 };
 
 export type CombatEffect = {

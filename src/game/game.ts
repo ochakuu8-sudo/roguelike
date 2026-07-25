@@ -285,7 +285,10 @@ export class Game {
         this.face(command.dx, command.dy);
         break;
       case 'forward':
-        turnResult = this.tryMovePlayer(this.facing.x, this.facing.y);
+        if (this.canMoveTo(this.facing.x, this.facing.y)) {
+          this.resolveFastTelegraphedAttacks();
+        }
+        turnResult = this.gameOver ? { usedTurn: false } : this.tryMovePlayer(this.facing.x, this.facing.y);
         break;
       case 'wait':
         this.pushMessage('ダンジョンの気配に耳を澄ませた。');
@@ -1546,9 +1549,20 @@ export class Game {
         return;
       }
 
+      if (monster.attackTelegraph) {
+        this.resolveTelegraphedAttack(monster, this.player());
+        return;
+      }
+
+      if (monster.staggerTurns && monster.staggerTurns > 0) {
+        monster.staggerTurns -= 1;
+        return;
+      }
+
       const distance = chebyshev(monster, player);
       if (distance <= 1) {
-        this.attack(monster, player);
+        monster.attackTelegraph = true;
+        this.pushMessage(`${monster.name}が攻撃の構えを見せた！`);
         return;
       }
 
@@ -1561,7 +1575,61 @@ export class Game {
     });
   }
 
+  /**
+   * Resolves attacks for monsters at least as fast as the player, before the
+   * player's own move this turn is applied. Since the telegraphed target area
+   * was fixed last turn and nobody has moved yet, this always lands.
+   */
+  private resolveFastTelegraphedAttacks(): void {
+    const player = this.player();
+    if (!player.stats) {
+      return;
+    }
+
+    const fastMonsters = this.entities.filter(
+      (entity) => entity.kind === 'monster' && entity.attackTelegraph && entity.stats && entity.stats.speed >= player.stats!.speed,
+    );
+
+    fastMonsters.forEach((monster) => {
+      if (this.gameOver || !this.isEntityAlive(monster.id)) {
+        return;
+      }
+
+      this.resolveTelegraphedAttack(monster, this.player());
+    });
+  }
+
+  private resolveTelegraphedAttack(monster: Entity, player: Entity): void {
+    monster.attackTelegraph = false;
+
+    if (chebyshev(monster, player) <= 1) {
+      this.attack(monster, player);
+      return;
+    }
+
+    const recoveryTurns = monster.enemy ? ENEMY_DEFINITIONS[monster.enemy].recoveryTurns : 1;
+    monster.staggerTurns = recoveryTurns;
+    this.pushMessage(`${monster.name}の攻撃は空振りに終わった！`);
+  }
+
+  private canMoveTo(dx: number, dy: number): boolean {
+    if (dx === 0 && dy === 0) {
+      return false;
+    }
+
+    const player = this.player();
+    const targetX = player.x + dx;
+    const targetY = player.y + dy;
+
+    if (this.blockingEntityAt(targetX, targetY)) {
+      return false;
+    }
+
+    return this.isWalkable(targetX, targetY);
+  }
+
   private resolveMeleeExchange(player: Entity, monster: Entity, playerAttackBonus: number, playerAttackElement: ElementId): void {
+    monster.attackTelegraph = false;
     const actors = [player, monster].sort(compareActionOrder);
 
     actors.forEach((actor) => {

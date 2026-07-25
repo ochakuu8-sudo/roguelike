@@ -14,6 +14,8 @@ type EnemyDefinition = {
   attackElement: ElementId;
   weakness?: ElementId;
   resistance?: ElementId;
+  /** Turns of hitstun the enemy suffers after a telegraphed attack whiffs. */
+  recoveryTurns: number;
 };
 
 export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
@@ -29,6 +31,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 36,
     attackElement: 'impact',
     weakness: 'pierce',
+    recoveryTurns: 2,
   },
   oreBeetle: {
     name: '鉱石虫',
@@ -43,6 +46,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'impact',
     weakness: 'pierce',
     resistance: 'impact',
+    recoveryTurns: 3,
   },
   tunnelGnoll: {
     name: '坑道ノール',
@@ -57,6 +61,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'impact',
     weakness: 'impact',
     resistance: 'pierce',
+    recoveryTurns: 3,
   },
   sporeBat: {
     name: '胞子コウモリ',
@@ -70,6 +75,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 32,
     attackElement: 'poison',
     weakness: 'impact',
+    recoveryTurns: 1,
   },
   slime: {
     name: '粘液スライム',
@@ -84,6 +90,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'poison',
     weakness: 'shock',
     resistance: 'poison',
+    recoveryTurns: 3,
   },
   herbEater: {
     name: '森の薬喰い',
@@ -97,6 +104,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 20,
     attackElement: 'poison',
     weakness: 'poison',
+    recoveryTurns: 2,
   },
   boneSentinel: {
     name: '骨の番兵',
@@ -111,6 +119,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'pierce',
     weakness: 'impact',
     resistance: 'pierce',
+    recoveryTurns: 2,
   },
   fortRaider: {
     name: '砦の略奪者',
@@ -124,6 +133,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 24,
     attackElement: 'pierce',
     weakness: 'pierce',
+    recoveryTurns: 2,
   },
   crestKnight: {
     name: '紋章騎士',
@@ -138,6 +148,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'pierce',
     weakness: 'impact',
     resistance: 'pierce',
+    recoveryTurns: 3,
   },
   failedSubject: {
     name: '研究区の失敗作',
@@ -152,6 +163,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'shock',
     weakness: 'shock',
     resistance: 'poison',
+    recoveryTurns: 2,
   },
   observerDrone: {
     name: '浮遊観測機',
@@ -166,6 +178,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'shock',
     weakness: 'shock',
     resistance: 'poison',
+    recoveryTurns: 1,
   },
   arcaneGuardian: {
     name: '魔導炉の番人',
@@ -180,6 +193,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'shock',
     weakness: 'pierce',
     resistance: 'impact',
+    recoveryTurns: 4,
   },
 };
 
