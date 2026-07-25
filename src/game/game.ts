@@ -710,7 +710,7 @@ export class Game {
       }
     });
 
-    const targetCount = Math.floor(candidates.length * 0.28);
+    const targetCount = Math.floor(candidates.length * 0.08);
     for (let carved = 0; carved < targetCount && candidates.length > 0; carved += 1) {
       const index = ROT.RNG.getUniformInt(0, candidates.length - 1);
       const [x, y] = candidates.splice(index, 1)[0];
