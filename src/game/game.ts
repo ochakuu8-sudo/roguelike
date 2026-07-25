@@ -114,6 +114,7 @@ export class Game {
   private dropId = 0;
   private facing = { x: 0, y: 1 };
   private gameOver = false;
+  private resolvedThisRoundIds = new Set<string>();
   private stamina = MAX_STAMINA;
   private equipmentDurability: Partial<Record<ItemKind, number[]>> = {};
   private gridLayouts: GridInventories = { hand: [], raidBag: [], stash: [] };
@@ -320,6 +321,7 @@ export class Game {
       this.enemyTurn(turnResult.skipEnemyId);
       this.updateFov();
     }
+    this.resolvedThisRoundIds.clear();
   }
 
   private dispatchBase(command: Command): void {
@@ -1541,8 +1543,12 @@ export class Game {
   private enemyTurn(skipEnemyId?: string): void {
     const player = this.player();
     const monsters = this.entities
-      .filter((entity) => entity.kind === 'monster' && entity.id !== skipEnemyId && entity.stats)
+      .filter(
+        (entity) =>
+          entity.kind === 'monster' && entity.id !== skipEnemyId && !this.resolvedThisRoundIds.has(entity.id) && entity.stats,
+      )
       .sort(compareActionOrder);
+    this.resolvedThisRoundIds.clear();
 
     monsters.forEach((monster) => {
       if (!monster.stats || this.gameOver || !this.isEntityAlive(monster.id)) {
@@ -1613,6 +1619,7 @@ export class Game {
       }
 
       this.resolveTelegraphedAttack(monster, this.player());
+      this.resolvedThisRoundIds.add(monster.id);
     });
   }
 
