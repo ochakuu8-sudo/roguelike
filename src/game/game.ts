@@ -682,7 +682,7 @@ export class Game {
   private applyBiomeTerrain(biome: BiomeId, rooms: RoomLike[]): void {
     switch (biome) {
       case 'mine':
-        this.addRoomPillars(rooms, 0.15);
+        this.addRoomPillars(rooms, 0.05);
         break;
       case 'forest':
         this.widenForestClearings(rooms);
@@ -692,7 +692,7 @@ export class Game {
         break;
       case 'lab':
         this.addRoomPartitions(rooms, 0.35);
-        this.addRoomPillars(rooms, 0.08);
+        this.addRoomPillars(rooms, 0.03);
         break;
     }
   }
