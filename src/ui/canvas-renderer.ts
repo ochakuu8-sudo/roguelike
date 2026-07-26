@@ -628,8 +628,18 @@ export class CanvasRenderer {
     const dx = attackEffect ? Math.sign(attackEffect.to.x - attackEffect.from.x) : 0;
     const dy = attackEffect ? Math.sign(attackEffect.to.y - attackEffect.from.y) : 0;
     const shake = hitEffect ? Math.sin(hitEffect.progress * Math.PI * 12) * cellSize * 0.07 * hitPulse : 0;
-    const left = offsetX + entity.x * cellSize + dx * cellSize * 0.22 * attackPulse + shake;
-    const top = offsetY + entity.y * cellSize + dy * cellSize * 0.22 * attackPulse;
+
+    // A fast monster's attack (and the player's own move that turn) both land in the
+    // same game-logic tick, so by the time this renders the entity may have already
+    // moved. Freeze it at the position it had during the exchange until that combat
+    // effect finishes playing, instead of jumping straight to where it ended up —
+    // otherwise a dodge looks like it got hit while already outside the enemy's range.
+    const activeDefenderEffect = combatEffects.find((effect) => effect.defenderId === entity.id);
+    const activeAttackerEffect = combatEffects.find((effect) => effect.attackerId === entity.id);
+    const renderPoint = activeDefenderEffect?.to ?? activeAttackerEffect?.from ?? entity;
+
+    const left = offsetX + renderPoint.x * cellSize + dx * cellSize * 0.22 * attackPulse + shake;
+    const top = offsetY + renderPoint.y * cellSize + dy * cellSize * 0.22 * attackPulse;
     const sprite = spriteFor(entity);
     const shadowHeight = Math.max(1, Math.floor(cellSize * 0.12));
 
