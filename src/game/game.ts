@@ -1,6 +1,6 @@
 import * as ROT from 'rot-js';
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, Command, ElementId, EnemyKind, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, MapRoll, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
+import type { BiomeId, CombatEffect, Command, ElementId, EnemyKind, Entity, GameMode, GameSnapshot, GridInventories, Inventory, InventoryLocation, ItemKind, MapId, MapRoll, Point, RecipeId, StationKind, Tile, TileKind } from '../engine/types';
 import { BIOME_DEFINITIONS, BIOME_IDS } from './biomes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { rollMapRoll, summarizeMapAffixes, TIER_LABELS } from './map-affixes';
@@ -1555,12 +1555,13 @@ export class Game {
         return;
       }
 
-      const distance = chebyshev(monster, player);
-      if (monster.attackTelegraph || (monster.staggerTurns ?? 0) > 0 || distance <= 1) {
+      const reach = this.evaluateAttackReach(monster, player);
+      if (monster.attackTelegraph || (monster.staggerTurns ?? 0) > 0 || reach.inRange) {
         this.resolveMonsterAttackDecision(monster, player);
         return;
       }
 
+      const distance = chebyshev(monster, player);
       if (distance > 10) {
         this.wander(monster);
         return;
@@ -1568,16 +1569,16 @@ export class Game {
 
       this.stepToward(monster, player);
 
-      if (chebyshev(monster, player) <= 1) {
+      if (this.evaluateAttackReach(monster, player).inRange) {
         this.resolveMonsterAttackDecision(monster, player);
       }
     });
   }
 
   /**
-   * A monster's action whenever it's engaged with the player at melee range:
-   * resolve an already-committed attack, count down a whiff's recovery stagger,
-   * or (only otherwise) commit to a new telegraphed attack. A monster never
+   * A monster's action whenever it's engaged with the player: resolve an
+   * already-committed attack, count down a whiff's recovery stagger, or
+   * (only otherwise) commit to a new telegraphed attack. A monster never
    * lands a hit without having telegraphed it on a prior turn first, whether
    * it initiated the engagement itself or the player attacked into it.
    */
@@ -1592,10 +1593,90 @@ export class Game {
       return;
     }
 
-    if (chebyshev(monster, player) <= 1) {
+    const reach = this.evaluateAttackReach(monster, player);
+    if (reach.inRange) {
       monster.attackTelegraph = true;
+      monster.attackDirection = reach.direction;
       this.pushMessage(`${monster.name}が攻撃の構えを見せた！`);
     }
+  }
+
+  private attackRangeOf(monster: Entity): number {
+    return (monster.enemy ? ENEMY_DEFINITIONS[monster.enemy].attackRange : undefined) ?? 1;
+  }
+
+  /**
+   * Whether a monster's attack (melee adjacency, or an unobstructed straight
+   * cardinal line for ranged units) can currently reach the player. Ranged
+   * results also carry the locked-in direction the shot commits to.
+   */
+  private evaluateAttackReach(monster: Entity, player: Entity): { inRange: boolean; direction?: Point } {
+    const range = this.attackRangeOf(monster);
+    if (range <= 1) {
+      return { inRange: chebyshev(monster, player) <= 1 };
+    }
+
+    const dx = player.x - monster.x;
+    const dy = player.y - monster.y;
+    if (dx !== 0 && dy !== 0) {
+      return { inRange: false };
+    }
+
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    if (distance < 1 || distance > range) {
+      return { inRange: false };
+    }
+
+    const direction = { x: Math.sign(dx), y: Math.sign(dy) };
+    if (!this.lineOfSightClear(monster, direction, distance)) {
+      return { inRange: false };
+    }
+
+    return { inRange: true, direction };
+  }
+
+  /**
+   * Whether the player is still where a monster's committed attack targets:
+   * melee adjacency for melee monsters, or still on the exact locked-in
+   * cardinal line within range with a clear shot for ranged ones. Used only
+   * at resolve time, against the direction fixed when the telegraph was
+   * declared, so drifting onto a *different* aligned line never counts.
+   */
+  private isStillInCommittedAttackReach(monster: Entity, player: Entity): boolean {
+    const range = this.attackRangeOf(monster);
+    if (range <= 1) {
+      return chebyshev(monster, player) <= 1;
+    }
+
+    const direction = monster.attackDirection;
+    if (!direction) {
+      return false;
+    }
+
+    const dx = player.x - monster.x;
+    const dy = player.y - monster.y;
+    if (Math.sign(dx) !== direction.x || Math.sign(dy) !== direction.y) {
+      return false;
+    }
+
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    if (distance < 1 || distance > range) {
+      return false;
+    }
+
+    return this.lineOfSightClear(monster, direction, distance);
+  }
+
+  private lineOfSightClear(origin: Point, direction: Point, distance: number): boolean {
+    for (let step = 1; step < distance; step += 1) {
+      const x = origin.x + direction.x * step;
+      const y = origin.y + direction.y * step;
+      if (!this.isWalkable(x, y)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**
@@ -1625,8 +1706,10 @@ export class Game {
 
   private resolveTelegraphedAttack(monster: Entity, player: Entity): void {
     monster.attackTelegraph = false;
+    const hits = this.isStillInCommittedAttackReach(monster, player);
+    monster.attackDirection = undefined;
 
-    if (chebyshev(monster, player) <= 1) {
+    if (hits) {
       this.attack(monster, player);
       return;
     }

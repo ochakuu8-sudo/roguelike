@@ -16,6 +16,8 @@ type EnemyDefinition = {
   resistance?: ElementId;
   /** Turns of hitstun the enemy suffers after a telegraphed attack whiffs. */
   recoveryTurns: number;
+  /** Max attack distance. 1 (default when omitted) is melee; >1 fires in a straight cardinal line. */
+  attackRange?: number;
 };
 
 export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
@@ -62,6 +64,21 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weakness: 'impact',
     resistance: 'pierce',
     recoveryTurns: 3,
+  },
+  tunnelMarksman: {
+    name: '坑道の狙撃兵',
+    description: '廃坑に潜むクロスボウ使い。通路の先からまっすぐ狙い撃ってくる。鈍い一撃を受けると狙いが崩れる。',
+    glyph: 'x',
+    color: '#fdba74',
+    stats: { hp: 8, maxHp: 8, attack: 7, defense: 0, speed: 8 },
+    drops: ['oldGear', 'ironOre'],
+    biomes: ['mine'],
+    minDanger: 1,
+    weight: 14,
+    attackElement: 'pierce',
+    weakness: 'impact',
+    recoveryTurns: 2,
+    attackRange: 6,
   },
   sporeBat: {
     name: '胞子コウモリ',

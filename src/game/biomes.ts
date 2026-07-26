@@ -32,7 +32,7 @@ export const BIOME_DEFINITIONS: Record<BiomeId, BiomeDefinition> = {
     specialTileLabel: '鉱脈',
     materials: ['ironOre', 'copperOre', 'sulfur', 'oldGear', 'hardShell'],
     commonMaterials: ['ironOre', 'copperOre', 'sulfur', 'wood', 'oldCoin', 'mapFragment'],
-    enemies: ['caveImp', 'oreBeetle', 'tunnelGnoll'],
+    enemies: ['caveImp', 'oreBeetle', 'tunnelGnoll', 'tunnelMarksman'],
   },
   forest: {
     id: 'forest',

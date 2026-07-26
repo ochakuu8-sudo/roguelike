@@ -57,6 +57,7 @@ export type EnemyKind =
   | 'caveImp'
   | 'oreBeetle'
   | 'tunnelGnoll'
+  | 'tunnelMarksman'
   | 'sporeBat'
   | 'slime'
   | 'herbEater'
@@ -177,6 +178,8 @@ export type Entity = {
   attackTelegraph?: boolean;
   /** Turns of post-miss hitstun remaining, during which the monster cannot act. */
   staggerTurns?: number;
+  /** For ranged/line attackers: the fixed cardinal direction locked in when the telegraph was declared. */
+  attackDirection?: Point;
 };
 
 export type CombatEffect = {

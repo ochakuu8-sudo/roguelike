@@ -1,6 +1,7 @@
 import { chebyshev, indexAt } from '../engine/grid';
-import type { BiomeId, CombatEffect, EnemyKind, Entity, GameSnapshot, ItemKind, StationKind, Tile } from '../engine/types';
+import type { BiomeId, CombatEffect, EnemyKind, Entity, GameSnapshot, ItemKind, Point, StationKind, Tile } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
+import { ENEMY_DEFINITIONS } from '../game/enemies';
 
 const TILE_COLORS: Record<Tile['kind'], string> = {
   wall: '#26333a',
@@ -76,6 +77,7 @@ export const SPRITE_SHAPES = {
   imp: '😈',
   beetle: '🪲',
   gnoll: '🐺',
+  marksman: '🏹',
   bat: '🦇',
   slime: '🟢',
   herbEater: '🐰',
@@ -146,6 +148,7 @@ const ENEMY_SPRITES: Record<EnemyKind, SpriteKey> = {
   caveImp: 'imp',
   oreBeetle: 'beetle',
   tunnelGnoll: 'gnoll',
+  tunnelMarksman: 'marksman',
   sporeBat: 'bat',
   slime: 'slime',
   herbEater: 'herbEater',
@@ -431,9 +434,11 @@ export class CanvasRenderer {
     snapshot.entities
       .filter((entity) => entity.kind === 'monster' && entity.attackTelegraph)
       .forEach((monster) => {
-        TELEGRAPH_RANGE_OFFSETS.forEach(([dx, dy]) => {
-          const x = monster.x + dx;
-          const y = monster.y + dy;
+        const tiles = monster.attackDirection
+          ? this.lineTelegraphTiles(monster, monster.attackDirection, snapshot)
+          : TELEGRAPH_RANGE_OFFSETS.map(([dx, dy]) => ({ x: monster.x + dx, y: monster.y + dy }));
+
+        tiles.forEach(({ x, y }) => {
           if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
             return;
           }
@@ -452,6 +457,27 @@ export class CanvasRenderer {
           this.context.restore();
         });
       });
+  }
+
+  /** Tiles a ranged unit's committed shot will pass through, stopped early by the first wall. */
+  private lineTelegraphTiles(monster: Entity, direction: Point, snapshot: GameSnapshot): Array<{ x: number; y: number }> {
+    const range = (monster.enemy ? ENEMY_DEFINITIONS[monster.enemy].attackRange : undefined) ?? 1;
+    const tiles: Array<{ x: number; y: number }> = [];
+
+    for (let step = 1; step <= range; step += 1) {
+      const x = monster.x + direction.x * step;
+      const y = monster.y + direction.y * step;
+      if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) {
+        break;
+      }
+
+      tiles.push({ x, y });
+      if (snapshot.tiles[indexAt(x, y, snapshot.width)].kind === 'wall') {
+        break;
+      }
+    }
+
+    return tiles;
   }
 
   private drawEntities(snapshot: GameSnapshot, camera: Camera, combatEffects: ActiveCombatEffect[]): void {
