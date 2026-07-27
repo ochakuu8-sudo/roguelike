@@ -1,5 +1,5 @@
 import type { Inventory, InventoryLocation, ItemKind, MapRoll, PlacedItem } from '../engine/types';
-import { ITEM_DEFINITIONS } from './items';
+import { ITEM_DEFINITIONS, maxStackFor } from './items';
 
 export type GridDimensions = { cols: number; rows: number };
 
@@ -11,7 +11,7 @@ export const GRID_DIMENSIONS: Record<InventoryLocation, GridDimensions> = {
 
 export const isStackable = (item: ItemKind): boolean => {
   const category = ITEM_DEFINITIONS[item].category;
-  return category === 'material' || category === 'consumable' || category === 'upgrade';
+  return category === 'material' || category === 'consumable' || category === 'upgrade' || category === 'ammo' || category === 'collection';
 };
 
 export const overlaps = (a: PlacedItem, x: number, y: number, width: number, height: number) =>
@@ -37,6 +37,9 @@ const findFreeSpot = (
  * Rebuilds a location's grid layout from its item counts, keeping previously
  * placed stacks anchored where they were so items don't jump around on every
  * refresh. Durability carries over onto the item bearing the same kind.
+ * Stackable kinds are split across as many slots as needed once their count
+ * exceeds that item's max stack size (maxStackFor), each slot holding up to
+ * that many units.
  */
 export const layoutGridInventory = (
   inventory: Inventory,
@@ -56,7 +59,8 @@ export const layoutGridInventory = (
     const definition = ITEM_DEFINITIONS[item];
     const { width, height } = definition.gridSize;
     const stackable = isStackable(item);
-    const instanceCount = stackable ? 1 : count;
+    const stackSize = stackable ? maxStackFor(item) : 1;
+    const instanceCount = stackable ? Math.ceil(count / stackSize) : count;
     const existingForItem = previous.filter((entry) => entry.item === item);
     const durabilityUnits = durability[item] ?? [];
     const rollsForItem = definition.category === 'map' ? (mapRolls[item] ?? []) : undefined;
@@ -66,15 +70,16 @@ export const layoutGridInventory = (
       const canKeep = kept && !next.some((entry) => overlaps(entry, kept.x, kept.y, width, height));
       const durabilityValue = definition.maxDurability !== undefined ? durabilityUnits[index] : undefined;
       const mapRollId = rollsForItem?.[index]?.id;
+      const stackCount = stackable ? Math.min(stackSize, count - index * stackSize) : 1;
 
       if (canKeep && kept) {
-        next.push({ item, x: kept.x, y: kept.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability, mapRollId });
+        next.push({ item, x: kept.x, y: kept.y, width, height, count: stackCount, durability: durabilityValue, maxDurability: definition.maxDurability, mapRollId });
         continue;
       }
 
       const spot = findFreeSpot(next, width, height, dimensions);
       if (spot) {
-        next.push({ item, x: spot.x, y: spot.y, width, height, durability: durabilityValue, maxDurability: definition.maxDurability, mapRollId });
+        next.push({ item, x: spot.x, y: spot.y, width, height, count: stackCount, durability: durabilityValue, maxDurability: definition.maxDurability, mapRollId });
       }
     }
   });
@@ -82,16 +87,14 @@ export const layoutGridInventory = (
   return next;
 };
 
-export const canFitAdditionalUnit = (
-  inventory: Inventory,
-  layout: PlacedItem[],
-  item: ItemKind,
-  dimensions: GridDimensions,
-): boolean => {
+export const canFitAdditionalUnit = (layout: PlacedItem[], item: ItemKind, dimensions: GridDimensions): boolean => {
   const definition = ITEM_DEFINITIONS[item];
 
-  if (isStackable(item) && (inventory[item] ?? 0) > 0) {
-    return true;
+  if (isStackable(item)) {
+    const stackSize = maxStackFor(item);
+    if (layout.some((entry) => entry.item === item && entry.count < stackSize)) {
+      return true;
+    }
   }
 
   return findFreeSpot(layout, definition.gridSize.width, definition.gridSize.height, dimensions) !== undefined;

@@ -67,6 +67,16 @@ export const CRAFTING_RECIPES: RecipeDefinition[] = [
     ['brokenBlade', 1],
     ['wood', 1],
   ]),
+  recipe('arrow', 'arrow', 5, '鍛冶台', '弓で使う矢をまとめて作る。', 'consumable', 0, [
+    ['wood', 1],
+  ]),
+  recipe('dart', 'dart', 5, '鍛冶台', '吹き矢で使う毒針をまとめて作る。', 'consumable', 40, [
+    ['wood', 1],
+    ['poisonSpore', 1],
+  ]),
+  recipe('sparkBolt', 'sparkBolt', 3, '鍛冶台 Lv.2', '電撃弩で使う電撃ボルトをまとめて作る。', 'consumable', 80, [
+    ['copperOre', 2],
+  ]),
   recipe('axe', 'axe', 1, '鍛冶台', '打撃属性の重い一撃を叩き込む近接武器。', 'upgrade', 180, [
     ['ironOre', 4],
     ['wood', 2],

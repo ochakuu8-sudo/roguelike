@@ -1,6 +1,6 @@
 import type { BiomeId, ElementId, Inventory, ItemKind, MapId, RecipeId } from '../engine/types';
 
-export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade' | 'collection' | 'map';
+export type ItemCategory = 'consumable' | 'material' | 'equipment' | 'upgrade' | 'collection' | 'map' | 'ammo';
 export type ItemRarity = 'common' | 'uncommon' | 'rare';
 export type GridSize = { width: number; height: number };
 
@@ -85,7 +85,6 @@ type EquipmentOptions = {
   color: string;
   value: number;
   maxDurability: number;
-  gridSize?: GridSize;
   attackPower?: number;
   attackElement?: ElementId;
   attackRange?: number;
@@ -100,7 +99,7 @@ const equipment = (options: EquipmentOptions): ItemDefinition => ({
   color: options.color,
   value: options.value,
   size: 1,
-  gridSize: options.gridSize ?? { width: 1, height: 2 },
+  gridSize: DEFAULT_GRID_SIZE,
   sources: [],
   obtain: '初期装備 / クラフト',
   rarity: 'common',
@@ -150,11 +149,35 @@ const collection = (name: string, description: string, value: number, color: str
   color,
   value,
   size: 1,
-  gridSize: { width: 2, height: 2 },
+  gridSize: DEFAULT_GRID_SIZE,
   sources: [],
   obtain: '宝箱 / 鍵付き倉庫',
   rarity: 'rare',
   usedIn: [],
+});
+
+const ammo = (
+  name: string,
+  description: string,
+  sources: BiomeId[],
+  obtain: string,
+  value: number,
+  color: string,
+  rarity: ItemRarity,
+  usedIn: RecipeId[],
+): ItemDefinition => ({
+  name,
+  description,
+  category: 'ammo',
+  glyph: '/',
+  color,
+  value,
+  size: 1,
+  gridSize: DEFAULT_GRID_SIZE,
+  sources,
+  obtain,
+  rarity,
+  usedIn,
 });
 
 export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
@@ -213,7 +236,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#e5e7eb',
     value: 80,
     maxDurability: 30,
-    gridSize: { width: 1, height: 2 },
     attackPower: 4,
     attackElement: 'pierce',
   }),
@@ -224,7 +246,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#fbbf24',
     value: 90,
     maxDurability: 24,
-    gridSize: { width: 2, height: 2 },
     attackPower: 3,
     attackElement: 'pierce',
     attackRange: 5,
@@ -236,7 +257,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#93c5fd',
     value: 70,
     maxDurability: 40,
-    gridSize: { width: 1, height: 2 },
     attackPower: 1,
     attackElement: 'impact',
   }),
@@ -247,7 +267,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#fca5a5',
     value: 95,
     maxDurability: 55,
-    gridSize: { width: 1, height: 2 },
     attackPower: 7,
     attackElement: 'impact',
   }),
@@ -258,7 +277,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#bef264',
     value: 60,
     maxDurability: 45,
-    gridSize: { width: 1, height: 1 },
     attackPower: 2,
     attackElement: 'poison',
   }),
@@ -269,7 +287,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#a3e635',
     value: 85,
     maxDurability: 45,
-    gridSize: { width: 1, height: 2 },
     attackPower: 2,
     attackElement: 'poison',
     attackRange: 4,
@@ -281,7 +298,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#f0abfc',
     value: 150,
     maxDurability: 35,
-    gridSize: { width: 2, height: 2 },
     attackPower: 6,
     attackElement: 'shock',
     attackRange: 4,
@@ -293,7 +309,6 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#d6a76c',
     value: 90,
     maxDurability: 50,
-    gridSize: { width: 1, height: 2 },
     resistance: 'impact',
   }),
   hazmatSuit: equipment({
@@ -303,9 +318,11 @@ export const ITEM_DEFINITIONS: Record<ItemKind, ItemDefinition> = {
     color: '#86efac',
     value: 130,
     maxDurability: 45,
-    gridSize: { width: 1, height: 2 },
     resistance: 'poison',
   }),
+  arrow: ammo('矢', '弓で放つ貫通属性の矢。弓を構えて攻撃するたびに1本消費する。', ['mine', 'forest', 'fortress', 'lab'], '木箱 / 残骸 / クラフト', 4, '#e5e7eb', 'common', []),
+  dart: ammo('毒針', '吹き矢で放つ毒属性の針。吹き矢で攻撃するたびに1本消費する。', ['forest'], 'クラフト', 5, '#a3e635', 'common', []),
+  sparkBolt: ammo('電撃ボルト', '電撃弩で放つ電撃属性のボルト。電撃弩で攻撃するたびに1本消費する。', ['lab'], 'クラフト', 9, '#f0abfc', 'uncommon', []),
   ironOre: material('鉄鉱石', '剣、ピッケル、斧、防具に使う基本金属。', ['mine'], '鉱脈を採掘', 28, '#93c5fd', 'common', [
     'axe',
     'swordUpgrade1',
@@ -416,17 +433,43 @@ export const ITEM_KINDS = Object.keys(ITEM_DEFINITIONS) as ItemKind[];
 export const MATERIAL_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'material');
 export const COLLECTION_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'collection');
 export const MAP_ITEM_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'map');
+export const AMMO_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'ammo');
 export const ARMOR_KINDS = ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].resistance !== undefined);
 export const RAID_CAPACITY = 12;
+
+// 遠距離武器ごとに必要な弾。射撃するたびにここで対応する弾を1個消費する。
+export const AMMO_FOR_WEAPON: Partial<Record<ItemKind, ItemKind>> = {
+  bow: 'arrow',
+  blowgun: 'dart',
+  sparkCrossbow: 'sparkBolt',
+};
+
+// レアリティ・役割ごとの最大スタック数。装備(耐久値がある道具)は個体差があるためスタック不可(常に1)。
+const STACK_SIZE_BY_RARITY: Record<'material' | 'ammo' | 'consumable' | 'upgrade' | 'collection', Record<ItemRarity, number>> = {
+  material: { common: 99, uncommon: 60, rare: 30 },
+  ammo: { common: 99, uncommon: 60, rare: 30 },
+  consumable: { common: 20, uncommon: 12, rare: 6 },
+  upgrade: { common: 20, uncommon: 20, rare: 10 },
+  collection: { common: 20, uncommon: 20, rare: 20 },
+};
+
+export const maxStackFor = (item: ItemKind): number => {
+  const definition = ITEM_DEFINITIONS[item];
+  if (definition.category === 'equipment' || definition.category === 'map') {
+    return 1;
+  }
+
+  return STACK_SIZE_BY_RARITY[definition.category][definition.rarity];
+};
 
 // 属性ごとに1本ずつ、道具屋で素材なし・お金だけで買える初期武器。
 // クラフト経路(素材+レシピ解放)とは別の、もう一つの入手手段として並行して存在する。
 export const SHOP_WEAPON_KINDS: ItemKind[] = ['sword', 'axe', 'dagger', 'sparkCrossbow'];
 
-// 道具屋で買える消耗品+上の初期武器と、その値上がり幅。素材そのものは探索でしか手に入らない
+// 道具屋で買える消耗品・弾薬+上の初期武器と、その値上がり幅。素材そのものは探索でしか手に入らない
 // ままにして、換金した金で「時間を金で買う」選択肢を作る。
 export const SHOP_ITEM_KINDS = [
-  ...ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'consumable'),
+  ...ITEM_KINDS.filter((item) => ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'ammo'),
   ...SHOP_WEAPON_KINDS,
 ];
 export const SHOP_BUY_MARKUP = 1.8;

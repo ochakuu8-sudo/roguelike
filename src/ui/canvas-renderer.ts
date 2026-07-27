@@ -133,6 +133,9 @@ export const SPRITE_SHAPES = {
   stationAppraiser: '🔍',
   stationBarter: '🤝',
   collectionItem: '❓',
+  arrowAmmo: '🪶',
+  dartAmmo: '🎯',
+  sparkAmmo: '⚡',
 } satisfies Record<string, string>;
 
 export type SpriteKey = keyof typeof SPRITE_SHAPES;
@@ -182,6 +185,9 @@ const ITEM_SPRITES: Partial<Record<ItemKind, SpriteKey>> = {
   sparkCrossbow: 'crossbow',
   leatherArmor: 'armor',
   hazmatSuit: 'hazmatSuit',
+  arrow: 'arrowAmmo',
+  dart: 'dartAmmo',
+  sparkBolt: 'sparkAmmo',
   ironOre: 'ore',
   copperOre: 'copperNugget',
   sulfur: 'sulfurDot',

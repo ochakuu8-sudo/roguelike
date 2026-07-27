@@ -109,6 +109,9 @@ export type ItemKind =
   | 'sparkCrossbow'
   | 'leatherArmor'
   | 'hazmatSuit'
+  | 'arrow'
+  | 'dart'
+  | 'sparkBolt'
   | 'swordUpgrade1'
   | 'swordUpgrade2'
   | 'bowUpgrade1'
@@ -142,6 +145,9 @@ export type RecipeId =
   | 'sparkCrossbow'
   | 'leatherArmor'
   | 'hazmatSuit'
+  | 'arrow'
+  | 'dart'
+  | 'sparkBolt'
   | 'swordUpgrade1'
   | 'swordUpgrade2'
   | 'bowUpgrade1'
@@ -213,6 +219,8 @@ export type PlacedItem = {
   y: number;
   width: number;
   height: number;
+  /** How many units of the item this stack holds. Always 1 for non-stackable items. */
+  count: number;
   durability?: number;
   maxDurability?: number;
   mapRollId?: string;

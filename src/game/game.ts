@@ -6,7 +6,7 @@ import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from './maps';
 import { rollMapRoll, summarizeMapAffixes, TIER_LABELS } from './map-affixes';
 import { chooseEnemyDrop, chooseEnemyKind, ENEMY_DEFINITIONS, scaledEnemyStats } from './enemies';
 import { canFitAdditionalUnit, GRID_DIMENSIONS, layoutGridInventory, overlaps } from './grid-inventory';
-import { ARMOR_KINDS, buyPriceFor, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, MAP_ITEM_KINDS, RAID_CAPACITY, SHOP_ITEM_KINDS } from './items';
+import { AMMO_FOR_WEAPON, ARMOR_KINDS, buyPriceFor, COLLECTION_KINDS, createEmptyInventory, createStartingStash, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, MAP_ITEM_KINDS, RAID_CAPACITY, SHOP_ITEM_KINDS } from './items';
 import { addRecipeResult, consumeIngredients, formatStack, hasIngredients, recipeById, STARTER_RECIPE_IDS } from './recipes';
 
 const MAP_WIDTH = 96;
@@ -958,7 +958,7 @@ export class Game {
       return false;
     }
 
-    if (!canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, trade.get, GRID_DIMENSIONS.raidBag) && this.raidInventory[trade.get] <= 0) {
+    if (!canFitAdditionalUnit(this.gridLayouts.raidBag, trade.get, GRID_DIMENSIONS.raidBag) && this.raidInventory[trade.get] <= 0) {
       this.pushMessage('持ち帰りバッグがいっぱいで受け取れない。');
       return false;
     }
@@ -1145,6 +1145,12 @@ export class Game {
       return { usedTurn: false };
     }
 
+    const ammoKind = item ? AMMO_FOR_WEAPON[item] : undefined;
+    if (ammoKind && this.handInventory[ammoKind] <= 0) {
+      this.pushMessage(`${ITEM_DEFINITIONS[ammoKind].name}がない。`);
+      return { usedTurn: false };
+    }
+
     if (item) {
       if (definition?.category === 'equipment') {
         this.wearEquipment(item);
@@ -1152,6 +1158,10 @@ export class Game {
         this.handInventory[item] -= 1;
         this.syncSelectedHandItem();
       }
+    }
+
+    if (ammoKind) {
+      this.handInventory[ammoKind] -= 1;
     }
 
     this.spendStamina(item ? STAMINA_COST_TOOL_ACTION : STAMINA_COST_BAREHANDED_ATTACK);
@@ -1424,7 +1434,7 @@ export class Game {
       return;
     }
 
-    if (!canFitAdditionalUnit(target, this.gridLayouts[to], item, GRID_DIMENSIONS[to])) {
+    if (!canFitAdditionalUnit(this.gridLayouts[to], item, GRID_DIMENSIONS[to])) {
       this.pushMessage(`${inventoryLocationLabel(to)}のマスが足りず移動できない。`);
       return;
     }
@@ -1441,7 +1451,7 @@ export class Game {
       const clampedY = Math.max(0, Math.min(rows - height, y));
       const blocked = layout.some((entry) => entry.item !== item && overlaps(entry, clampedX, clampedY, width, height));
       if (!blocked) {
-        layout.push({ item, x: clampedX, y: clampedY, width, height });
+        layout.push({ item, x: clampedX, y: clampedY, width, height, count: 1 });
       }
     }
 
@@ -1978,9 +1988,11 @@ export class Game {
   }
 
   private addLootItem(item: ItemKind, amount = 1): void {
-    if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment') {
+    if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment' || ITEM_DEFINITIONS[item].category === 'ammo') {
       this.handInventory[item] += amount;
-      this.syncSelectedHandItem(item);
+      if (ITEM_DEFINITIONS[item].category !== 'ammo') {
+        this.syncSelectedHandItem(item);
+      }
       return;
     }
 
@@ -1988,11 +2000,11 @@ export class Game {
   }
 
   private canCarry(item: ItemKind): boolean {
-    if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment') {
-      return canFitAdditionalUnit(this.handInventory, this.gridLayouts.hand, item, GRID_DIMENSIONS.hand);
+    if (ITEM_DEFINITIONS[item].category === 'consumable' || ITEM_DEFINITIONS[item].category === 'equipment' || ITEM_DEFINITIONS[item].category === 'ammo') {
+      return canFitAdditionalUnit(this.gridLayouts.hand, item, GRID_DIMENSIONS.hand);
     }
 
-    return canFitAdditionalUnit(this.raidInventory, this.gridLayouts.raidBag, item, GRID_DIMENSIONS.raidBag);
+    return canFitAdditionalUnit(this.gridLayouts.raidBag, item, GRID_DIMENSIONS.raidBag);
   }
 
   private transferRaidInventoryToStash(): void {
@@ -2065,7 +2077,7 @@ export class Game {
       }
 
       const layout = layoutGridInventory(this.baseLoadout, this.gridLayouts.hand, this.equipmentDurability, this.mapItemRolls, GRID_DIMENSIONS.hand);
-      if (!canFitAdditionalUnit(this.baseLoadout, layout, item, GRID_DIMENSIONS.hand)) {
+      if (!canFitAdditionalUnit(layout, item, GRID_DIMENSIONS.hand)) {
         return;
       }
 
@@ -2084,11 +2096,11 @@ export class Game {
 
   private canMoveToHand(item: ItemKind): boolean {
     const definition = ITEM_DEFINITIONS[item];
-    return definition.category === 'consumable' || definition.category === 'equipment' || Boolean(definition.staminaRestore);
+    return definition.category === 'consumable' || definition.category === 'equipment' || definition.category === 'ammo' || Boolean(definition.staminaRestore);
   }
 
   private availableHandItems(): ItemKind[] {
-    return ITEM_KINDS.filter((item) => this.handInventory[item] > 0);
+    return ITEM_KINDS.filter((item) => this.handInventory[item] > 0 && ITEM_DEFINITIONS[item].category !== 'ammo');
   }
 
   private dropMaterial(entity: Entity): void {

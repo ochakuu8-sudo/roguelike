@@ -1,6 +1,6 @@
 import type { BiomeId, Entity, GameSnapshot, Inventory, InventoryLocation, ItemKind, MapId, MapRoll, PlacedItem, RecipeId } from '../engine/types';
 import { BIOME_DEFINITIONS } from '../game/biomes';
-import { canFitAdditionalUnit, GRID_DIMENSIONS, isStackable, overlaps } from '../game/grid-inventory';
+import { canFitAdditionalUnit, GRID_DIMENSIONS, overlaps } from '../game/grid-inventory';
 import { buyPriceFor, ITEM_DEFINITIONS, ITEM_KINDS, MAP_ITEM_FOR_MAP_ID, SHOP_ITEM_KINDS } from '../game/items';
 import { describeAffix, TIER_LABELS } from '../game/map-affixes';
 import { BARTER_TRADES, MAP_DEFINITIONS, MAP_IDS } from '../game/maps';
@@ -166,7 +166,7 @@ export const updateRaidDialog = (snapshot: GameSnapshot, roots: RaidDialogRoots)
 export const updateStashDialog = (snapshot: GameSnapshot, roots: StashDialogRoots) => {
   roots.bodyRoot.replaceChildren(
     inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。未鑑定のアイテムは鑑定士へ。'),
-    inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, roots.onMoveItem, roots.onPlaceItem),
+    inventoryGridElement('stash', snapshot.grids.stash, roots.onMoveItem, roots.onPlaceItem),
   );
 };
 
@@ -510,17 +510,17 @@ const inventoryPanelNodes = (
   if (snapshot.mode === 'base') {
     return [
       inventorySummary('手持ち予定', 'hand', gridCellsUsed(snapshot.grids.hand), '次の探索で自動的に持ち込む装備と道具です。'),
-      inventoryGridElement('hand', snapshot.grids.hand, snapshot.baseLoadout, onMoveItem, onPlaceItem),
+      inventoryGridElement('hand', snapshot.grids.hand, onMoveItem, onPlaceItem),
       inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。ドラッグで自由に並べ替えられます。'),
-      inventoryGridElement('stash', snapshot.grids.stash, snapshot.stash, onMoveItem, onPlaceItem),
+      inventoryGridElement('stash', snapshot.grids.stash, onMoveItem, onPlaceItem),
     ];
   }
 
   return [
     inventorySummary('手持ち', 'hand', gridCellsUsed(snapshot.grids.hand), '上部の切り替えに出る装備と消耗品です。'),
-    inventoryGridElement('hand', snapshot.grids.hand, snapshot.player.handInventory, onMoveItem, onPlaceItem),
+    inventoryGridElement('hand', snapshot.grids.hand, onMoveItem, onPlaceItem),
     inventorySummary('持ち帰りバッグ', 'raidBag', gridCellsUsed(snapshot.grids.raidBag), 'ここに入った物だけが拠点へ持ち帰れます。'),
-    inventoryGridElement('raidBag', snapshot.grids.raidBag, snapshot.player.raidInventory, onMoveItem, onPlaceItem),
+    inventoryGridElement('raidBag', snapshot.grids.raidBag, onMoveItem, onPlaceItem),
   ];
 };
 
@@ -545,7 +545,6 @@ const lastKnownLayouts: Partial<Record<InventoryLocation, PlacedItem[]>> = {};
 const inventoryGridElement = (
   location: InventoryLocation,
   placed: PlacedItem[],
-  inventory: Inventory,
   onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
   onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
 ) => {
@@ -567,8 +566,7 @@ const inventoryGridElement = (
   }
 
   placed.forEach((entry) => {
-    const count = isStackable(entry.item) ? inventory[entry.item] ?? 0 : 1;
-    grid.append(inventorySlot(entry, count, location, onMoveItem, onPlaceItem));
+    grid.append(inventorySlot(entry, entry.count, location, onMoveItem, onPlaceItem));
   });
 
   return grid;
@@ -904,10 +902,10 @@ const pickupAction = (snapshot: GameSnapshot): ContextAction | undefined => {
   }
 
   const definition = ITEM_DEFINITIONS[item.item];
-  const usesHandSlot = definition.category === 'consumable' || definition.category === 'equipment';
+  const usesHandSlot = definition.category === 'consumable' || definition.category === 'equipment' || definition.category === 'ammo';
   const fits = usesHandSlot
-    ? canFitAdditionalUnit(snapshot.player.handInventory, snapshot.grids.hand, item.item, GRID_DIMENSIONS.hand)
-    : canFitAdditionalUnit(snapshot.player.raidInventory, snapshot.grids.raidBag, item.item, GRID_DIMENSIONS.raidBag);
+    ? canFitAdditionalUnit(snapshot.grids.hand, item.item, GRID_DIMENSIONS.hand)
+    : canFitAdditionalUnit(snapshot.grids.raidBag, item.item, GRID_DIMENSIONS.raidBag);
 
   if (!fits) {
     return undefined;
