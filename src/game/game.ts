@@ -29,6 +29,19 @@ const MAP_ITEM_DROP_CHANCE = 0.04;
 const VAULT_GUARDIAN_DANGER_MULTIPLIER = 1.8;
 const VAULT_ELITE_GUARDIAN_DANGER_MULTIPLIER = 2.6;
 const VAULT_MAP_ITEM_CHANCE = 0.3;
+/** Turns every monster is stunned for after a telegraphed attack whiffs. */
+const MONSTER_ATTACK_RECOVERY_TURNS = 1;
+/** The 8 unit offsets around a tile, in clockwise compass order starting at north. */
+const COMPASS_DIRECTIONS: Point[] = [
+  { x: 0, y: -1 },
+  { x: 1, y: -1 },
+  { x: 1, y: 0 },
+  { x: 1, y: 1 },
+  { x: 0, y: 1 },
+  { x: -1, y: 1 },
+  { x: -1, y: 0 },
+  { x: -1, y: -1 },
+];
 
 type RoomLike = {
   getCenter(): number[];
@@ -1555,9 +1568,9 @@ export class Game {
         return;
       }
 
-      const reach = this.evaluateAttackReach(monster, player);
-      if (monster.attackTelegraph || (monster.staggerTurns ?? 0) > 0 || reach.inRange) {
-        this.resolveMonsterAttackDecision(monster, player);
+      const targets = this.computeAttackTargets(monster, player);
+      if (monster.attackTelegraph || (monster.staggerTurns ?? 0) > 0 || targets) {
+        this.resolveMonsterAttackDecision(monster, player, targets);
         return;
       }
 
@@ -1569,8 +1582,9 @@ export class Game {
 
       this.stepToward(monster, player);
 
-      if (this.evaluateAttackReach(monster, player).inRange) {
-        this.resolveMonsterAttackDecision(monster, player);
+      const targetsAfterMove = this.computeAttackTargets(monster, player);
+      if (targetsAfterMove) {
+        this.resolveMonsterAttackDecision(monster, player, targetsAfterMove);
       }
     });
   }
@@ -1581,8 +1595,10 @@ export class Game {
    * (only otherwise) commit to a new telegraphed attack. A monster never
    * lands a hit without having telegraphed it on a prior turn first, whether
    * it initiated the engagement itself or the player attacked into it.
+   * `freshTargets`, when given, is this turn's already-computed eligibility
+   * result so the declare branch doesn't need to recompute it.
    */
-  private resolveMonsterAttackDecision(monster: Entity, player: Entity): void {
+  private resolveMonsterAttackDecision(monster: Entity, player: Entity, freshTargets?: Point[]): void {
     if (monster.attackTelegraph) {
       this.resolveTelegraphedAttack(monster, player);
       return;
@@ -1593,78 +1609,80 @@ export class Game {
       return;
     }
 
-    const reach = this.evaluateAttackReach(monster, player);
-    if (reach.inRange) {
+    const targets = freshTargets ?? this.computeAttackTargets(monster, player);
+    if (targets) {
       monster.attackTelegraph = true;
-      monster.attackDirection = reach.direction;
+      monster.attackTargets = targets;
       this.pushMessage(`${monster.name}が攻撃の構えを見せた！`);
     }
   }
 
-  private attackRangeOf(monster: Entity): number {
-    return (monster.enemy ? ENEMY_DEFINITIONS[monster.enemy].attackRange : undefined) ?? 1;
-  }
-
   /**
-   * Whether a monster's attack (melee adjacency, or an unobstructed straight
-   * cardinal line for ranged units) can currently reach the player. Ranged
-   * results also carry the locked-in direction the shot commits to.
+   * The exact tiles a monster's attack would commit to if declared right now,
+   * based on its ENEMY_DEFINITIONS.attackShape, or undefined if the player is
+   * currently out of reach for that shape. Locking these in (rather than a
+   * live adjacency/range check) is what lets a dodge after the telegraph
+   * actually work, and is why the highlighted range and the hit-check always
+   * agree — both just read this same list.
    */
-  private evaluateAttackReach(monster: Entity, player: Entity): { inRange: boolean; direction?: Point } {
-    const range = this.attackRangeOf(monster);
-    if (range <= 1) {
-      return { inRange: chebyshev(monster, player) <= 1 };
+  private computeAttackTargets(monster: Entity, player: Entity): Point[] | undefined {
+    const definition = monster.enemy ? ENEMY_DEFINITIONS[monster.enemy] : undefined;
+    const shape = definition?.attackShape ?? 'single';
+
+    if (shape === 'line') {
+      const range = definition?.attackRange ?? 1;
+      const dx = player.x - monster.x;
+      const dy = player.y - monster.y;
+      if (dx !== 0 && dy !== 0) {
+        return undefined;
+      }
+
+      const distance = Math.max(Math.abs(dx), Math.abs(dy));
+      if (distance < 1 || distance > range) {
+        return undefined;
+      }
+
+      const direction = { x: Math.sign(dx), y: Math.sign(dy) };
+      if (!this.lineOfSightClear(monster, direction, distance)) {
+        return undefined;
+      }
+
+      const targets: Point[] = [];
+      for (let step = 1; step <= range; step += 1) {
+        const x = monster.x + direction.x * step;
+        const y = monster.y + direction.y * step;
+        if (!this.inBounds(x, y)) {
+          break;
+        }
+        targets.push({ x, y });
+        if (this.tileAt(x, y).kind === 'wall') {
+          break;
+        }
+      }
+      return targets;
     }
 
+    if (chebyshev(monster, player) > 1) {
+      return undefined;
+    }
+
+    if (shape === 'single') {
+      return [{ x: player.x, y: player.y }];
+    }
+
+    // 'arc3': the player's compass direction from the monster plus its two
+    // neighboring compass directions, so the swing always covers a plausible
+    // 3-tile arc regardless of whether the player is cardinally or
+    // diagonally adjacent.
     const dx = player.x - monster.x;
     const dy = player.y - monster.y;
-    if (dx !== 0 && dy !== 0) {
-      return { inRange: false };
+    const index = COMPASS_DIRECTIONS.findIndex((dir) => dir.x === dx && dir.y === dy);
+    if (index === -1) {
+      return [{ x: player.x, y: player.y }];
     }
 
-    const distance = Math.max(Math.abs(dx), Math.abs(dy));
-    if (distance < 1 || distance > range) {
-      return { inRange: false };
-    }
-
-    const direction = { x: Math.sign(dx), y: Math.sign(dy) };
-    if (!this.lineOfSightClear(monster, direction, distance)) {
-      return { inRange: false };
-    }
-
-    return { inRange: true, direction };
-  }
-
-  /**
-   * Whether the player is still where a monster's committed attack targets:
-   * melee adjacency for melee monsters, or still on the exact locked-in
-   * cardinal line within range with a clear shot for ranged ones. Used only
-   * at resolve time, against the direction fixed when the telegraph was
-   * declared, so drifting onto a *different* aligned line never counts.
-   */
-  private isStillInCommittedAttackReach(monster: Entity, player: Entity): boolean {
-    const range = this.attackRangeOf(monster);
-    if (range <= 1) {
-      return chebyshev(monster, player) <= 1;
-    }
-
-    const direction = monster.attackDirection;
-    if (!direction) {
-      return false;
-    }
-
-    const dx = player.x - monster.x;
-    const dy = player.y - monster.y;
-    if (Math.sign(dx) !== direction.x || Math.sign(dy) !== direction.y) {
-      return false;
-    }
-
-    const distance = Math.max(Math.abs(dx), Math.abs(dy));
-    if (distance < 1 || distance > range) {
-      return false;
-    }
-
-    return this.lineOfSightClear(monster, direction, distance);
+    const arcIndexes = [(index + 7) % 8, index, (index + 1) % 8];
+    return arcIndexes.map((i) => ({ x: monster.x + COMPASS_DIRECTIONS[i].x, y: monster.y + COMPASS_DIRECTIONS[i].y }));
   }
 
   private lineOfSightClear(origin: Point, direction: Point, distance: number): boolean {
@@ -1706,16 +1724,15 @@ export class Game {
 
   private resolveTelegraphedAttack(monster: Entity, player: Entity): void {
     monster.attackTelegraph = false;
-    const hits = this.isStillInCommittedAttackReach(monster, player);
-    monster.attackDirection = undefined;
+    const hits = (monster.attackTargets ?? []).some((tile) => tile.x === player.x && tile.y === player.y);
+    monster.attackTargets = undefined;
 
     if (hits) {
       this.attack(monster, player);
       return;
     }
 
-    const recoveryTurns = monster.enemy ? ENEMY_DEFINITIONS[monster.enemy].recoveryTurns : 1;
-    monster.staggerTurns = recoveryTurns;
+    monster.staggerTurns = MONSTER_ATTACK_RECOVERY_TURNS;
     this.pushMessage(`${monster.name}の攻撃は空振りに終わった！`);
   }
 

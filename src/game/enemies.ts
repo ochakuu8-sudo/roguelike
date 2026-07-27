@@ -14,9 +14,15 @@ type EnemyDefinition = {
   attackElement: ElementId;
   weakness?: ElementId;
   resistance?: ElementId;
-  /** Turns of hitstun the enemy suffers after a telegraphed attack whiffs. */
-  recoveryTurns: number;
-  /** Max attack distance. 1 (default when omitted) is melee; >1 fires in a straight cardinal line. */
+  /**
+   * Shape of the tiles a telegraphed attack commits to, locked in relative to
+   * the player's position the moment it's declared: 'single' hits only the
+   * tile the player was standing on; 'arc3' is a 3-tile swing centered on
+   * that direction; 'line' fires straight down a cardinal line out to
+   * attackRange, stopped early by the first wall.
+   */
+  attackShape: 'single' | 'arc3' | 'line';
+  /** Max attack distance for the 'line' shape. Ignored otherwise. */
   attackRange?: number;
 };
 
@@ -33,7 +39,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 36,
     attackElement: 'impact',
     weakness: 'pierce',
-    recoveryTurns: 2,
+    attackShape: 'single',
   },
   oreBeetle: {
     name: '鉱石虫',
@@ -48,7 +54,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'impact',
     weakness: 'pierce',
     resistance: 'impact',
-    recoveryTurns: 3,
+    attackShape: 'single',
   },
   tunnelGnoll: {
     name: '坑道ノール',
@@ -63,7 +69,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'impact',
     weakness: 'impact',
     resistance: 'pierce',
-    recoveryTurns: 3,
+    attackShape: 'arc3',
   },
   tunnelMarksman: {
     name: '坑道の狙撃兵',
@@ -77,7 +83,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 14,
     attackElement: 'pierce',
     weakness: 'impact',
-    recoveryTurns: 2,
+    attackShape: 'line',
     attackRange: 6,
   },
   sporeBat: {
@@ -92,7 +98,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 32,
     attackElement: 'poison',
     weakness: 'impact',
-    recoveryTurns: 1,
+    attackShape: 'single',
   },
   slime: {
     name: '粘液スライム',
@@ -107,7 +113,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'poison',
     weakness: 'shock',
     resistance: 'poison',
-    recoveryTurns: 3,
+    attackShape: 'arc3',
   },
   herbEater: {
     name: '森の薬喰い',
@@ -121,7 +127,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 20,
     attackElement: 'poison',
     weakness: 'poison',
-    recoveryTurns: 2,
+    attackShape: 'single',
   },
   boneSentinel: {
     name: '骨の番兵',
@@ -136,7 +142,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'pierce',
     weakness: 'impact',
     resistance: 'pierce',
-    recoveryTurns: 2,
+    attackShape: 'arc3',
   },
   fortRaider: {
     name: '砦の略奪者',
@@ -150,7 +156,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     weight: 24,
     attackElement: 'pierce',
     weakness: 'pierce',
-    recoveryTurns: 2,
+    attackShape: 'single',
   },
   crestKnight: {
     name: '紋章騎士',
@@ -165,7 +171,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'pierce',
     weakness: 'impact',
     resistance: 'pierce',
-    recoveryTurns: 3,
+    attackShape: 'arc3',
   },
   failedSubject: {
     name: '研究区の失敗作',
@@ -180,7 +186,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'shock',
     weakness: 'shock',
     resistance: 'poison',
-    recoveryTurns: 2,
+    attackShape: 'single',
   },
   observerDrone: {
     name: '浮遊観測機',
@@ -195,7 +201,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'shock',
     weakness: 'shock',
     resistance: 'poison',
-    recoveryTurns: 1,
+    attackShape: 'single',
   },
   arcaneGuardian: {
     name: '魔導炉の番人',
@@ -210,7 +216,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyKind, EnemyDefinition> = {
     attackElement: 'shock',
     weakness: 'pierce',
     resistance: 'impact',
-    recoveryTurns: 4,
+    attackShape: 'arc3',
   },
 };
 

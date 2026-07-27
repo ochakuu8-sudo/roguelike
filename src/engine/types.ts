@@ -178,8 +178,8 @@ export type Entity = {
   attackTelegraph?: boolean;
   /** Turns of post-miss hitstun remaining, during which the monster cannot act. */
   staggerTurns?: number;
-  /** For ranged/line attackers: the fixed cardinal direction locked in when the telegraph was declared. */
-  attackDirection?: Point;
+  /** The exact tiles a committed attack will hit, locked in when the telegraph was declared. */
+  attackTargets?: Point[];
 };
 
 export type CombatEffect = {
