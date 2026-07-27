@@ -3,10 +3,14 @@ import { ITEM_DEFINITIONS, maxStackFor } from './items';
 
 export type GridDimensions = { cols: number; rows: number };
 
+// Every location is 8 columns wide so the hand row, the raid bag above it,
+// and the base stash all read as the same grid system. The hand row is
+// exactly 1 row tall since it's meant to sit as the bottom row of the
+// combined hand+raid-bag block (see inventoryPanelNodes in ui/hud.ts).
 export const GRID_DIMENSIONS: Record<InventoryLocation, GridDimensions> = {
-  hand: { cols: 3, rows: 5 },
-  raidBag: { cols: 3, rows: 5 },
-  stash: { cols: 6, rows: 10 },
+  hand: { cols: 8, rows: 1 },
+  raidBag: { cols: 8, rows: 3 },
+  stash: { cols: 8, rows: 8 },
 };
 
 export const isStackable = (item: ItemKind): boolean => {

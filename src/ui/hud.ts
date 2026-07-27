@@ -165,7 +165,7 @@ export const updateRaidDialog = (snapshot: GameSnapshot, roots: RaidDialogRoots)
 
 export const updateStashDialog = (snapshot: GameSnapshot, roots: StashDialogRoots) => {
   roots.bodyRoot.replaceChildren(
-    inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), 'ドラッグで自由に並べ替えられます。未鑑定のアイテムは鑑定士へ。'),
+    inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), gridCellCount('stash'), 'ドラッグで自由に並べ替えられます。未鑑定のアイテムは鑑定士へ。'),
     inventoryGridElement('stash', snapshot.grids.stash, roots.onMoveItem, roots.onPlaceItem),
   );
 };
@@ -509,29 +509,54 @@ const inventoryPanelNodes = (
 ) => {
   if (snapshot.mode === 'base') {
     return [
-      inventorySummary('手持ち予定', 'hand', gridCellsUsed(snapshot.grids.hand), '次の探索で自動的に持ち込む装備と道具です。'),
+      inventorySummary('手持ち予定', gridCellsUsed(snapshot.grids.hand), gridCellCount('hand'), '次の探索で自動的に持ち込む装備と道具です。'),
       inventoryGridElement('hand', snapshot.grids.hand, onMoveItem, onPlaceItem),
-      inventorySummary('倉庫', 'stash', gridCellsUsed(snapshot.grids.stash), '拠点に保管している素材と予備品です。ドラッグで自由に並べ替えられます。'),
+      inventorySummary('倉庫', gridCellsUsed(snapshot.grids.stash), gridCellCount('stash'), '拠点に保管している素材と予備品です。ドラッグで自由に並べ替えられます。'),
       inventoryGridElement('stash', snapshot.grids.stash, onMoveItem, onPlaceItem),
     ];
   }
 
   return [
-    inventorySummary('手持ち', 'hand', gridCellsUsed(snapshot.grids.hand), '上部の切り替えに出る装備と消耗品です。'),
-    inventoryGridElement('hand', snapshot.grids.hand, onMoveItem, onPlaceItem),
-    inventorySummary('持ち帰りバッグ', 'raidBag', gridCellsUsed(snapshot.grids.raidBag), 'ここに入った物だけが拠点へ持ち帰れます。'),
-    inventoryGridElement('raidBag', snapshot.grids.raidBag, onMoveItem, onPlaceItem),
+    inventorySummary(
+      '手持ち・持ち帰り',
+      gridCellsUsed(snapshot.grids.hand) + gridCellsUsed(snapshot.grids.raidBag),
+      gridCellCount('hand') + gridCellCount('raidBag'),
+      '一番下の段が手持ち、その上の段が持ち帰りバッグです。持ち帰りバッグに入った物だけが拠点へ持ち帰れます。',
+    ),
+    combinedHandAndBagGrid(snapshot.grids.raidBag, snapshot.grids.hand, onMoveItem, onPlaceItem),
   ];
+};
+
+/**
+ * Renders the raid bag grid directly above the hand grid with no gap between
+ * them, so the two separate InventoryLocations read as one continuous block
+ * with the hand row pinned to the bottom.
+ */
+const combinedHandAndBagGrid = (
+  bagPlaced: PlacedItem[],
+  handPlaced: PlacedItem[],
+  onMoveItem?: (item: ItemKind, from: InventoryLocation, to: InventoryLocation, x?: number, y?: number) => void,
+  onPlaceItem?: (item: ItemKind, location: InventoryLocation, x: number, y: number) => void,
+) => {
+  const stack = document.createElement('div');
+  stack.className = 'inventory-panel-stack';
+
+  const bagGrid = inventoryGridElement('raidBag', bagPlaced, onMoveItem, onPlaceItem);
+  bagGrid.classList.add('inventory-grid--stack-top');
+  const handGrid = inventoryGridElement('hand', handPlaced, onMoveItem, onPlaceItem);
+
+  stack.append(bagGrid, handGrid);
+  return stack;
 };
 
 const gridCellsUsed = (placed: PlacedItem[]) => placed.reduce((total, entry) => total + entry.width * entry.height, 0);
 
-const inventorySummary = (labelText: string, location: InventoryLocation, cellsUsed: number, detailText: string) => {
+const inventorySummary = (labelText: string, cellsUsed: number, cellCount: number, detailText: string) => {
   const root = document.createElement('div');
   root.className = 'inventory-summary';
 
   const label = document.createElement('strong');
-  label.textContent = `${labelText} ${cellsUsed}/${gridCellCount(location)}マス`;
+  label.textContent = `${labelText} ${cellsUsed}/${cellCount}マス`;
 
   const detail = document.createElement('small');
   detail.textContent = detailText;
